@@ -1,185 +1,121 @@
 import Foundation
 import Observation
-import CryptoKit
-import TeslaBLE
+import Security
+import TeslaBLEKeyKit
 
 @MainActor
 @Observable
 final class VehicleController {
     enum Phase: Equatable {
-        case idle
-        case preparingKey
-        case scanning
-        case connecting
-        case pairingAwaitingCard
-        case handshaking
-        case connected
+        case idle, scanning, connecting, pairingAwaitingCard, handshaking, connected
         case executing(String)
         case failed(String)
 
         var title: String {
             switch self {
             case .idle: "未连接"
-            case .preparingKey: "正在准备设备密钥"
             case .scanning: "正在寻找车辆"
             case .connecting: "正在连接"
-            case .pairingAwaitingCard: "请刷钥匙卡并在车机确认"
-            case .handshaking: "正在建立安全会话"
+            case .pairingAwaitingCard: "等待钥匙卡确认"
+            case .handshaking: "正在建立安全连接"
             case .connected: "已连接"
-            case let .executing(name): "正在\(name)"
+            case let .executing(action): "正在\(action)"
             case let .failed(message): message
             }
         }
     }
 
-    private let keyStore = KeychainTeslaKeyStore(service: "com.local.teslablekey.keys")
-    private var client: TeslaVehicleClient?
-    private var stateTask: Task<Void, Never>?
+    private let keyStore = LocalTeslaKeyStore(service: "com.local.teslablekey.keys")
+    private var connection: BLEConnection?
+    private var tesla: TeslaVehicle?
 
-    var vin = UserDefaults.standard.string(forKey: AppStorageKeys.pairedVIN) ?? ""
+    var vehicleID = UserDefaults.standard.string(forKey: AppStorageKeys.pairedVehicleID) ?? ""
     var isPaired = UserDefaults.standard.bool(forKey: AppStorageKeys.paired)
     var phase: Phase = .idle
     var showingError = false
     var errorMessage = ""
 
-    var normalizedVIN: String { VINValidator.normalized(vin) }
-    var hasValidVIN: Bool { VINValidator.isValid(normalizedVIN) }
-
-    func matches(_ nearbyVehicle: NearbyTesla) -> Bool {
-        VINValidator.bluetoothName(for: normalizedVIN)?.caseInsensitiveCompare(
-            nearbyVehicle.peripheralName
-        ) == .orderedSame
-    }
-
-    func pair() async {
-        guard hasValidVIN else {
-            presentError("VIN 必须是 17 位，且不能包含 I、O、Q。")
-            return
-        }
-
-        let targetVIN = normalizedVIN
-        vin = targetVIN
-        phase = .preparingKey
-
+    func pair(with nearby: NearbyTesla) async {
+        phase = .connecting
         do {
-            let key: P256.KeyAgreement.PrivateKey
-            if let existing = try keyStore.loadPrivateKey(forVIN: targetVIN) {
-                key = existing
-            } else {
-                key = KeyPairFactory.generateKeyPair()
-                try keyStore.savePrivateKey(key, forVIN: targetVIN)
-            }
-
-            let newClient = TeslaVehicleClient(
-                vin: targetVIN,
-                keyStore: keyStore,
-                logger: OSLogTeslaBLELogger(minimumLevel: .info)
-            )
-            install(newClient)
-            try await newClient.connect(mode: .pairing, timeout: .seconds(45))
-            try await newClient.send(
-                .security(.addKey(
-                    publicKey: KeyPairFactory.publicKeyBytes(of: key),
-                    role: .owner,
-                    formFactor: .iosDevice
-                )),
-                timeout: .seconds(15)
-            )
+            let key = try keyStore.loadOrCreate(for: nearby.peripheralName)
+            let link = try BLEConnection(localName: nearby.peripheralName)
+            connection = link
+            try await link.connect(timeout: 30)
 
             phase = .pairingAwaitingCard
-            UserDefaults.standard.set(targetVIN, forKey: AppStorageKeys.pairedVIN)
+            let pairing = TeslaPairing(connector: link)
+            try await pairing.requestPairing(
+                publicKey: key.publicKey,
+                role: .owner,
+                formFactor: .iosDevice
+            )
+
+            vehicleID = nearby.peripheralName
+            UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
+            UserDefaults.standard.set(true, forKey: AppStorageKeys.paired)
+            isPaired = true
+            link.close()
+            connection = nil
+            try await connect()
         } catch {
-            await disconnect()
+            disconnect()
             presentError(Self.describe(error))
         }
     }
 
-    /// Call after the vehicle screen reports that the key was accepted.
-    func confirmPairing() async {
-        await disconnect()
-        do {
-            isPaired = true
-            UserDefaults.standard.set(true, forKey: AppStorageKeys.paired)
-            try await connect()
-        } catch {
-            isPaired = false
-            UserDefaults.standard.set(false, forKey: AppStorageKeys.paired)
-            presentError("车辆尚未接受此密钥：\(Self.describe(error))")
-        }
-    }
-
     func connect() async throws {
-        guard hasValidVIN else { throw LocalError.invalidVIN }
-        let newClient = TeslaVehicleClient(
-            vin: normalizedVIN,
-            keyStore: keyStore,
-            logger: OSLogTeslaBLELogger(minimumLevel: .info)
+        guard !vehicleID.isEmpty else { throw LocalError.noVehicle }
+        phase = .connecting
+        let key = try keyStore.load(for: vehicleID)
+        let link = try BLEConnection(localName: vehicleID)
+        let client = try TeslaVehicle(
+            connector: link,
+            privateKey: key,
+            configuration: .fourByteNonceBLE
         )
-        install(newClient)
-        try await newClient.connect(mode: .normal, timeout: .seconds(45))
+        connection = link
+        tesla = client
+        try await link.connect(timeout: 30)
+        try await client.connect()
+        phase = .handshaking
+        try await client.startVCSECSession()
+        phase = .connected
     }
 
     func connectFromUI() async {
         do { try await connect() } catch { presentError(Self.describe(error)) }
     }
 
-    func lock() async { await execute("上锁", command: .security(.lock)) }
-    func unlock() async { await execute("解锁", command: .security(.unlock)) }
-    func openTrunk() async { await execute("开启后备箱", command: .security(.openTrunk)) }
-    func openFrunk() async { await execute("开启前备箱", command: .security(.openFrunk)) }
-    func flashLights() async { await execute("闪灯", command: .actions(.flashLights)) }
-    func honk() async { await execute("鸣笛", command: .actions(.honk)) }
+    func lock() async { await execute("上锁") { try await $0.lock() } }
+    func unlock() async { await execute("解锁") { try await $0.unlock() } }
+    func openTrunk() async { await execute("开启后备箱") { try await $0.openTrunk() } }
+    func openFrunk() async { await execute("开启前备箱") { try await $0.openFrunk() } }
+    func flashLights() async { await execute("闪灯") { try await $0.flashLights() } }
+    func honk() async { await execute("鸣笛") { try await $0.honkHorn() } }
+    func authorizeDrive() async { await execute("启动车辆") { try await $0.remoteDrive() } }
 
-    func disconnect() async {
-        stateTask?.cancel()
-        stateTask = nil
-        await client?.disconnect()
-        client = nil
+    func disconnect() {
+        tesla?.disconnect()
+        tesla = nil
+        connection = nil
         phase = .idle
     }
 
-    func forgetVehicle() async {
-        await disconnect()
-        do { try keyStore.deletePrivateKey(forVIN: normalizedVIN) } catch {
-            presentError(Self.describe(error))
-            return
-        }
-        UserDefaults.standard.removeObject(forKey: AppStorageKeys.pairedVIN)
+    func forgetVehicle() {
+        disconnect()
+        try? keyStore.delete(for: vehicleID)
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.pairedVehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.paired)
-        vin = ""
+        vehicleID = ""
         isPaired = false
     }
 
-    private func install(_ newClient: TeslaVehicleClient) {
-        client = newClient
-        stateTask?.cancel()
-        stateTask = Task { [weak self] in
-            for await state in newClient.stateStream {
-                guard !Task.isCancelled else { break }
-                self?.apply(state)
-            }
-        }
-    }
-
-    private func apply(_ state: ConnectionState) {
-        switch state {
-        case .disconnected: if phase != .pairingAwaitingCard { phase = .idle }
-        case .scanning: phase = .scanning
-        case .connecting: phase = .connecting
-        case .handshaking: phase = .handshaking
-        case .connected:
-            if phase != .pairingAwaitingCard { phase = .connected }
-        }
-    }
-
-    private func execute(_ name: String, command: Command) async {
-        guard let client else {
-            presentError("请先连接车辆。")
-            return
-        }
+    private func execute(_ name: String, operation: (TeslaVehicle) async throws -> Void) async {
+        guard let tesla else { presentError("请先连接车辆。"); return }
         phase = .executing(name)
         do {
-            try await client.send(command, timeout: .seconds(12))
+            try await operation(tesla)
             phase = .connected
         } catch {
             presentError(Self.describe(error))
@@ -197,7 +133,71 @@ final class VehicleController {
     }
 
     private enum LocalError: LocalizedError {
-        case invalidVIN
-        var errorDescription: String? { "VIN 无效" }
+        case noVehicle, keyMissing
+        var errorDescription: String? {
+            switch self {
+            case .noVehicle: "没有已配对车辆"
+            case .keyMissing: "本机车辆密钥已丢失，请重新配对"
+            }
+        }
+    }
+
+    private struct LocalTeslaKeyStore {
+        let service: String
+
+        func loadOrCreate(for identifier: String) throws -> TeslaPrivateKey {
+            if let existing = try loadOptional(for: identifier) { return existing }
+            let key = TeslaPrivateKey.generate()
+            try save(key, for: identifier)
+            return key
+        }
+
+        func load(for identifier: String) throws -> TeslaPrivateKey {
+            guard let key = try loadOptional(for: identifier) else { throw LocalError.keyMissing }
+            return key
+        }
+
+        private func loadOptional(for identifier: String) throws -> TeslaPrivateKey? {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: identifier,
+                kSecReturnData as String: true
+            ]
+            var result: AnyObject?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            if status == errSecItemNotFound { return nil }
+            guard status == errSecSuccess, let data = result as? Data else {
+                throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+            }
+            return try TeslaPrivateKey(rawRepresentation: data)
+        }
+
+        private func save(_ key: TeslaPrivateKey, for identifier: String) throws {
+            try? delete(for: identifier)
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: identifier,
+                kSecValueData as String: key.rawRepresentation,
+                kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            ]
+            let status = SecItemAdd(query as CFDictionary, nil)
+            guard status == errSecSuccess else {
+                throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+            }
+        }
+
+        func delete(for identifier: String) throws {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: identifier
+            ]
+            let status = SecItemDelete(query as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else {
+                throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+            }
+        }
     }
 }

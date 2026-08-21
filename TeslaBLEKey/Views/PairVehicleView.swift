@@ -6,113 +6,159 @@ struct PairVehicleView: View {
     @State private var selectedVehicle: NearbyTesla?
 
     var body: some View {
-        @Bindable var vehicle = vehicle
+        ZStack {
+            AppTheme.background.ignoresSafeArea()
+            Circle()
+                .fill(AppTheme.accent.opacity(0.16))
+                .frame(width: 380, height: 380)
+                .blur(radius: 120)
+                .offset(y: -220)
 
-        Form {
-            Section {
-                if let message = scanner.bluetoothMessage {
-                    Label(message, systemImage: "exclamationmark.triangle")
-                        .foregroundStyle(.orange)
-                } else if scanner.vehicles.isEmpty {
-                    HStack {
-                        Label("正在扫描附近 Tesla", systemImage: "antenna.radiowaves.left.and.right")
-                        Spacer()
-                        if scanner.isScanning { ProgressView() }
-                    }
-                } else {
-                    ForEach(scanner.vehicles) { nearby in
-                        Button {
-                            selectedVehicle = nearby
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: selectedVehicle?.id == nearby.id ? "checkmark.circle.fill" : "car.side.fill")
-                                    .foregroundStyle(selectedVehicle?.id == nearby.id ? .blue : .primary)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("附近的 Tesla")
-                                        .foregroundStyle(.primary)
-                                    Text("\(nearby.signalLabel) · \(nearby.peripheralName)")
-                                        .font(.caption.monospaced())
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Text("\(nearby.rssi) dBm")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-
-                Button {
-                    scanner.start()
-                } label: {
-                    Label("重新扫描", systemImage: "arrow.clockwise")
-                }
-            } header: {
-                Text("附近车辆")
-            } footer: {
-                Text("Tesla 蓝牙广播只包含 VIN 的单向哈希，不会广播可读取的完整 VIN。信号强度只能辅助判断距离。")
+            VStack(spacing: 0) {
+                header
+                Spacer(minLength: 20)
+                vehicleHero
+                Spacer(minLength: 24)
+                statusPanel
+                action
+                    .padding(.top, 18)
+                privacy
+                    .padding(.top, 16)
             }
-
-            Section("确认 VIN（仅首次）") {
-                TextField("17 位 VIN", text: $vehicle.vin)
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-                    .fontDesign(.monospaced)
-
-                if let selectedVehicle, vehicle.hasValidVIN {
-                    Label(
-                        vehicle.matches(selectedVehicle) ? "VIN 与所选车辆匹配" : "VIN 与所选车辆不匹配",
-                        systemImage: vehicle.matches(selectedVehicle) ? "checkmark.shield.fill" : "xmark.shield.fill"
-                    )
-                    .foregroundStyle(vehicle.matches(selectedVehicle) ? .green : .red)
-                }
-            }
-
-            Section {
-                Label(vehicle.phase.title, systemImage: statusIcon)
-
-                if vehicle.phase == .pairingAwaitingCard {
-                    Text("将已授权的 Tesla NFC 钥匙卡放在中控台读卡位置，然后在车辆屏幕确认添加钥匙。车机显示成功后再点下方按钮。")
-                        .foregroundStyle(.secondary)
-
-                    Button("车机已确认，验证连接") {
-                        Task { await vehicle.confirmPairing() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else {
-                    Button("连接并添加本机钥匙") {
-                        Task { await vehicle.pair() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canPair || isBusy)
-                }
-            } footer: {
-                Text("本应用不使用 Tesla 账号或网络。私钥只保存在这台设备的 Keychain；卸载后需要重新刷卡配对。")
-            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 12)
         }
+        .preferredColorScheme(.dark)
         .task { scanner.start() }
         .onDisappear { scanner.stop() }
+        .onChange(of: scanner.vehicles) { _, vehicles in
+            guard vehicle.phase != .pairingAwaitingCard else { return }
+            selectedVehicle = vehicles.first
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.9), value: selectedVehicle)
+        .sensoryFeedback(.selection, trigger: selectedVehicle?.id)
     }
 
-    private var canPair: Bool {
-        guard let selectedVehicle else { return false }
-        return vehicle.hasValidVIN && vehicle.matches(selectedVehicle)
+    private var header: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("添加车钥匙")
+                    .font(.system(.title2, design: .rounded, weight: .semibold))
+                Text("坐进车内，保持蓝牙开启")
+                    .font(.subheadline)
+                    .foregroundStyle(AppTheme.muted)
+            }
+            Spacer()
+            Image(systemName: "key.horizontal.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .frame(width: 42, height: 42)
+                .background(AppTheme.surface, in: Circle())
+                .overlay(Circle().stroke(AppTheme.hairline, lineWidth: 0.7))
+        }
     }
 
-    private var isBusy: Bool {
+    private var vehicleHero: some View {
+        ZStack {
+            ForEach(0 ..< 2, id: \.self) { index in
+                Circle()
+                    .stroke(AppTheme.accent.opacity(0.12 - Double(index) * 0.035), lineWidth: 1)
+                    .frame(width: CGFloat(215 + index * 54), height: CGFloat(215 + index * 54))
+            }
+            Circle()
+                .fill(AppTheme.accent.opacity(selectedVehicle == nil ? 0.05 : 0.12))
+                .frame(width: 210, height: 210)
+            Image(systemName: selectedVehicle == nil ? "car.side" : "car.side.fill")
+                .font(.system(size: 112, weight: .ultraLight))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(selectedVehicle == nil ? AppTheme.muted : .white)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .frame(height: 285)
+        .accessibilityHidden(true)
+    }
+
+    private var statusPanel: some View {
+        GlassPanel {
+            HStack(spacing: 14) {
+                Circle()
+                    .fill(statusColor.opacity(0.16))
+                    .overlay {
+                        Image(systemName: statusIcon)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(statusColor)
+                    }
+                    .frame(width: 44, height: 44)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(statusTitle).font(.headline)
+                    Text(statusSubtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.muted)
+                }
+                Spacer()
+                if selectedVehicle == nil && scanner.bluetoothMessage == nil { ProgressView() }
+            }
+        }
+    }
+
+    private var action: some View {
+        Button {
+            guard let selectedVehicle else { return }
+            scanner.stop()
+            Task { await vehicle.pair(with: selectedVehicle) }
+        } label: {
+            Text(actionTitle)
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 17)
+                .background(.white, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+                .foregroundStyle(.black)
+        }
+        .buttonStyle(PremiumPressStyle())
+        .disabled(selectedVehicle == nil || isPairing)
+        .opacity(selectedVehicle == nil || isPairing ? 0.48 : 1)
+    }
+
+    private var privacy: some View {
+        Label("无需账户或网络，私钥仅保存在本机", systemImage: "lock.shield")
+            .font(.footnote)
+            .foregroundStyle(AppTheme.muted)
+    }
+
+    private var isPairing: Bool {
         switch vehicle.phase {
-        case .preparingKey, .scanning, .connecting, .handshaking, .executing: true
+        case .connecting, .pairingAwaitingCard, .handshaking: true
         default: false
         }
     }
 
-    private var statusIcon: String {
+    private var actionTitle: String {
         switch vehicle.phase {
-        case .connected: "checkmark.circle.fill"
-        case .failed: "exclamationmark.triangle.fill"
-        case .pairingAwaitingCard: "key.viewfinder"
-        default: "antenna.radiowaves.left.and.right"
+        case .pairingAwaitingCard: "请刷钥匙卡并在车机确认"
+        case .connecting, .handshaking: "正在安全配对…"
+        default: selectedVehicle == nil ? "正在寻找车辆…" : "添加这辆车"
         }
+    }
+
+    private var statusColor: Color {
+        if scanner.bluetoothMessage != nil { return .orange }
+        return selectedVehicle == nil ? AppTheme.accent : .green
+    }
+
+    private var statusIcon: String {
+        if scanner.bluetoothMessage != nil { return "exclamationmark.triangle.fill" }
+        return selectedVehicle == nil ? "antenna.radiowaves.left.and.right" : "checkmark"
+    }
+
+    private var statusTitle: String {
+        if let message = scanner.bluetoothMessage { return message }
+        if vehicle.phase == .pairingAwaitingCard { return "等待车辆确认" }
+        return selectedVehicle == nil ? "正在自动识别车辆" : "车辆已就绪"
+    }
+
+    private var statusSubtitle: String {
+        if vehicle.phase == .pairingAwaitingCard { return "将已有钥匙卡放在中控台感应区" }
+        guard let selectedVehicle else { return "最靠近的车辆会自动出现" }
+        return selectedVehicle.signalLabel == "很近" ? "已锁定你身边的车辆" : "靠近驾驶位可提高识别准确度"
     }
 }

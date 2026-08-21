@@ -22,15 +22,15 @@ jobs:
         with:
           xcode-version: "26.2"
 
-      - name: Checkout pinned TeslaBLE library
+      - name: Checkout pinned TeslaBLEKeyKit library
         uses: actions/checkout@v4
         with:
-          repository: shoujiaxin/swift-tesla-ble
-          ref: a407b05bd93de70f91cd6318fb8a2320a063d101
-          path: .ci/swift-tesla-ble
+          repository: misakatao/TeslaBLEKeyKit
+          ref: e186c5a2ade352b719cb53b92599619f2556b841
+          path: .ci/TeslaBLEKeyKit
 
       - name: Run protocol and crypto tests
-        working-directory: .ci/swift-tesla-ble
+        working-directory: .ci/TeslaBLEKeyKit
         run: swift test
 
   build-app:
@@ -79,4 +79,3 @@ jobs:
           name: TeslaBLEKey-iOS17-TrollStore
           path: build/TeslaBLEKey-unsigned.ipa
           if-no-files-found: error
-

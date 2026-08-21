@@ -14,7 +14,6 @@ struct RootView: View {
                     PairVehicleView()
                 }
             }
-            .navigationTitle("Tesla BLE Key")
             .alert("操作失败", isPresented: $vehicle.showingError) {
                 Button("好", role: .cancel) {}
             } message: {
