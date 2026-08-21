@@ -10,8 +10,8 @@ struct NearbyTesla: Identifiable, Equatable {
 
     var signalLabel: String {
         switch rssi {
-        case -55...: "很近"
-        case -70 ..< -55: "附近"
+        case (-55)...: "很近"
+        case (-70) ..< (-55): "附近"
         default: "较远"
         }
     }
@@ -19,7 +19,7 @@ struct NearbyTesla: Identifiable, Equatable {
 
 @MainActor
 @Observable
-final class NearbyTeslaScanner: NSObject, CBCentralManagerDelegate {
+final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelegate {
     static let vehicleService = CBUUID(string: "00000211-B2D1-43F0-9B88-960CEBF8B91E")
 
     private var central: CBCentralManager?
@@ -101,4 +101,3 @@ final class NearbyTeslaScanner: NSObject, CBCentralManagerDelegate {
         isScanning = true
     }
 }
-
