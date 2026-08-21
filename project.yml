@@ -24,7 +24,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.local.teslablekey
         PRODUCT_NAME: TeslaBLEKey
-        SWIFT_VERSION: "6.0"
+        SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO

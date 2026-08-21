@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 import Security
-import TeslaBLEKeyKit
+@preconcurrency import TeslaBLEKeyKit
 
 @MainActor
 @Observable
