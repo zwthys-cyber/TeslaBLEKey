@@ -1,6 +1,11 @@
 # Tesla BLE Key for iOS 17
 
-纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。
+[![Build iOS 17 IPA](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/ac54u-mobile/TeslaBLEKey)](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
+
+纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。当前版本：**1.2.0**。
+
+> [下载最新 TrollStore IPA](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
 ## 当前功能
 
@@ -9,7 +14,7 @@
 - 发送 Tesla VCSEC `addKey` 请求，通过已有 NFC 钥匙卡在车内授权
 - 建立 VIN-free VCSEC 本地加密会话
 - 上锁、解锁、驾驶授权、开启前后备箱、闪灯和鸣笛
-- 原创 App 图标与统一的深色原生界面
+- 原创黑白 App 图标与简洁的黑白原生 SwiftUI 界面
 - GitHub Actions 编译无签名 IPA，供 TrollStore 安装
 
 协议层使用固定到提交 `e186c5a2ade352b719cb53b92599619f2556b841` 的
@@ -21,7 +26,7 @@
 1. 在 TrollStore 中安装 Actions 生成的 IPA。
 2. 打开蓝牙并允许 App 使用蓝牙。
 3. 坐进车辆，携带一张已经授权的 Tesla NFC 钥匙卡。
-4. App 自动锁定距离最近的车辆，点击“添加这辆车”。
+4. App 自动选择信号最强的兼容车辆，点击“添加车钥匙”。
 5. App 提示后，把钥匙卡放到中控台读卡区域，并在车机屏幕确认。
 
 密钥使用 `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`，不会同步或迁移。卸载 App、清理
@@ -35,6 +40,8 @@ Keychain 或换机后必须重新配对。忘记车辆时，还应在车机“�
 2. 用 XcodeGen 生成工程；
 3. 为真实 iPhone 编译 Release；
 4. 生成 `TeslaBLEKey-unsigned.ipa` artifact。
+
+工作流使用 Node 24 版本的 `actions/checkout@v6` 与 `actions/upload-artifact@v6`，避免 GitHub 托管 Runner 的 Node 20 弃用警告。
 
 下载 artifact，解压后将 IPA 分享给 TrollStore 安装。
 
