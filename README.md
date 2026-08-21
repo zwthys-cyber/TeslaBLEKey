@@ -5,6 +5,7 @@
 ## 当前功能
 
 - 输入 VIN 并发现对应车辆 BLE 广播
+- 自动扫描附近 Tesla，按信号强度排列并校验所选车辆与 VIN
 - 在设备 Keychain 中生成并保存每辆车独立的 P-256 密钥
 - 发送 Tesla VCSEC `addKey` 请求，通过已有 NFC 钥匙卡在车内授权
 - 建立 Tesla Vehicle Command Protocol 加密会话
@@ -20,7 +21,7 @@
 1. 在 TrollStore 中安装 Actions 生成的 IPA。
 2. 打开蓝牙并允许 App 使用蓝牙。
 3. 坐进车辆，携带一张已经授权的 Tesla NFC 钥匙卡。
-4. 输入 17 位 VIN，点“连接并添加本机钥匙”。
+4. 从自动扫描列表选择附近车辆，首次输入 17 位 VIN；App 会验证 VIN 哈希与所选车辆一致。
 5. App 提示后，把钥匙卡放到中控台读卡区域，并在车机屏幕确认。
 6. 车机显示成功后，点“车机已确认，验证连接”。
 
@@ -61,4 +62,3 @@ open TeslaBLEKey.xcodeproj
 ## 许可证
 
 应用代码采用 MIT License。第三方依赖按其各自许可证分发。
-

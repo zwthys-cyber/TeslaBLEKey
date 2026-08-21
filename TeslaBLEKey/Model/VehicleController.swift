@@ -45,6 +45,12 @@ final class VehicleController {
     var normalizedVIN: String { VINValidator.normalized(vin) }
     var hasValidVIN: Bool { VINValidator.isValid(normalizedVIN) }
 
+    func matches(_ nearbyVehicle: NearbyTesla) -> Bool {
+        VINValidator.bluetoothName(for: normalizedVIN)?.caseInsensitiveCompare(
+            nearbyVehicle.peripheralName
+        ) == .orderedSame
+    }
+
     func pair() async {
         guard hasValidVIN else {
             presentError("VIN 必须是 17 位，且不能包含 I、O、Q。")
