@@ -139,10 +139,10 @@ struct PairVehicleView: View {
     private var statusIcon: String {
         if scanner.bluetoothMessage != nil { return "exclamationmark.circle" }
         switch stage {
-        case .searching: "antenna.radiowaves.left.and.right"
-        case .awaitingCard: "creditcard"
-        case .connecting: "lock"
-        default: "checkmark.circle.fill"
+        case .searching: return "antenna.radiowaves.left.and.right"
+        case .awaitingCard: return "creditcard"
+        case .connecting: return "lock"
+        default: return "checkmark.circle.fill"
         }
     }
 

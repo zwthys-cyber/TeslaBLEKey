@@ -165,9 +165,9 @@ struct VehicleControlView: View {
         if vehicle.lastSuccessAction != nil { return .success }
         if vehicle.executingAction != nil { return .executing }
         switch vehicle.phase {
-        case .connecting, .handshaking: .connecting
-        case .connected: .ready
-        default: .found
+        case .connecting, .handshaking: return .connecting
+        case .connected: return .ready
+        default: return .found
         }
     }
 
