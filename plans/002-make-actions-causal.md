@@ -1,6 +1,6 @@
 # 002 — Make every vehicle action causal
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: d2a3b09
 - **Severity**: HIGH
 - **Category**: Feedback, easing, multimodal cohesion

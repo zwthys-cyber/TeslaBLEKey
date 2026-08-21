@@ -8,14 +8,47 @@ enum AppTheme {
     static let muted = Color.white.opacity(0.55)
 }
 
-struct PremiumPressStyle: ButtonStyle {
+enum AppMotion {
+    /// Immediate feedback for controls used repeatedly.
+    static let press = Animation.easeOut(duration: 0.14)
+    /// Cross-fades between semantic icon and label states.
+    static let state = Animation.easeOut(duration: 0.22)
+    /// Rare spatial continuity, deliberately critically damped.
+    static let spatial = Animation.spring(response: 0.36, dampingFraction: 1)
+    static let reduced = Animation.easeOut(duration: 0.20)
+}
+
+struct PrimaryPressStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
-            .opacity(configuration.isPressed ? 0.66 : 1)
-            .animation(.spring(response: 0.22, dampingFraction: 1), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.84 : 1)
+            .animation(AppMotion.press, value: configuration.isPressed)
+    }
+}
+
+struct UtilityPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .animation(AppMotion.press, value: configuration.isPressed)
+    }
+}
+
+struct ActionPressStyle: ButtonStyle {
+    let primary: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? (primary ? 0.97 : 0.98) : 1)
+            .opacity(configuration.isPressed ? (primary ? 0.84 : 0.82) : 1)
+            .animation(AppMotion.press, value: configuration.isPressed)
     }
 }
 

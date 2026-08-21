@@ -1,6 +1,6 @@
 # 003 — Recompose the control surface
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: d2a3b09
 - **Severity**: MEDIUM
 - **Category**: Purpose, hierarchy, spatial mapping

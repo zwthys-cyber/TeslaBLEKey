@@ -1,6 +1,6 @@
 # 001 — Build a continuous vehicle stage
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: d2a3b09
 - **Severity**: HIGH
 - **Category**: Physicality, cohesion, missed opportunities

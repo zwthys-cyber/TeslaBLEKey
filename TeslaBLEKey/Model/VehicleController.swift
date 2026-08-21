@@ -6,6 +6,11 @@ import Security
 @MainActor
 @Observable
 final class VehicleController {
+    enum VehicleAction: String, CaseIterable, Hashable, Identifiable, Sendable {
+        case lock, unlock, frunk, trunk, drive, flash, horn
+        var id: String { rawValue }
+    }
+
     enum Phase: Equatable {
         case idle, scanning, connecting, pairingAwaitingCard, handshaking, connected
         case executing(String)
@@ -34,6 +39,9 @@ final class VehicleController {
     var phase: Phase = .idle
     var showingError = false
     var errorMessage = ""
+    var executingAction: VehicleAction?
+    var lastSuccessAction: VehicleAction?
+    private var successClearTask: Task<Void, Never>?
 
     func pair(with nearby: NearbyTesla) async {
         phase = .connecting
@@ -87,13 +95,13 @@ final class VehicleController {
         do { try await connect() } catch { presentError(Self.describe(error)) }
     }
 
-    func lock() async { await execute("上锁") { try await $0.lock() } }
-    func unlock() async { await execute("解锁") { try await $0.unlock() } }
-    func openTrunk() async { await execute("开启后备箱") { try await $0.openTrunk() } }
-    func openFrunk() async { await execute("开启前备箱") { try await $0.openFrunk() } }
-    func flashLights() async { await execute("闪灯") { try await $0.flashLights() } }
-    func honk() async { await execute("鸣笛") { try await $0.honkHorn() } }
-    func authorizeDrive() async { await execute("启动车辆") { try await $0.remoteDrive() } }
+    func lock() async { await execute(.lock, name: "上锁") { try await $0.lock() } }
+    func unlock() async { await execute(.unlock, name: "解锁") { try await $0.unlock() } }
+    func openTrunk() async { await execute(.trunk, name: "开启后备箱") { try await $0.openTrunk() } }
+    func openFrunk() async { await execute(.frunk, name: "开启前备箱") { try await $0.openFrunk() } }
+    func flashLights() async { await execute(.flash, name: "闪灯") { try await $0.flashLights() } }
+    func honk() async { await execute(.horn, name: "鸣笛") { try await $0.honkHorn() } }
+    func authorizeDrive() async { await execute(.drive, name: "启动车辆") { try await $0.remoteDrive() } }
 
     func disconnect() {
         tesla?.disconnect()
@@ -111,13 +119,25 @@ final class VehicleController {
         isPaired = false
     }
 
-    private func execute(_ name: String, operation: (TeslaVehicle) async throws -> Void) async {
+    private func execute(_ action: VehicleAction, name: String, operation: (TeslaVehicle) async throws -> Void) async {
         guard let tesla else { presentError("请先连接车辆。"); return }
+        guard executingAction != action else { return }
+        successClearTask?.cancel()
+        lastSuccessAction = nil
+        executingAction = action
         phase = .executing(name)
         do {
             try await operation(tesla)
+            executingAction = nil
+            lastSuccessAction = action
             phase = .connected
+            successClearTask = Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(700))
+                guard !Task.isCancelled else { return }
+                self?.lastSuccessAction = nil
+            }
         } catch {
+            executingAction = nil
             presentError(Self.describe(error))
         }
     }

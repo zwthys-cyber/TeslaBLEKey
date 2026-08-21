@@ -9,11 +9,13 @@ struct PairVehicleView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Spacer(minLength: 32)
-            hero
-            Spacer(minLength: 36)
-            scanStatus
-            pairButton.padding(.top, 16)
+            Spacer(minLength: 28)
+            VehicleStage(state: stage)
+                .frame(maxWidth: 430)
+            stageCopy.padding(.top, 22)
+            Spacer(minLength: 30)
+            status
+            pairButton.padding(.top, 14)
             privacy.padding(.top, 18)
         }
         .padding(.horizontal, 24)
@@ -26,11 +28,8 @@ struct PairVehicleView: View {
         .onDisappear { scanner.stop() }
         .onChange(of: scanner.vehicles) { _, vehicles in
             guard vehicle.phase != .pairingAwaitingCard else { return }
-            if reduceMotion { selectedVehicle = vehicles.first }
-            else {
-                withAnimation(.spring(response: 0.36, dampingFraction: 1)) {
-                    selectedVehicle = vehicles.first
-                }
+            withAnimation(reduceMotion ? AppMotion.reduced : AppMotion.spatial) {
+                selectedVehicle = vehicles.first
             }
         }
         .sensoryFeedback(.selection, trigger: selectedVehicle?.id)
@@ -38,52 +37,39 @@ struct PairVehicleView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("车钥匙")
-                .font(.system(size: 28, weight: .semibold, design: .default))
-                .tracking(-0.5)
+            Text("车钥匙").font(.system(size: 28, weight: .semibold)).tracking(-0.5)
             Spacer()
-            Text("本地蓝牙")
-                .font(.caption.weight(.medium))
+            Text("本地蓝牙").font(.caption.weight(.medium)).foregroundStyle(AppTheme.muted)
+        }
+    }
+
+    private var stageCopy: some View {
+        VStack(spacing: 7) {
+            Text(stageTitle).font(.title2.weight(.semibold))
+            Text(stageSubtitle)
+                .font(.subheadline)
                 .foregroundStyle(AppTheme.muted)
+                .multilineTextAlignment(.center)
         }
+        .id(stage)
+        .transition(.opacity)
+        .animation(AppMotion.state, value: stage)
     }
 
-    private var hero: some View {
-        VStack(spacing: 20) {
-            Image(systemName: selectedVehicle == nil ? "car.side" : "car.side.fill")
-                .font(.system(size: 126, weight: .ultraLight))
-                .symbolRenderingMode(.monochrome)
-                .contentTransition(.symbolEffect(.replace))
-
-            VStack(spacing: 7) {
-                Text(selectedVehicle == nil ? "靠近车辆" : "发现车辆")
-                    .font(.title2.weight(.semibold))
-                Text(selectedVehicle == nil ? "将自动选择信号最强的兼容车辆" : "已选择离你最近的车辆")
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.muted)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private var scanStatus: some View {
+    private var status: some View {
         HairlinePanel {
             HStack(spacing: 13) {
-                Image(systemName: statusIcon)
-                    .font(.system(size: 17, weight: .medium))
-                    .frame(width: 24)
+                Image(systemName: statusIcon).font(.system(size: 17, weight: .medium)).frame(width: 24)
+                    .contentTransition(.opacity)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(statusTitle).font(.subheadline.weight(.semibold))
-                    Text(statusSubtitle)
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.muted)
+                    Text(statusSubtitle).font(.caption).foregroundStyle(AppTheme.muted)
                 }
                 Spacer()
-                if selectedVehicle == nil && scanner.bluetoothMessage == nil {
-                    ProgressView().controlSize(.small).tint(.white)
-                }
+                if stage == .searching { ProgressView().controlSize(.small).tint(.white) }
             }
         }
+        .animation(AppMotion.state, value: stage)
     }
 
     private var pairButton: some View {
@@ -96,27 +82,50 @@ struct PairVehicleView: View {
                 if isPairing { ProgressView().controlSize(.small).tint(.black) }
                 Text(actionTitle).font(.headline)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 56)
+            .frame(maxWidth: .infinity).frame(height: 56)
             .background(.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             .foregroundStyle(.black)
         }
-        .buttonStyle(PremiumPressStyle())
+        .buttonStyle(PrimaryPressStyle())
         .disabled(selectedVehicle == nil || isPairing)
         .opacity(selectedVehicle == nil || isPairing ? 0.38 : 1)
     }
 
     private var privacy: some View {
         Label("无账户 · 无网络 · 密钥仅存本机", systemImage: "lock")
-            .font(.caption)
-            .foregroundStyle(AppTheme.muted)
+            .font(.caption).foregroundStyle(AppTheme.muted)
+    }
+
+    private var stage: VehicleStageState {
+        switch vehicle.phase {
+        case .pairingAwaitingCard: .awaitingCard
+        case .connecting, .handshaking: .connecting
+        default: selectedVehicle == nil ? .searching : .found
+        }
+    }
+
+    private var stageTitle: String {
+        switch stage {
+        case .searching: "靠近车辆"
+        case .found: "车辆就在附近"
+        case .awaitingCard: "用钥匙卡确认"
+        case .connecting: "建立安全连接"
+        default: "车辆已就绪"
+        }
+    }
+
+    private var stageSubtitle: String {
+        switch stage {
+        case .searching: "自动识别并选择信号最强的兼容车辆"
+        case .found: "无需 VIN，准备添加本机钥匙"
+        case .awaitingCard: "将现有钥匙卡放在中控台感应区"
+        case .connecting: "密钥仅保存在这台 iPhone"
+        default: ""
+        }
     }
 
     private var isPairing: Bool {
-        switch vehicle.phase {
-        case .connecting, .pairingAwaitingCard, .handshaking: true
-        default: false
-        }
+        switch vehicle.phase { case .connecting, .pairingAwaitingCard, .handshaking: true; default: false }
     }
 
     private var actionTitle: String {
@@ -129,18 +138,19 @@ struct PairVehicleView: View {
 
     private var statusIcon: String {
         if scanner.bluetoothMessage != nil { return "exclamationmark.circle" }
-        if vehicle.phase == .pairingAwaitingCard { return "creditcard" }
-        return selectedVehicle == nil ? "antenna.radiowaves.left.and.right" : "checkmark.circle.fill"
+        switch stage {
+        case .searching: "antenna.radiowaves.left.and.right"
+        case .awaitingCard: "creditcard"
+        case .connecting: "lock"
+        default: "checkmark.circle.fill"
+        }
     }
 
     private var statusTitle: String {
-        if let message = scanner.bluetoothMessage { return message }
-        if vehicle.phase == .pairingAwaitingCard { return "等待钥匙卡" }
-        return selectedVehicle == nil ? "正在搜索附近车辆" : "车辆已就绪"
+        scanner.bluetoothMessage ?? stageTitle
     }
 
     private var statusSubtitle: String {
-        if vehicle.phase == .pairingAwaitingCard { return "将现有钥匙卡放在中控台感应区" }
-        return selectedVehicle == nil ? "无需输入 VIN" : "点击下方按钮开始安全配对"
+        stageSubtitle
     }
 }

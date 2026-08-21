@@ -1,6 +1,6 @@
 # 004 — Centralize the motion language
 
-- **Status**: TODO
+- **Status**: DONE
 - **Commit**: d2a3b09
 - **Severity**: MEDIUM
 - **Category**: Cohesion, accessibility
