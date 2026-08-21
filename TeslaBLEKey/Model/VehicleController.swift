@@ -121,7 +121,9 @@ final class VehicleController {
 
     private func execute(_ action: VehicleAction, name: String, operation: (TeslaVehicle) async throws -> Void) async {
         guard let tesla else { presentError("请先连接车辆。"); return }
-        guard executingAction != action else { return }
+        // Tesla vehicle commands share one authenticated BLE session. Serialize them
+        // so a second command cannot replace the first command's presentation state.
+        guard executingAction == nil else { return }
         successClearTask?.cancel()
         lastSuccessAction = nil
         executingAction = action

@@ -44,7 +44,7 @@ struct VehicleControlView: View {
             Button("取消", role: .cancel) {}
         } message: { Text("还需要在车机的钥匙管理中删除对应记录。") }
         .confirmationDialog("授权启动车辆？", isPresented: $confirmDrive) {
-            Button("授权启动") { submit(.drive) { await vehicle.authorizeDrive() } }
+            Button("授权启动") { submit(.drive, haptic: false) { await vehicle.authorizeDrive() } }
             Button("取消", role: .cancel) {}
         } message: { Text("授权后车辆可在没有实体钥匙卡的情况下行驶。请确认车辆处于你的控制范围内。") }
         .sensoryFeedback(.impact(weight: .light), trigger: pressFeedback)
@@ -154,9 +154,10 @@ struct VehicleControlView: View {
             .frame(maxWidth: .infinity)
     }
 
-    private func submit(_ id: VehicleController.VehicleAction, operation: @escaping () async -> Void) {
-        guard vehicle.executingAction != id else { return }
-        pressFeedback += 1
+    private func submit(_ id: VehicleController.VehicleAction, haptic: Bool = true,
+                        operation: @escaping () async -> Void) {
+        guard vehicle.executingAction == nil else { return }
+        if haptic { pressFeedback += 1 }
         Task { await operation() }
     }
 
@@ -218,7 +219,9 @@ private struct ActionButton: View {
             }
         }
         .buttonStyle(ActionPressStyle(primary: appearance == .primary))
-        .disabled(!enabled || executing == actionID)
+        // Keep unaffected commands visually legible while serializing interaction.
+        // The active command alone owns the local progress glyph.
+        .disabled(!enabled || executing != nil)
         .opacity(enabled ? 1 : 0.34)
         .accessibilityLabel(title)
         .accessibilityValue(glyphState.accessibilityValue)
