@@ -16,6 +16,8 @@ targets:
       path: TeslaBLEKey/Info.plist
       properties:
         CFBundleDisplayName: Tesla BLE Key
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         NSBluetoothAlwaysUsageDescription: 用于在本地连接您的 Tesla 并执行钥匙操作。
         UIBackgroundModes: [bluetooth-central]
