@@ -269,11 +269,11 @@ final class VehicleController {
     static func modelName(fromVIN vin: String) -> String? {
         guard vin.count == 17 else { return nil }
         switch vin[vin.index(vin.startIndex, offsetBy: 3)] {
-        case "3": "Model 3"
-        case "Y": "Model Y"
-        case "S": "Model S"
-        case "X": "Model X"
-        default: nil
+        case "3": return "Model 3"
+        case "Y": return "Model Y"
+        case "S": return "Model S"
+        case "X": return "Model X"
+        default: return nil
         }
     }
 
