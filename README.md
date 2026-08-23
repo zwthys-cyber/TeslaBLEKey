@@ -1,11 +1,11 @@
 # 小特蓝牙钥匙 for iOS 17
 
-[![Build iOS 17 IPA](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/ac54u-mobile/TeslaBLEKey)](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
+[![Build iOS 17 IPA](https://github.com/zwthys-cyber/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/zwthys-cyber/TeslaBLEKey/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/zwthys-cyber/TeslaBLEKey)](https://github.com/zwthys-cyber/TeslaBLEKey/releases/latest)
 
 纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。
 
-> [下载最新 TrollStore IPA](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
+> [下载最新 TrollStore IPA](https://github.com/zwthys-cyber/TeslaBLEKey/releases/latest)
 
 ## 当前功能
 
@@ -50,7 +50,7 @@
 
 工作流使用 Node 24 版本的 `actions/checkout@v6` 与 `actions/upload-artifact@v6`，避免 GitHub 托管 Runner 的 Node 20 弃用警告。
 
-普通安装请直接从 [Releases](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest) 下载 IPA；Actions artifact 用于检查每次提交的开发构建。
+普通安装请直接从 [Releases](https://github.com/zwthys-cyber/TeslaBLEKey/releases/latest) 下载 IPA；Actions artifact 用于检查每次提交的开发构建。
 
 ## 本机编译
 
