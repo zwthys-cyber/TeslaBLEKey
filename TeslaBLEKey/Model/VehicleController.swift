@@ -100,6 +100,8 @@ final class VehicleController {
     var mediaAlbum: String?
     var mediaSource: String?
     var mediaPlaybackStatus: String?
+    var mediaElapsedSeconds: Int?
+    var mediaDurationSeconds: Int?
     var mediaArtworkURL: URL?
     var isSentryAvailable = false
     var isSentryOn = false
@@ -730,6 +732,8 @@ final class VehicleController {
     }
 
     private func apply(_ state: CarServer_MediaDetailState) {
+        if state.optionalNowPlayingElapsed != nil { mediaElapsedSeconds = max(0, Int(state.nowPlayingElapsed)) }
+        if state.optionalNowPlayingDuration != nil { mediaDurationSeconds = max(0, Int(state.nowPlayingDuration)) }
         if state.optionalNowPlayingAlbum != nil { mediaAlbum = state.nowPlayingAlbum.nilIfEmpty }
         if state.optionalNowPlayingSourceString != nil { mediaSource = state.nowPlayingSourceString.nilIfEmpty }
         if mediaSource == nil, state.optionalA2DpSourceName != nil { mediaSource = state.a2DpSourceName.nilIfEmpty }

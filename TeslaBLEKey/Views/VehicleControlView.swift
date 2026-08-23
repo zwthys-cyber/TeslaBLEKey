@@ -223,43 +223,60 @@ struct VehicleControlView: View {
     }
 
     private var nowPlayingCard: some View {
-        HStack(spacing: 13) {
-            AsyncImage(url: vehicle.mediaArtworkURL) { phase in
-                if case let .success(image) = phase {
-                    image.resizable().scaledToFill()
-                } else {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 18, weight: .semibold))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(AppTheme.raised)
+        VStack(spacing: 10) {
+            HStack(spacing: 13) {
+                AsyncImage(url: vehicle.mediaArtworkURL) { phase in
+                    if case let .success(image) = phase {
+                        image.resizable().scaledToFill()
+                    } else {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(AppTheme.raised)
+                    }
+                }
+                .frame(width: 50, height: 50)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(vehicle.mediaTitle ?? "正在播放")
+                        .font(.subheadline.weight(.semibold)).lineLimit(1)
+                    Text(vehicle.mediaArtist ?? vehicle.mediaSource ?? "车载媒体")
+                        .font(.caption).foregroundStyle(AppTheme.muted).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                compactMediaButton("backward.end.fill", label: "上一首", action: .mediaPrevious) {
+                    await vehicle.previousMediaTrack()
+                }
+                compactMediaButton(vehicle.mediaPlaybackStatus == "播放中" ? "pause.fill" : "play.fill",
+                                   label: vehicle.mediaPlaybackStatus == "播放中" ? "暂停" : "继续播放",
+                                   action: .mediaPlayPause, emphasized: true) {
+                    await vehicle.toggleMediaPlayback()
+                }
+                compactMediaButton("forward.end.fill", label: "下一首", action: .mediaNext) {
+                    await vehicle.nextMediaTrack()
                 }
             }
-            .frame(width: 50, height: 50)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(vehicle.mediaTitle ?? "正在播放")
-                    .font(.subheadline.weight(.semibold)).lineLimit(1)
-                Text(vehicle.mediaArtist ?? vehicle.mediaSource ?? "车载媒体")
-                    .font(.caption).foregroundStyle(AppTheme.muted).lineLimit(1)
-            }
-            Spacer(minLength: 4)
-            compactMediaButton("backward.end.fill", label: "上一首", action: .mediaPrevious) {
-                await vehicle.previousMediaTrack()
-            }
-            compactMediaButton(vehicle.mediaPlaybackStatus == "播放中" ? "pause.fill" : "play.fill",
-                               label: vehicle.mediaPlaybackStatus == "播放中" ? "暂停" : "继续播放",
-                               action: .mediaPlayPause, emphasized: true) {
-                await vehicle.toggleMediaPlayback()
-            }
-            compactMediaButton("forward.end.fill", label: "下一首", action: .mediaNext) {
-                await vehicle.nextMediaTrack()
+            if let elapsed = vehicle.mediaElapsedSeconds,
+               let duration = vehicle.mediaDurationSeconds, duration > 0 {
+                VStack(spacing: 5) {
+                    ProgressView(value: Double(min(elapsed, duration)), total: Double(duration)).tint(.white)
+                    HStack {
+                        Text(mediaTime(elapsed))
+                        Spacer()
+                        Text(mediaTime(duration))
+                    }.font(.caption2.monospacedDigit()).foregroundStyle(AppTheme.muted)
+                }
             }
         }
         .padding(12)
         .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
         .accessibilityElement(children: .contain)
+    }
+
+    private func mediaTime(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     private func compactMediaButton(
