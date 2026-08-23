@@ -91,7 +91,10 @@ final class VehicleController {
     var mediaAlbum: String?
     var mediaSource: String?
     var mediaPlaybackStatus: String?
+    var mediaArtworkURL: URL?
     var lastStateUpdate: Date?
+    private var mediaArtworkLookupTask: Task<Void, Never>?
+    private var lastArtworkLookupKey: String?
     private var successClearTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
@@ -574,6 +577,27 @@ final class VehicleController {
             case .stopped: "已停止"
             default: "状态未知"
             }
+        }
+        refreshMediaArtworkIfNeeded()
+    }
+
+    private func refreshMediaArtworkIfNeeded() {
+        guard let title = mediaTitle, !title.isEmpty else {
+            mediaArtworkLookupTask?.cancel()
+            mediaArtworkURL = nil
+            lastArtworkLookupKey = nil
+            return
+        }
+        let key = "\(title.lowercased())|\(mediaArtist?.lowercased() ?? "")"
+        guard key != lastArtworkLookupKey else { return }
+        lastArtworkLookupKey = key
+        mediaArtworkURL = nil
+        mediaArtworkLookupTask?.cancel()
+        let artist = mediaArtist
+        mediaArtworkLookupTask = Task { [weak self] in
+            let url = await MediaArtworkLookup.artworkURL(title: title, artist: artist)
+            guard !Task.isCancelled, self?.lastArtworkLookupKey == key else { return }
+            self?.mediaArtworkURL = url
         }
     }
 

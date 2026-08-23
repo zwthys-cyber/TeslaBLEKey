@@ -161,11 +161,19 @@ struct VehicleControlView: View {
 
     private var nowPlayingCard: some View {
         HStack(spacing: 13) {
-            Image(systemName: "music.note")
-                .font(.system(size: 18, weight: .semibold))
-                .frame(width: 46, height: 46)
-                .background(AppTheme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .accessibilityHidden(true)
+            AsyncImage(url: vehicle.mediaArtworkURL) { phase in
+                if case let .success(image) = phase {
+                    image.resizable().scaledToFill()
+                } else {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 18, weight: .semibold))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(AppTheme.raised)
+                }
+            }
+            .frame(width: 50, height: 50)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(vehicle.mediaTitle ?? "正在播放")
                     .font(.subheadline.weight(.semibold)).lineLimit(1)
