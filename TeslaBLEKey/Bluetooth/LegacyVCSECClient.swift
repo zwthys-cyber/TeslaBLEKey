@@ -53,9 +53,11 @@ final class LegacyVCSECClient: @unchecked Sendable {
     }
 
     func startSession() async throws {
-        // InformationRequest(GET_SESSION_DATA=4, keyId)
+        // The native phone-key bootstrap uses GET_EPHEMERAL_PUBLIC_KEY (3).
+        // GET_SESSION_DATA (4) exists in some archived schemas but is not
+        // answered consistently by production vehicles.
         let keyIdentifier = Self.bytesField(1, keyID)
-        let request = Self.enumField(1, 4) + Self.messageField(2, keyIdentifier)
+        let request = Self.enumField(1, 3) + Self.messageField(2, keyIdentifier)
         try await connection.send(Self.toVCSECUnsigned(Self.messageField(1, request)))
 
         var sessionBytes: Data?
@@ -71,7 +73,9 @@ final class LegacyVCSECClient: @unchecked Sendable {
               vehiclePublicKey.count == 65 else { throw ClientError.keyNotWhitelisted }
 
         sharedKey = try privateKey.sharedAESKey(with: vehiclePublicKey)
-        counter = (Self.firstVarintField(2, in: sessionBytes).map(UInt32.init) ?? 0) &+ 1
+        let vehicleCounter = Self.firstVarintField(2, in: sessionBytes).map(UInt32.init) ?? 0
+        let wallClockCounter = UInt32(clamping: Int(Date().timeIntervalSince1970))
+        counter = max(max(vehicleCounter &+ 1, wallClockCounter), 1)
 
         // UnsignedMessage.authenticationResponse(level NONE) is an explicitly
         // present, empty nested message: field 3, length 0.
