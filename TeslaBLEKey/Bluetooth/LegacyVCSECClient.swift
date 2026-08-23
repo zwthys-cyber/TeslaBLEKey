@@ -84,10 +84,11 @@ final class LegacyVCSECClient: @unchecked Sendable {
     }
 
     func vehicleVIN() async throws -> String {
-        // InformationRequest(GET_VEHICLE_INFO=7). The legacy local VCSEC
-        // endpoint returns VehicleInfo.VIN after key enrollment; no account or
-        // user-entered VIN is involved.
-        try await connection.send(Self.toVCSECUnsigned(Self.messageField(1, Self.enumField(1, 7))))
+        // Ask only after the phone-key session is authenticated. Some vehicle
+        // firmware silently drops an unsigned VehicleInfo request even though
+        // it accepts the same information request from an enrolled key.
+        let request = Self.messageField(1, Self.enumField(1, 7))
+        try await sendSigned(unsignedMessage: request)
         for _ in 0 ..< 5 {
             let response = try await nextMessage(seconds: 2)
             guard let vehicleInfo = Self.firstLengthDelimitedField(18, in: response),
