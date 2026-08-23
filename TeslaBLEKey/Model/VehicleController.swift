@@ -51,8 +51,9 @@ final class VehicleController {
 
     init() {
         let defaults = UserDefaults.standard
-        vehicleID = defaults.string(forKey: AppStorageKeys.pairedVehicleID) ?? ""
-        vehicleModelName = defaults.string(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
+        let storedVehicleID = defaults.string(forKey: AppStorageKeys.pairedVehicleID) ?? ""
+        vehicleID = storedVehicleID
+        vehicleModelName = defaults.string(forKey: AppStorageKeys.vehicleModelPrefix + storedVehicleID)
         let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
         if !pairingWasVerified {
