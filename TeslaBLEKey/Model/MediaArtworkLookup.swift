@@ -69,7 +69,9 @@ enum MediaArtworkLookup {
 
         do {
             let (data, response) = try await URLSession.shared.data(from: url)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+                return Metadata(artworkURL: nil, durationSeconds: nil)
+            }
             let results = try JSONDecoder().decode(SearchResponse.self, from: data).results
             let normalizedTitle = normalize(title)
             let normalizedArtist = artist.map(normalize)
