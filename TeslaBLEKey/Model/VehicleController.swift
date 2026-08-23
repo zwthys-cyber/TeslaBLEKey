@@ -10,7 +10,15 @@ final class VehicleController {
     enum VehicleAction: String, CaseIterable, Hashable, Identifiable, Sendable {
         case lock, unlock, frunk, trunk, drive, flash, horn, chargePort, climate, windows
         case mediaPrevious, mediaPlayPause, mediaNext
+        case charging, chargeLimit, chargeCurrent, defrost, steeringHeater, climateMode, bioweapon, overheat, sentry
         var id: String { rawValue }
+    }
+
+    struct CommandRecord: Identifiable, Codable, Hashable {
+        let id: UUID
+        let name: String
+        let date: Date
+        let succeeded: Bool
     }
 
     enum Phase: Equatable {
@@ -66,6 +74,7 @@ final class VehicleController {
     var chargerCurrentAmps: Int?
     var minutesToChargeLimit: Int?
     var chargingStatus: String?
+    var isCharging = false
     var chargeCableStatus: String?
     var chargePortLatchStatus: String?
     var outsideTemperature: Double?
@@ -92,6 +101,14 @@ final class VehicleController {
     var mediaSource: String?
     var mediaPlaybackStatus: String?
     var mediaArtworkURL: URL?
+    var isSentryAvailable = false
+    var isSentryOn = false
+    var isDefrostOn = false
+    var isSteeringWheelHeaterOn = false
+    var climateKeeperMode = "关闭"
+    var isBioweaponModeOn = false
+    var isCabinOverheatProtectionOn = false
+    var commandHistory: [CommandRecord] = []
     var lastStateUpdate: Date?
     private var mediaArtworkLookupTask: Task<Void, Never>?
     private var lastArtworkLookupKey: String?
@@ -114,6 +131,10 @@ final class VehicleController {
         let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
         passiveEntryEnabled = (defaults.object(forKey: AppStorageKeys.passiveEntryEnabled) as? Bool) ?? true
+        if let data = defaults.data(forKey: AppStorageKeys.commandHistory),
+           let records = try? JSONDecoder().decode([CommandRecord].self, from: data) {
+            commandHistory = records
+        }
         if !pairingWasVerified {
             defaults.set(false, forKey: AppStorageKeys.paired)
         }
@@ -327,6 +348,33 @@ final class VehicleController {
         }) { isChargePortOpen = opening }
     }
 
+    func toggleCharging() async {
+        let starting = !isCharging
+        if await execute(.charging, name: starting ? "开始充电" : "停止充电", operation: {
+            try await self.performModern { vehicle in
+                if starting { try await vehicle.startCharging() }
+                else { try await vehicle.stopCharging() }
+            }
+        }) {
+            isCharging = starting
+            chargingStatus = starting ? "正在开始充电" : "充电已停止"
+        }
+    }
+
+    func setChargeLimit(_ percent: Int) async {
+        let value = min(max(percent, 50), 100)
+        if await execute(.chargeLimit, name: "设置充电上限", operation: {
+            try await self.performModern { try await $0.setChargeLimit(percent: Int32(value)) }
+        }) { chargeLimit = value }
+    }
+
+    func setChargingCurrent(_ amps: Int) async {
+        let value = min(max(amps, 5), 48)
+        if await execute(.chargeCurrent, name: "设置充电电流", operation: {
+            try await self.performModern { try await $0.setChargingAmps(Int32(value)) }
+        }) { chargerCurrentAmps = value }
+    }
+
     func toggleClimate() async {
         let turningOn = !isClimateOn
         if await execute(.climate, name: turningOn ? "打开空调" : "关闭空调", operation: {
@@ -352,6 +400,63 @@ final class VehicleController {
                 try await self.send(action, to: vehicle)
             }
         }) { targetTemperature = target }
+    }
+
+    func toggleDefrost() async {
+        let enabled = !isDefrostOn
+        if await execute(.defrost, name: enabled ? "开启最大除霜" : "关闭最大除霜", operation: {
+            try await self.performModern { try await $0.setPreconditioningMax(enabled: enabled) }
+        }) { isDefrostOn = enabled }
+    }
+
+    func toggleSteeringWheelHeater() async {
+        let enabled = !isSteeringWheelHeaterOn
+        if await execute(.steeringHeater, name: enabled ? "开启方向盘加热" : "关闭方向盘加热", operation: {
+            try await self.performModern { try await $0.setSteeringWheelHeater(enabled: enabled) }
+        }) { isSteeringWheelHeaterOn = enabled }
+    }
+
+    func setClimateKeeper(_ mode: String) async {
+        let protocolMode: CarServer_HvacClimateKeeperAction.ClimateKeeperAction_E = switch mode {
+        case "保持": .climateKeeperActionOn
+        case "爱犬": .climateKeeperActionDog
+        case "露营": .climateKeeperActionCamp
+        default: .climateKeeperActionOff
+        }
+        if await execute(.climateMode, name: "设置(mode)模式", operation: {
+            try await self.performModern { try await $0.setClimateKeeper(mode: protocolMode) }
+        }) { climateKeeperMode = mode }
+    }
+
+    func toggleBioweaponMode() async {
+        let enabled = !isBioweaponModeOn
+        if await execute(.bioweapon, name: enabled ? "开启生化防御" : "关闭生化防御", operation: {
+            try await self.performModern { try await $0.setBioweaponMode(enabled: enabled) }
+        }) { isBioweaponModeOn = enabled }
+    }
+
+    func toggleCabinOverheatProtection() async {
+        let enabled = !isCabinOverheatProtectionOn
+        if await execute(.overheat, name: enabled ? "开启座舱过热保护" : "关闭座舱过热保护", operation: {
+            try await self.performModern { try await $0.setCabinOverheatProtection(enabled: enabled) }
+        }) { isCabinOverheatProtectionOn = enabled }
+    }
+
+    func toggleSentryMode() async {
+        guard isSentryAvailable else {
+            presentError("当前车辆没有提供哨兵模式能力。")
+            return
+        }
+        let enabled = !isSentryOn
+        if await execute(.sentry, name: enabled ? "开启哨兵模式" : "关闭哨兵模式", operation: {
+            try await self.performModern { vehicle in
+                var sentry = CarServer_VehicleControlSetSentryModeAction()
+                sentry.on = enabled
+                var action = CarServer_VehicleAction()
+                action.vehicleControlSetSentryModeAction = sentry
+                try await self.send(action, to: vehicle)
+            }
+        }) { isSentryOn = enabled }
     }
 
     func toggleWindows() async {
@@ -422,6 +527,13 @@ final class VehicleController {
             case .vehicleSleepStatusAwake: "已唤醒"
             case .vehicleSleepStatusAsleep: "休眠"
             default: "状态未知"
+            }
+            if status.optionalSentryModeAvailable != nil {
+                isSentryAvailable = status.sentryModeAvailable
+            }
+            isSentryOn = switch status.sentryModeState.type {
+            case .off?, nil: false
+            default: true
             }
         }
         try? await tesla.startInfotainmentSession()
@@ -512,6 +624,7 @@ final class VehicleController {
             case .calibrating?: "正在校准"
             default: "状态未知"
             }
+            isCharging = state.chargingState.type == .charging || state.chargingState.type == .starting
         }
     }
 
@@ -685,6 +798,7 @@ final class VehicleController {
         phase = .executing(name)
         do {
             try await operation()
+            appendCommandRecord(name: name, succeeded: true)
             executingAction = nil
             lastSuccessAction = action
             phase = .connected
@@ -695,6 +809,7 @@ final class VehicleController {
             }
             return true
         } catch {
+            appendCommandRecord(name: name, succeeded: false)
             executingAction = nil
             if case LocalError.vehicleIdentityUnavailable = error {
                 phase = .connected
@@ -703,6 +818,14 @@ final class VehicleController {
             }
             presentError(Self.describe(error))
             return false
+        }
+    }
+
+    private func appendCommandRecord(name: String, succeeded: Bool) {
+        commandHistory.insert(CommandRecord(id: UUID(), name: name, date: .now, succeeded: succeeded), at: 0)
+        commandHistory = Array(commandHistory.prefix(20))
+        if let data = try? JSONEncoder().encode(commandHistory) {
+            UserDefaults.standard.set(data, forKey: AppStorageKeys.commandHistory)
         }
     }
 

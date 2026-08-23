@@ -18,6 +18,7 @@ struct VehicleControlView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     vehicleSummary.padding(.top, 18)
+                    featureRail.padding(.top, 14)
                     if showsNowPlaying {
                         nowPlayingCard.padding(.top, 14)
                             .transition(.opacity.combined(with: .move(edge: .top)))
@@ -192,6 +193,33 @@ struct VehicleControlView: View {
         .disabled(!connected || vehicle.executingAction != nil)
         .accessibilityLabel(label)
         .accessibilityHint("立即向车辆发送\(label)命令")
+    }
+
+    private var featureRail: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 10) {
+                featureLink("充电", "bolt.fill", ChargingControlView())
+                featureLink("座舱", "fan.fill", CabinControlView())
+                featureLink("哨兵", "eye.fill", SentryControlView())
+                featureLink("诊断", "waveform.path.ecg", VehicleDiagnosticsView())
+            }
+        }
+        .scrollIndicators(.hidden)
+        .contentMargins(.horizontal, 0, for: .scrollContent)
+        .accessibilityLabel("车辆功能")
+    }
+
+    private func featureLink<Destination: View>(_ title: String, _ icon: String, _ destination: Destination) -> some View {
+        NavigationLink { destination } label: {
+            HStack(spacing: 9) {
+                Image(systemName: icon).font(.subheadline.weight(.semibold))
+                Text(title).font(.subheadline.weight(.medium))
+            }
+            .padding(.horizontal, 15).frame(height: 44)
+            .background(AppTheme.surface, in: Capsule())
+            .overlay(Capsule().stroke(AppTheme.hairline, lineWidth: 0.5))
+        }
+        .buttonStyle(UtilityPressStyle())
     }
 
     private var nowPlayingCard: some View {

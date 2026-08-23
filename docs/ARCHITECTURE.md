@@ -1,12 +1,14 @@
 # 架构与协议
 
-本文对应 App `1.9.8` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
+本文对应 App `2.0.0` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
 
 1. `NearbyTeslaScanner` 使用 CoreBluetooth 扫描附近广播，并校验 Tesla 本地名称格式。
 2. App 为每辆车在 Keychain 生成独立 P-256 私钥。
 3. `LegacyVCSECClient` 建立无需 VIN 的 Phone Key 引导会话，并通过车内已有 NFC 钥匙卡授权公钥。
 4. 基础 VCSEC 会话负责 Phone Key 认证和基础门锁能力。
 5. 需要 Infotainment 完整身份的功能使用本机保存的 VIN 建立现代会话；VIN 会与当前车辆 BLE 广播标识校验。
+6. 充电、座舱与哨兵命令复用同一条串行化会话；能力由车辆状态决定。
+7. 诊断历史只在本机保留最近 20 条命令名称、时间与结果，不记录 VIN、位置或密钥。
 
 ## 主要模块
 
