@@ -14,7 +14,7 @@
 - 前台扫描全部 BLE 广播后仅保留符合 Tesla 官方本地名称格式的车辆，避免服务 UUID 广播缺失造成漏检
 - 在设备 Keychain 中生成并保存每辆车独立的 P-256 密钥
 - 发送 Tesla VCSEC `addKey` 请求，通过已有 NFC 钥匙卡在车内授权
-- 钥匙授权后通过本地 BLE 自动读取 VehicleInfo VIN，再建立正确的 VCSEC 加密会话；无需用户输入 VIN
+- 钥匙授权后通过 Universal Message 承载的本地 Phone Key/VCSEC 会话读取 VehicleInfo 并认证；无需用户输入 VIN
 - 配对前检查本机公钥是否已在车机白名单，避免重复添加钥匙
 - 上锁、解锁、驾驶授权、开启前后备箱、闪灯和鸣笛
 - 原创黑白 App 图标与简洁车辆舞台：搜索、配对、连接和执行始终呈现为同一辆车
