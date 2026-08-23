@@ -38,6 +38,10 @@ enum MediaArtworkLookup {
             guard let match else { return nil }
             let album = match["al"] as? [String: Any] ?? match["album"] as? [String: Any]
             guard let rawURL = album?["picUrl"] as? String, var components = URLComponents(string: rawURL) else { return nil }
+            // NetEase search responses may still use an http artwork URL.
+            // iOS ATS blocks it inside AsyncImage, while the same CDN supports
+            // TLS, so always upgrade the image request to HTTPS.
+            components.scheme = "https"
             components.queryItems = [URLQueryItem(name: "param", value: "300y300")]
             return components.url
         } catch {
