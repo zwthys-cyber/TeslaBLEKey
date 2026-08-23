@@ -512,8 +512,10 @@ struct VehicleControlView: View {
     private var statusSummary: String {
         guard connected else { return "轻点重新连接" }
         let lock = vehicle.isLocked.map { $0 ? "已上锁" : "已解锁" } ?? "锁车状态读取中"
-        let trunk = vehicle.isTrunkOpen ? "尾门已开" : "尾门已关"
-        return "\(lock) · \(trunk)"
+        let odometer = vehicle.odometerKilometers.map {
+            "累计 \($0.formatted(.number.precision(.fractionLength(0)))) km"
+        } ?? "里程等待同步"
+        return "\(lock) · \(odometer)"
     }
 
     private var connected: Bool {
