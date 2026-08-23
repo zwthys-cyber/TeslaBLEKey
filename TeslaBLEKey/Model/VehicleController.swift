@@ -516,7 +516,11 @@ final class VehicleController {
             sessionNeedsForegroundValidation = false
             if let tesla {
                 do {
-                    _ = try await tesla.vehicleStatus()
+                    // A restored CoreBluetooth link can still leave the phone
+                    // key grey in the vehicle until VCSEC receives an
+                    // authenticated request. Wake is the only side-effect-free
+                    // request that also makes the key immediately present.
+                    try await activatePhoneKeySession(tesla)
                     await refreshVehicleState()
                 } catch {
                     disconnect()
@@ -1202,7 +1206,23 @@ final class VehicleController {
         )
         try await client.connect()
         try await client.startVCSECSession()
+        // Starting the cryptographic session alone does not always mark the
+        // phone key online on a sleeping vehicle. Send an authenticated wake
+        // before exposing the connection as ready to the UI.
+        try await activatePhoneKeySession(client)
         tesla = client
+    }
+
+    private func activatePhoneKeySession(_ vehicle: TeslaVehicle) async throws {
+        do {
+            try await vehicle.wakeVehicle()
+        } catch {
+            // A vehicle may finish waking just after the first BLE response.
+            // Retry once on the same authenticated session; do not issue an
+            // RKE action such as lock/unlock merely to make the key present.
+            try? await Task.sleep(for: .milliseconds(500))
+            try await vehicle.wakeVehicle()
+        }
     }
 
     private func presentError(_ message: String) {
