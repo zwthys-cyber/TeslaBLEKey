@@ -13,7 +13,7 @@ struct VehicleDetailView: View {
                 if hasClosureData { detailSection("车辆状态", icon: "car.side.fill", rows: closureRows) }
                 if hasTireData { tireSection }
                 if hasVehicleData { detailSection("车辆信息", icon: "info.circle", rows: vehicleRows) }
-                if hasMediaData { detailSection("正在播放", icon: "play.fill", rows: mediaRows) }
+                if hasMediaData { mediaSection }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 32)
@@ -93,6 +93,71 @@ struct VehicleDetailView: View {
         .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
     }
 
+    private var mediaSection: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 14) {
+                Image(systemName: "music.note")
+                    .font(.system(size: 24, weight: .medium))
+                    .frame(width: 62, height: 62)
+                    .background(AppTheme.raised, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(vehicle.mediaTitle ?? "车载媒体")
+                        .font(.headline).lineLimit(1)
+                    Text(mediaSubtitle)
+                        .font(.caption).foregroundStyle(AppTheme.muted).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 30) {
+                mediaButton("backward.end.fill", label: "上一首", action: .mediaPrevious) {
+                    await vehicle.previousMediaTrack()
+                }
+                mediaButton(vehicle.mediaPlaybackStatus == "播放中" ? "pause.fill" : "play.fill",
+                            label: vehicle.mediaPlaybackStatus == "播放中" ? "暂停" : "播放",
+                            action: .mediaPlayPause, prominent: true) {
+                    await vehicle.toggleMediaPlayback()
+                }
+                mediaButton("forward.end.fill", label: "下一首", action: .mediaNext) {
+                    await vehicle.nextMediaTrack()
+                }
+            }
+
+            if !mediaRows.isEmpty {
+                Divider().overlay(AppTheme.hairline)
+                ForEach(Array(mediaRows.enumerated()), id: \.offset) { _, row in
+                    HStack { Text(row.0).foregroundStyle(AppTheme.muted); Spacer(); Text(row.1).lineLimit(1) }
+                        .font(.caption)
+                }
+            }
+        }
+        .padding(16)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
+    }
+
+    private func mediaButton(
+        _ symbol: String,
+        label: String,
+        action: VehicleController.VehicleAction,
+        prominent: Bool = false,
+        operation: @escaping () async -> Void
+    ) -> some View {
+        Button { Task { await operation() } } label: {
+            Group {
+                if vehicle.executingAction == action { ProgressView().tint(prominent ? .black : .white) }
+                else { Image(systemName: symbol).font(.system(size: prominent ? 19 : 17, weight: .semibold)) }
+            }
+            .frame(width: prominent ? 52 : 44, height: prominent ? 52 : 44)
+            .background(prominent ? Color.white : AppTheme.raised, in: Circle())
+            .foregroundStyle(prominent ? .black : .white)
+        }
+        .buttonStyle(UtilityPressStyle())
+        .disabled(vehicle.executingAction != nil)
+        .accessibilityLabel(label)
+    }
+
     private func tire(_ title: String, _ pressure: Double?) -> some View {
         VStack(spacing: 4) {
             Text(title).font(.caption).foregroundStyle(AppTheme.muted)
@@ -162,12 +227,14 @@ struct VehicleDetailView: View {
 
     private var mediaRows: [(String, String)] {
         var rows: [(String, String)] = []
-        if let value = vehicle.mediaTitle { rows.append(("曲目", value)) }
-        if let value = vehicle.mediaArtist { rows.append(("艺术家", value)) }
         if let value = vehicle.mediaAlbum { rows.append(("专辑", value)) }
         if let value = vehicle.mediaSource { rows.append(("来源", value)) }
         if let value = vehicle.mediaPlaybackStatus { rows.append(("播放状态", value)) }
         return rows
+    }
+
+    private var mediaSubtitle: String {
+        [vehicle.mediaArtist, vehicle.mediaAlbum].compactMap { $0 }.joined(separator: " · ").nilIfBlank ?? "来自车机的本地播放信息"
     }
 
     private var hasChargingData: Bool { !chargingRows.isEmpty }
@@ -180,4 +247,8 @@ struct VehicleDetailView: View {
         guard let date = vehicle.lastStateUpdate else { return refreshing ? "正在读取车辆状态" : "尚未刷新" }
         return "更新于 \(date.formatted(date: .omitted, time: .shortened))"
     }
+}
+
+private extension String {
+    var nilIfBlank: String? { isEmpty ? nil : self }
 }

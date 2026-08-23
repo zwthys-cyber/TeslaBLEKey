@@ -9,6 +9,7 @@ import CryptoKit
 final class VehicleController {
     enum VehicleAction: String, CaseIterable, Hashable, Identifiable, Sendable {
         case lock, unlock, frunk, trunk, drive, flash, horn, chargePort, climate, windows
+        case mediaPrevious, mediaPlayPause, mediaNext
         var id: String { rawValue }
     }
 
@@ -313,6 +314,26 @@ final class VehicleController {
                 try await self.send(action, to: vehicle)
             }
         }) { areWindowsVented = venting }
+    }
+
+    func previousMediaTrack() async {
+        await execute(.mediaPrevious, name: "切换上一首") {
+            try await self.performModern { try await $0.mediaPreviousTrack() }
+        }
+    }
+
+    func toggleMediaPlayback() async {
+        if await execute(.mediaPlayPause, name: mediaPlaybackStatus == "播放中" ? "暂停播放" : "继续播放", operation: {
+            try await self.performModern { try await $0.mediaTogglePlayback() }
+        }) {
+            mediaPlaybackStatus = mediaPlaybackStatus == "播放中" ? "已暂停" : "播放中"
+        }
+    }
+
+    func nextMediaTrack() async {
+        await execute(.mediaNext, name: "切换下一首") {
+            try await self.performModern { try await $0.mediaNextTrack() }
+        }
     }
 
     func refreshVehicleState() async {

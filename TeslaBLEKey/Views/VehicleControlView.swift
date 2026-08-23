@@ -81,17 +81,16 @@ struct VehicleControlView: View {
             VehicleDetailView()
         } label: {
             HStack(spacing: 14) {
-                ZStack(alignment: .bottomTrailing) {
-                    Image(systemName: "car.side.fill")
-                        .font(.system(size: 28, weight: .light))
-                        .frame(width: 42)
-                    Circle()
-                        .fill(connected ? Color.green : AppTheme.muted)
-                        .frame(width: 9, height: 9)
-                        .overlay(Circle().stroke(AppTheme.background, lineWidth: 2))
-                }
+                Image(systemName: "car.side.fill")
+                    .font(.system(size: 28, weight: .light))
+                    .frame(width: 42)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(connected ? Color.green : AppTheme.muted)
+                            .frame(width: 7, height: 7)
+                        Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
+                    }
                     Text(statusSummary).font(.caption).foregroundStyle(AppTheme.muted)
                 }
                 Spacer()
