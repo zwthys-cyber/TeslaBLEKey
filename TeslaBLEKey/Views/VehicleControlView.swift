@@ -94,22 +94,40 @@ struct VehicleControlView: View {
         NavigationLink {
             VehicleDetailView()
         } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "car.side.fill")
-                    .font(.system(size: 28, weight: .light))
-                    .frame(width: 42)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(connected ? Color.green : AppTheme.muted)
-                            .frame(width: 7, height: 7)
-                        Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
+            VStack(spacing: 13) {
+                HStack(spacing: 14) {
+                    Image(systemName: "car.side.fill")
+                        .font(.system(size: 28, weight: .light))
+                        .frame(width: 42)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(connected ? Color.green : AppTheme.muted)
+                                .frame(width: 7, height: 7)
+                            Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
+                        }
+                        Text(statusSummary).font(.caption).foregroundStyle(AppTheme.muted)
                     }
-                    Text(statusSummary).font(.caption).foregroundStyle(AppTheme.muted)
+                    Spacer()
+                    if busy { ProgressView().controlSize(.small).tint(.white) }
+                    else { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted) }
                 }
-                Spacer()
-                if busy { ProgressView().controlSize(.small).tint(.white) }
-                else { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted) }
+                if vehicle.batteryLevel != nil || vehicle.estimatedRangeKilometers != nil {
+                    Divider().overlay(AppTheme.hairline)
+                    HStack(spacing: 24) {
+                        if let battery = vehicle.batteryLevel {
+                            Label("\(battery)%", systemImage: "battery.75percent")
+                                .accessibilityLabel("电池电量百分之 \(battery)")
+                        }
+                        if let range = vehicle.estimatedRangeKilometers {
+                            Label(String(format: "%.0f km", range), systemImage: "road.lanes")
+                                .accessibilityLabel("预计续航 \(Int(range)) 公里")
+                        }
+                        Spacer()
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                }
             }
             .foregroundStyle(.white)
             .padding(16)
