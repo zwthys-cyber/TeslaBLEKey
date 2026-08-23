@@ -77,12 +77,8 @@ struct VehicleControlView: View {
     }
 
     private var vehicleSummary: some View {
-        Button {
-            guard !busy else { return }
-            Task {
-                if connected { await vehicle.refreshVehicleState() }
-                else { await vehicle.connectFromUI() }
-            }
+        NavigationLink {
+            VehicleDetailView()
         } label: {
             HStack(spacing: 14) {
                 ZStack(alignment: .bottomTrailing) {
@@ -100,7 +96,7 @@ struct VehicleControlView: View {
                 }
                 Spacer()
                 if busy { ProgressView().controlSize(.small).tint(.white) }
-                else { Image(systemName: "arrow.clockwise").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted) }
+                else { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted) }
             }
             .foregroundStyle(.white)
             .padding(16)
@@ -109,7 +105,7 @@ struct VehicleControlView: View {
         }
         .buttonStyle(UtilityPressStyle())
         .accessibilityValue(connected ? "绿色状态，车辆已连接" : "灰色状态，车辆未连接")
-        .accessibilityHint(connected ? "轻点刷新车辆状态" : "轻点重新连接")
+        .accessibilityHint("轻点查看车辆详情")
     }
 
     private var primaryControl: some View {

@@ -52,6 +52,24 @@ final class VehicleController {
     var cabinTemperature: Double?
     var targetTemperature = 22.0
     var areWindowsVented = false
+    var batteryLevel: Int?
+    var estimatedRangeKilometers: Double?
+    var chargeLimit: Int?
+    var chargerPowerKilowatts: Int?
+    var minutesToChargeLimit: Int?
+    var chargingStatus: String?
+    var outsideTemperature: Double?
+    var openDoorCount: Int?
+    var openWindowCount: Int?
+    var odometerKilometers: Double?
+    var tirePressureFL: Double?
+    var tirePressureFR: Double?
+    var tirePressureRL: Double?
+    var tirePressureRR: Double?
+    var hasTirePressureWarning = false
+    var softwareVersion: String?
+    var softwareUpdateStatus: String?
+    var lastStateUpdate: Date?
     private var successClearTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
@@ -263,26 +281,117 @@ final class VehicleController {
     }
 
     func refreshVehicleState() async {
-        guard let tesla else { return }
+        guard let tesla = try? await ensureModernSession() else { return }
         if let status = try? await tesla.vehicleStatus() {
             isTrunkOpen = status.closureStatuses.rearTrunk != .closurestateClosed
             isChargePortOpen = status.closureStatuses.chargePort != .closurestateClosed
             isLocked = status.vehicleLockState == .vehiclelockstateLocked || status.vehicleLockState == .vehiclelockstateInternalLocked
         }
         try? await tesla.startInfotainmentSession()
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getChargeState = CarServer_GetChargeState() }), data.hasChargeState {
+            apply(data.chargeState)
+        }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getClimateState = CarServer_GetClimateState() }), data.hasClimateState {
+            apply(data.climateState)
+        }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getClosuresState = CarServer_GetClosuresState() }), data.hasClosuresState {
+            apply(data.closuresState)
+        }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getTirePressureState = CarServer_GetTirePressureState() }), data.hasTirePressureState {
+            apply(data.tirePressureState)
+        }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getDriveState = CarServer_GetDriveState() }), data.hasDriveState {
+            if data.driveState.optionalOdometerInHundredthsOfAMile != nil {
+                odometerKilometers = Double(data.driveState.odometerInHundredthsOfAMile) / 100 * 1.609344
+            }
+        }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getSoftwareUpdateState = CarServer_GetSoftwareUpdateState() }), data.hasSoftwareUpdateState {
+            apply(data.softwareUpdateState)
+        }
+        lastStateUpdate = .now
+    }
+
+    private func requestVehicleData(
+        from vehicle: TeslaVehicle,
+        configure: (inout CarServer_GetVehicleData) -> Void
+    ) async -> CarServer_VehicleData? {
         var request = CarServer_GetVehicleData()
-        request.getClimateState = CarServer_GetClimateState()
-        request.getChargeState = CarServer_GetChargeState()
+        configure(&request)
         var action = CarServer_VehicleAction()
         action.getVehicleData = request
-        if let response = try? await tesla.sendVehicleAction(action),
-           case .vehicleData(let data)? = response.responseMsg {
-            if data.hasClimateState {
-                isClimateOn = data.climateState.isClimateOn
-                if data.climateState.optionalInsideTempCelsius != nil { cabinTemperature = Double(data.climateState.insideTempCelsius) }
-                if data.climateState.optionalDriverTempSetting != nil { targetTemperature = Double(data.climateState.driverTempSetting) }
+        guard let response = try? await vehicle.sendVehicleAction(action),
+              case .vehicleData(let data)? = response.responseMsg else { return nil }
+        return data
+    }
+
+    private func apply(_ state: CarServer_ChargeState) {
+        if state.optionalBatteryLevel != nil { batteryLevel = Int(state.batteryLevel) }
+        if state.optionalBatteryRange != nil { estimatedRangeKilometers = Double(state.batteryRange) * 1.609344 }
+        if state.optionalChargeLimitSoc != nil { chargeLimit = Int(state.chargeLimitSoc) }
+        if state.optionalChargerPower != nil { chargerPowerKilowatts = Int(state.chargerPower) }
+        if state.optionalMinutesToChargeLimit != nil { minutesToChargeLimit = Int(state.minutesToChargeLimit) }
+        if state.optionalChargePortDoorOpen != nil { isChargePortOpen = state.chargePortDoorOpen }
+        if state.hasChargingState {
+            chargingStatus = switch state.chargingState.type {
+            case .disconnected?: "未连接充电枪"
+            case .noPower?: "已连接 · 无电力"
+            case .starting?: "正在开始充电"
+            case .charging?: "正在充电"
+            case .complete?: "充电完成"
+            case .stopped?: "充电已停止"
+            case .calibrating?: "正在校准"
+            default: "状态未知"
             }
-            if data.hasChargeState { isChargePortOpen = data.chargeState.chargePortDoorOpen }
+        }
+    }
+
+    private func apply(_ state: CarServer_ClimateState) {
+        if state.optionalIsClimateOn != nil { isClimateOn = state.isClimateOn }
+        if state.optionalInsideTempCelsius != nil { cabinTemperature = Double(state.insideTempCelsius) }
+        if state.optionalOutsideTempCelsius != nil { outsideTemperature = Double(state.outsideTempCelsius) }
+        if state.optionalDriverTempSetting != nil { targetTemperature = Double(state.driverTempSetting) }
+    }
+
+    private func apply(_ state: CarServer_ClosuresState) {
+        let doorValues: [(Bool, Bool)] = [
+            (state.optionalDoorOpenDriverFront != nil, state.doorOpenDriverFront),
+            (state.optionalDoorOpenDriverRear != nil, state.doorOpenDriverRear),
+            (state.optionalDoorOpenPassengerFront != nil, state.doorOpenPassengerFront),
+            (state.optionalDoorOpenPassengerRear != nil, state.doorOpenPassengerRear)
+        ]
+        if doorValues.contains(where: { $0.0 }) { openDoorCount = doorValues.filter { $0.0 && $0.1 }.count }
+        let windowValues: [(Bool, Bool)] = [
+            (state.optionalWindowOpenDriverFront != nil, state.windowOpenDriverFront),
+            (state.optionalWindowOpenDriverRear != nil, state.windowOpenDriverRear),
+            (state.optionalWindowOpenPassengerFront != nil, state.windowOpenPassengerFront),
+            (state.optionalWindowOpenPassengerRear != nil, state.windowOpenPassengerRear)
+        ]
+        if windowValues.contains(where: { $0.0 }) { openWindowCount = windowValues.filter { $0.0 && $0.1 }.count }
+        if state.optionalLocked != nil { isLocked = state.locked }
+    }
+
+    private func apply(_ state: CarServer_TirePressureState) {
+        if state.optionalTpmsPressureFl != nil { tirePressureFL = Double(state.tpmsPressureFl) }
+        if state.optionalTpmsPressureFr != nil { tirePressureFR = Double(state.tpmsPressureFr) }
+        if state.optionalTpmsPressureRl != nil { tirePressureRL = Double(state.tpmsPressureRl) }
+        if state.optionalTpmsPressureRr != nil { tirePressureRR = Double(state.tpmsPressureRr) }
+        hasTirePressureWarning = state.tpmsHardWarningFl || state.tpmsHardWarningFr
+            || state.tpmsHardWarningRl || state.tpmsHardWarningRr
+            || state.tpmsSoftWarningFl || state.tpmsSoftWarningFr
+            || state.tpmsSoftWarningRl || state.tpmsSoftWarningRr
+    }
+
+    private func apply(_ state: CarServer_SoftwareUpdateState) {
+        if state.optionalVersion != nil, !state.version.isEmpty { softwareVersion = state.version }
+        if state.hasStatus {
+            softwareUpdateStatus = switch state.status.type {
+            case .available?: "有可用更新"
+            case .scheduled?: "已安排更新"
+            case .installing?: "正在安装"
+            case .downloading?: "正在下载"
+            case .downloadingWifiWait?: "等待 Wi-Fi"
+            default: "已是当前状态"
+            }
         }
     }
 
