@@ -17,7 +17,6 @@ struct VehicleControlView: View {
             VStack(spacing: 0) {
                 topBar
                 vehicleSummary.padding(.top, 18)
-                primaryControl.padding(.top, 18)
                 if showsNowPlaying {
                     nowPlayingCard.padding(.top, 14)
                         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -69,6 +68,11 @@ struct VehicleControlView: View {
             }
             Spacer()
             Menu {
+                NavigationLink {
+                    VehicleDetailView()
+                } label: {
+                    Label("车辆详情", systemImage: "info.circle")
+                }
                 Button {
                     if connected { vehicle.disconnect() }
                     else { Task { await vehicle.connectFromUI() } }
@@ -96,67 +100,69 @@ struct VehicleControlView: View {
     }
 
     private var vehicleSummary: some View {
-        NavigationLink {
-            VehicleDetailView()
-        } label: {
-            VStack(spacing: 13) {
-                HStack(spacing: 14) {
-                    Image(systemName: "car.side.fill")
-                        .font(.system(size: 28, weight: .light))
-                        .frame(width: 42)
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(connected ? Color.green : AppTheme.muted)
-                                .frame(width: 7, height: 7)
-                            Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
-                        }
-                        Text(statusSummary).font(.caption).foregroundStyle(AppTheme.muted)
+        VStack(spacing: 13) {
+            HStack(spacing: 14) {
+                Image(systemName: "car.side.fill")
+                    .font(.system(size: 28, weight: .light))
+                    .frame(width: 42)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(connected ? Color.green : AppTheme.muted)
+                            .frame(width: 7, height: 7)
+                        Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
                     }
-                    Spacer()
-                    if busy { ProgressView().controlSize(.small).tint(.white) }
-                    else { Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted) }
+                    Text(statusSummary).font(.caption).foregroundStyle(AppTheme.muted)
                 }
-                if vehicle.batteryLevel != nil || vehicle.estimatedRangeKilometers != nil {
-                    Divider().overlay(AppTheme.hairline)
-                    HStack(spacing: 24) {
-                        if let battery = vehicle.batteryLevel {
-                            Label("\(battery)%", systemImage: "battery.75percent")
-                                .accessibilityLabel("电池电量百分之 \(battery)")
-                        }
-                        if let range = vehicle.estimatedRangeKilometers {
-                            Label(String(format: "%.0f km", range), systemImage: "road.lanes")
-                                .accessibilityLabel("预计续航 \(Int(range)) 公里")
-                        }
-                        Spacer()
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .monospacedDigit()
-                }
+                Spacer()
+                if busy { ProgressView().controlSize(.small).tint(.white) }
             }
-            .foregroundStyle(.white)
-            .padding(16)
-            .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
+            Divider().overlay(AppTheme.hairline)
+            HStack(spacing: 20) {
+                if let battery = vehicle.batteryLevel {
+                    Label("\(battery)%", systemImage: "battery.75percent")
+                        .accessibilityLabel("电池电量百分之 \(battery)")
+                }
+                if let range = vehicle.estimatedRangeKilometers {
+                    Label(String(format: "%.0f km", range), systemImage: "road.lanes")
+                        .accessibilityLabel("预计续航 \(Int(range)) 公里")
+                }
+                Spacer(minLength: 8)
+                compactLockButton
+            }
+            .font(.subheadline.weight(.semibold))
+            .monospacedDigit()
         }
-        .buttonStyle(UtilityPressStyle())
-        .accessibilityValue(connected ? "绿色状态，车辆已连接" : "灰色状态，车辆未连接")
-        .accessibilityHint("轻点查看车辆详情")
+        .foregroundStyle(.white)
+        .padding(16)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
+        .accessibilityElement(children: .contain)
     }
 
-    private var primaryControl: some View {
-        ActionButton(
-            title: vehicle.isLocked == true ? "解锁车辆" : "锁定车辆",
-            icon: vehicle.isLocked == true ? "lock.open" : "lock.fill",
-            actionID: vehicle.isLocked == true ? .unlock : .lock,
-            appearance: .primary,
-            enabled: connected,
-            executing: vehicle.executingAction,
-            success: vehicle.lastSuccessAction
-        ) {
-            if vehicle.isLocked == true { submit(.unlock) { await vehicle.unlock() } }
+    private var compactLockButton: some View {
+        let action: VehicleController.VehicleAction = vehicle.isLocked == true ? .unlock : .lock
+        let label = vehicle.isLocked == true ? "解锁车辆" : "锁定车辆"
+        return Button {
+            if action == .unlock { submit(.unlock) { await vehicle.unlock() } }
             else { submit(.lock) { await vehicle.lock() } }
+        } label: {
+            Group {
+                if vehicle.executingAction == action {
+                    ProgressView().controlSize(.mini).tint(.black)
+                } else {
+                    Image(systemName: action == .unlock ? "lock.open.fill" : "lock.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+            }
+            .frame(width: 40, height: 40)
+            .foregroundStyle(.black)
+            .background(.white, in: Circle())
         }
+        .buttonStyle(UtilityPressStyle())
+        .disabled(!connected || vehicle.executingAction != nil)
+        .accessibilityLabel(label)
+        .accessibilityHint("立即向车辆发送\(label)命令")
     }
 
     private var nowPlayingCard: some View {
