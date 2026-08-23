@@ -166,6 +166,7 @@ final class VehicleController {
     private var handshakeDidTimeOut = false
     private var sessionNeedsForegroundValidation = false
     private var authorizedCommandBatchActive = false
+    private var lastPassiveKeyHeartbeat: Date?
 
     var displayVehicleName: String {
         if let customVehicleName, !customVehicleName.isEmpty { return customVehicleName }
@@ -765,6 +766,21 @@ final class VehicleController {
     /// protocol. Poll only the two small media payloads while the app is active.
     func refreshMediaState() async {
         guard !isRefreshingVehicleState, phase == .connected, executingAction == nil, let tesla else { return }
+        // Keep the authenticated VCSEC presence fresh while the app is
+        // scheduled. The CoreBluetooth connection itself remains owned by iOS
+        // in the background; if the user force-quits, that link disappears and
+        // the vehicle can report that its previously present key was lost.
+        if passiveEntryEnabled,
+           lastPassiveKeyHeartbeat.map({ Date.now.timeIntervalSince($0) >= 10 }) ?? true {
+            do {
+                _ = try await tesla.vehicleStatus()
+                lastPassiveKeyHeartbeat = .now
+            } catch {
+                // The disconnect observer owns reconnection. A heartbeat must
+                // never turn a transient radio gap into a user-facing command
+                // failure or perform a physical vehicle action.
+            }
+        }
         if let data = await requestVehicleData(from: tesla, configure: { $0.getMediaState = CarServer_GetMediaState() }),
            data.hasMediaState { apply(data.mediaState) }
         if let details = await requestVehicleData(from: tesla, configure: { $0.getMediaDetailState = CarServer_GetMediaDetailState() }),
@@ -1018,6 +1034,7 @@ final class VehicleController {
         tesla = nil
         legacyClient = nil
         connection = nil
+        lastPassiveKeyHeartbeat = nil
         phase = .idle
     }
 
@@ -1223,6 +1240,7 @@ final class VehicleController {
             try? await Task.sleep(for: .milliseconds(500))
             try await vehicle.wakeVehicle()
         }
+        lastPassiveKeyHeartbeat = .now
     }
 
     private func presentError(_ message: String) {
