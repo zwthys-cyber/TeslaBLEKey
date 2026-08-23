@@ -4,11 +4,33 @@ import SwiftUI
 struct TeslaBLEKeyApp: App {
     @State private var vehicle = VehicleController()
 
+    init() {}
+
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(vehicle)
+                .task {
+                    WatchBridge.shared.activate { command, completion in
+                        Task { @MainActor in
+                            let sensitive = command == "unlock"
+                            if vehicle.faceIDProtection == .all || (sensitive && vehicle.faceIDProtection == .sensitive) {
+                                completion(false)
+                                vehicle.presentUserError("此操作受 Face ID 保护，请在 iPhone 上执行。")
+                                return
+                            }
+                            completion(true)
+                            switch command {
+                            case "lock": await vehicle.lock()
+                            case "unlock": await vehicle.unlock()
+                            case "climate": if !vehicle.isClimateOn { await vehicle.toggleClimate() }
+                            case "flash": await vehicle.flashLights()
+                            case "horn": await vehicle.honk()
+                            default: break
+                            }
+                        }
+                    }
+                }
         }
     }
 }
-

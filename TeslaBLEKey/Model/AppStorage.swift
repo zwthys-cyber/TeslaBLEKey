@@ -13,4 +13,6 @@ enum AppStorageKeys {
     static let faceIDProtectionPrefix = "faceIDProtection."
     static let homeCardOrderPrefix = "homeCardOrder."
     static let hiddenHomeCardsPrefix = "hiddenHomeCards."
+    static let automationScenesPrefix = "automationScenes."
+    static let alertPreferencesPrefix = "alertPreferences."
 }

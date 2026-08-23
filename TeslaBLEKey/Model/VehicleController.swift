@@ -2,11 +2,44 @@ import Foundation
 import Observation
 import Security
 import CryptoKit
+import LocalAuthentication
 @preconcurrency import TeslaBLEKeyKit
 
 @MainActor
 @Observable
 final class VehicleController {
+    enum SceneAction: String, Codable, CaseIterable, Identifiable, Hashable {
+        case unlock, lock, climate, defrost, sentry
+        var id: String { rawValue }
+        var title: String { switch self { case .unlock: "解锁"; case .lock: "上锁"; case .climate: "开启空调"; case .defrost: "最大除霜"; case .sentry: "开启哨兵" } }
+    }
+
+    struct AutomationScene: Identifiable, Codable, Hashable {
+        var id: UUID
+        var name: String
+        var symbol: String
+        var actions: [SceneAction]
+    }
+
+    enum ScheduleKind: String, Identifiable, Hashable { case charging, preconditioning; var id: String { rawValue } }
+    struct VehicleSchedule: Identifiable, Hashable {
+        let id: UInt64
+        let kind: ScheduleKind
+        let name: String
+        let minutes: Int
+        let days: Int32
+        let enabled: Bool
+    }
+    struct ChargingSite: Identifiable, Hashable {
+        let id: Int64
+        let name: String
+        let address: String
+        let distanceKilometers: Double
+        let availableStalls: Int
+        let totalStalls: Int
+        let maxPowerKilowatts: Int
+        let closed: Bool
+    }
     enum FaceIDProtection: String, CaseIterable, Identifiable {
         case off, sensitive, all
         var id: String { rawValue }
@@ -108,11 +141,6 @@ final class VehicleController {
     var mediaAlbum: String?
     var mediaSource: String?
     var mediaPlaybackStatus: String?
-    var mediaElapsedSeconds: Int?
-    var mediaDurationSeconds: Int?
-    var mediaProgressIsEstimated = false
-    private var estimatedMediaAnchor = Date()
-    private var estimatedMediaBaseSeconds = 0
     var mediaArtworkURL: URL?
     var isSentryAvailable = false
     var isSentryOn = false
@@ -122,6 +150,13 @@ final class VehicleController {
     var isBioweaponModeOn = false
     var isCabinOverheatProtectionOn = false
     var commandHistory: [CommandRecord] = []
+    var automationScenes: [AutomationScene] = []
+    var alertPreferences: VehicleAlertPreferences
+    var vehicleSchedules: [VehicleSchedule] = []
+    var nearbyChargingSites: [ChargingSite] = []
+    var scheduleLocationName: String?
+    private var scheduleLatitude: Float?
+    private var scheduleLongitude: Float?
     var lastStateUpdate: Date?
     private var mediaArtworkLookupTask: Task<Void, Never>?
     private var lastArtworkLookupKey: String?
@@ -129,6 +164,8 @@ final class VehicleController {
     private var successClearTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
+    private var sessionNeedsForegroundValidation = false
+    private var authorizedCommandBatchActive = false
 
     var displayVehicleName: String {
         if let customVehicleName, !customVehicleName.isEmpty { return customVehicleName }
@@ -154,6 +191,8 @@ final class VehicleController {
            let records = try? JSONDecoder().decode([CommandRecord].self, from: data) {
             commandHistory = records
         }
+        automationScenes = Self.loadScenes(for: storedVehicleID)
+        alertPreferences = Self.loadAlertPreferences(for: storedVehicleID)
         if !pairingWasVerified {
             defaults.set(false, forKey: AppStorageKeys.paired)
         }
@@ -193,6 +232,8 @@ final class VehicleController {
                 vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
                 customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
                 faceIDProtection = Self.storedFaceIDProtection(for: vehicleID)
+                automationScenes = Self.loadScenes(for: vehicleID)
+                alertPreferences = Self.loadAlertPreferences(for: vehicleID)
                 UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
                 try? await Task.sleep(for: .milliseconds(500))
                 try await connect()
@@ -226,6 +267,9 @@ final class VehicleController {
         vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + identifier)
         customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + identifier)
         faceIDProtection = Self.storedFaceIDProtection(for: identifier)
+        automationScenes = Self.loadScenes(for: identifier)
+        alertPreferences = Self.loadAlertPreferences(for: identifier)
+        vehicleSchedules = []; nearbyChargingSites = []; scheduleLocationName = nil; scheduleLatitude = nil; scheduleLongitude = nil
         UserDefaults.standard.set(identifier, forKey: AppStorageKeys.pairedVehicleID)
         isPaired = true
         await connectFromUI()
@@ -242,6 +286,126 @@ final class VehicleController {
     func setFaceIDProtection(_ value: FaceIDProtection) {
         faceIDProtection = value
         UserDefaults.standard.set(value.rawValue, forKey: AppStorageKeys.faceIDProtectionPrefix + vehicleID)
+    }
+
+    func saveScene(_ scene: AutomationScene) {
+        if let index = automationScenes.firstIndex(where: { $0.id == scene.id }) { automationScenes[index] = scene }
+        else { automationScenes.append(scene) }
+        persistScenes()
+    }
+
+    func setAlertPreferences(_ preferences: VehicleAlertPreferences) {
+        alertPreferences = preferences
+        if let data = try? JSONEncoder().encode(preferences) {
+            UserDefaults.standard.set(data, forKey: AppStorageKeys.alertPreferencesPrefix + vehicleID)
+        }
+    }
+
+    func deleteScenes(at offsets: IndexSet) {
+        for index in offsets.sorted(by: >) { automationScenes.remove(at: index) }
+        persistScenes()
+    }
+
+    func runScene(_ scene: AutomationScene) async {
+        let containsSensitive = scene.actions.contains(.unlock)
+        if faceIDProtection == .all || (faceIDProtection == .sensitive && containsSensitive) {
+            guard await authenticateVehicleControl(reason: "确认执行场景“\(scene.name)”") else { return }
+        }
+        authorizedCommandBatchActive = true
+        defer { authorizedCommandBatchActive = false }
+        for action in scene.actions {
+            guard phase == .connected || executingAction != nil else { break }
+            switch action {
+            case .unlock: await unlock()
+            case .lock: await lock()
+            case .climate: if !isClimateOn { await toggleClimate() }
+            case .defrost: if !isDefrostOn { await toggleDefrost() }
+            case .sentry: if isSentryAvailable && !isSentryOn { await toggleSentryMode() }
+            }
+        }
+    }
+
+    func refreshSchedules() async {
+        guard !isRefreshingVehicleState, let tesla = try? await ensureModernSession() else { return }
+        if let location = await requestVehicleData(from: tesla, configure: { $0.getLocationState = CarServer_GetLocationState() }), location.hasLocationState {
+            let state = location.locationState
+            if state.optionalLatitude != nil { scheduleLatitude = state.latitude }
+            if state.optionalLongitude != nil { scheduleLongitude = state.longitude }
+            if state.optionalLocationName != nil { scheduleLocationName = state.locationName }
+        }
+        var result: [VehicleSchedule] = []
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getChargeScheduleState = CarServer_GetChargeScheduleState() }), data.hasChargeScheduleState {
+            result += data.chargeScheduleState.chargeSchedules.map {
+                VehicleSchedule(id: $0.id, kind: .charging, name: $0.name, minutes: Int($0.startTime), days: $0.daysOfWeek, enabled: $0.enabled)
+            }
+        }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getPreconditioningScheduleState = CarServer_GetPreconditioningScheduleState() }), data.hasPreconditioningScheduleState {
+            result += data.preconditioningScheduleState.preconditionSchedules.map {
+                VehicleSchedule(id: $0.id, kind: .preconditioning, name: $0.name, minutes: Int($0.preconditionTime), days: $0.daysOfWeek, enabled: $0.enabled)
+            }
+        }
+        vehicleSchedules = result
+    }
+
+    func addSchedule(kind: ScheduleKind, name: String, date: Date, days: Int32) async {
+        guard let latitude = scheduleLatitude, let longitude = scheduleLongitude else {
+            presentError("车辆尚未返回当前位置，无法创建位置绑定的预约。请唤醒车辆后刷新。")
+            return
+        }
+        let components = Calendar.current.dateComponents([.hour, .minute], from: date)
+        let minutes = (components.hour ?? 0) * 60 + (components.minute ?? 0)
+        let identifier = UInt64(Date().timeIntervalSince1970 * 1000)
+        let succeeded = await execute(.charging, name: "添加预约") {
+            try await self.performModern { vehicle in
+                var action = CarServer_VehicleAction()
+                if kind == .charging {
+                    var schedule = CarServer_ChargeSchedule()
+                    schedule.id = identifier; schedule.name = name; schedule.daysOfWeek = days
+                    schedule.startEnabled = true; schedule.startTime = Int32(minutes); schedule.enabled = true
+                    schedule.latitude = latitude; schedule.longitude = longitude
+                    action.addChargeScheduleAction = schedule
+                } else {
+                    var schedule = CarServer_PreconditionSchedule()
+                    schedule.id = identifier; schedule.name = name; schedule.daysOfWeek = days
+                    schedule.preconditionTime = Int32(minutes); schedule.enabled = true
+                    schedule.latitude = latitude; schedule.longitude = longitude
+                    action.addPreconditionScheduleAction = schedule
+                }
+                try await self.send(action, to: vehicle)
+            }
+        }
+        if succeeded { await refreshSchedules() }
+    }
+
+    func removeSchedule(_ schedule: VehicleSchedule) async {
+        let succeeded = await execute(.charging, name: "删除预约") {
+            try await self.performModern { vehicle in
+                var action = CarServer_VehicleAction()
+                if schedule.kind == .charging {
+                    var remove = CarServer_RemoveChargeScheduleAction(); remove.id = schedule.id
+                    action.removeChargeScheduleAction = remove
+                } else {
+                    var remove = CarServer_RemovePreconditionScheduleAction(); remove.id = schedule.id
+                    action.removePreconditionScheduleAction = remove
+                }
+                try await self.send(action, to: vehicle)
+            }
+        }
+        if succeeded { vehicleSchedules.removeAll { $0.id == schedule.id && $0.kind == schedule.kind } }
+    }
+
+    func refreshNearbyChargingSites() async {
+        guard let tesla = try? await ensureModernSession() else { return }
+        do {
+            try? await tesla.wakeVehicle(); try await tesla.startInfotainmentSession()
+            let response = try await tesla.getNearbyChargingSites(radius: 200, count: 20)
+            nearbyChargingSites = response.superchargers.map {
+                ChargingSite(id: $0.id, name: $0.name, address: [$0.streetAddress, $0.city].filter { !$0.isEmpty }.joined(separator: " · "),
+                             distanceKilometers: Double($0.distanceMiles) * 1.609344,
+                             availableStalls: Int($0.availableStalls), totalStalls: Int($0.totalStalls),
+                             maxPowerKilowatts: Int($0.maxPowerKw), closed: $0.siteClosed)
+            }.sorted { $0.distanceKilometers < $1.distanceKilometers }
+        } catch { presentError(Self.describe(error)) }
     }
 
     func vehicleDisplayName(for identifier: String) -> String {
@@ -265,6 +429,8 @@ final class VehicleController {
         vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
         customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
         faceIDProtection = Self.storedFaceIDProtection(for: vehicleID)
+        automationScenes = Self.loadScenes(for: vehicleID)
+        alertPreferences = Self.loadAlertPreferences(for: vehicleID)
         UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
 
         // Give VCSEC a brief moment to commit the approved key before reconnecting.
@@ -318,7 +484,25 @@ final class VehicleController {
     }
 
     func connectFromUI() async {
-        do { try await connect() } catch { presentError(Self.describe(error)) }
+        do {
+            try await connect()
+        } catch let error as TeslaError {
+            switch error {
+            case .bluetoothUnavailable, .bluetoothUnsupported:
+                // CoreBluetooth can transiently publish an unavailable state
+                // while iOS restores a suspended central. Recreate the link
+                // once after the state transition instead of claiming that a
+                // modern iPhone lacks BLE hardware.
+                disconnect()
+                try? await Task.sleep(for: .milliseconds(800))
+                do { try await connect() }
+                catch { presentError(Self.describe(error)) }
+            default:
+                presentError(Self.describe(error))
+            }
+        } catch {
+            presentError(Self.describe(error))
+        }
     }
 
     /// iOS may suspend BLE work while the app is in the background. Refresh
@@ -328,12 +512,31 @@ final class VehicleController {
         guard isPaired else { return }
         switch phase {
         case .connected:
-            await refreshVehicleState()
+            guard sessionNeedsForegroundValidation else { await refreshVehicleState(); return }
+            sessionNeedsForegroundValidation = false
+            if let tesla {
+                do {
+                    _ = try await tesla.vehicleStatus()
+                    await refreshVehicleState()
+                } catch {
+                    disconnect()
+                    await connectFromUI()
+                }
+            } else {
+                // VIN-free legacy sessions cannot be health-checked without
+                // consuming a command response. Rebuild after suspension.
+                disconnect()
+                await connectFromUI()
+            }
         case .idle, .failed:
             await connectFromUI()
         default:
             break
         }
+    }
+
+    func noteAppMovedToBackground() {
+        sessionNeedsForegroundValidation = true
     }
 
     func presentUserError(_ message: String) { presentError(message) }
@@ -620,6 +823,10 @@ final class VehicleController {
             apply(data.mediaDetailState)
         }
         lastStateUpdate = .now
+        WatchBridge.shared.publish(name: displayVehicleName, battery: batteryLevel, range: estimatedRangeKilometers, locked: isLocked)
+        await VehicleAlertManager.evaluate(vehicleID: vehicleID, name: displayVehicleName, preferences: alertPreferences,
+                                           battery: batteryLevel, openDoors: openDoorCount, openWindows: openWindowCount,
+                                           chargingStatus: chargingStatus)
     }
 
     private func requestVehicleData(
@@ -754,11 +961,6 @@ final class VehicleController {
     private func apply(_ state: CarServer_MediaState) {
         if state.optionalNowPlayingTitle != nil {
             let newTitle = state.nowPlayingTitle.nilIfEmpty
-            if newTitle != mediaTitle {
-                estimatedMediaBaseSeconds = 0
-                estimatedMediaAnchor = .now
-                mediaElapsedSeconds = nil
-            }
             mediaTitle = newTitle
         }
         if state.optionalNowPlayingArtist != nil { mediaArtist = state.nowPlayingArtist.nilIfEmpty }
@@ -787,32 +989,16 @@ final class VehicleController {
         mediaArtworkLookupTask?.cancel()
         let artist = mediaArtist
         mediaArtworkLookupTask = Task { [weak self] in
-            let metadata = await MediaArtworkLookup.metadata(title: title, artist: artist)
+            let url = await MediaArtworkLookup.artworkURL(title: title, artist: artist)
             guard !Task.isCancelled, self?.lastArtworkLookupKey == key else { return }
-            self?.mediaArtworkURL = metadata.artworkURL
-            if self?.mediaDurationSeconds == nil, let duration = metadata.durationSeconds, duration > 0 {
-                self?.mediaDurationSeconds = duration
-                self?.mediaProgressIsEstimated = true
-            }
+            self?.mediaArtworkURL = url
         }
     }
 
     private func apply(_ state: CarServer_MediaDetailState) {
-        if state.optionalNowPlayingElapsed != nil {
-            mediaElapsedSeconds = max(0, Int(state.nowPlayingElapsed)); mediaProgressIsEstimated = false
-        }
-        if state.optionalNowPlayingDuration != nil {
-            mediaDurationSeconds = max(0, Int(state.nowPlayingDuration)); mediaProgressIsEstimated = false
-        }
         if state.optionalNowPlayingAlbum != nil { mediaAlbum = state.nowPlayingAlbum.nilIfEmpty }
         if state.optionalNowPlayingSourceString != nil { mediaSource = state.nowPlayingSourceString.nilIfEmpty }
         if mediaSource == nil, state.optionalA2DpSourceName != nil { mediaSource = state.a2DpSourceName.nilIfEmpty }
-    }
-
-    func displayedMediaElapsed(at date: Date) -> Int? {
-        if let elapsed = mediaElapsedSeconds { return elapsed }
-        guard mediaProgressIsEstimated, mediaPlaybackStatus == "播放中" else { return estimatedMediaBaseSeconds }
-        return estimatedMediaBaseSeconds + max(0, Int(date.timeIntervalSince(estimatedMediaAnchor)))
     }
 
     func disconnect() {
@@ -861,6 +1047,7 @@ final class VehicleController {
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.faceIDProtectionPrefix + vehicleID)
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.alertPreferencesPrefix + vehicleID)
         let removedID = vehicleID
         disconnect()
         try? keyStore.delete(for: removedID)
@@ -871,6 +1058,8 @@ final class VehicleController {
             vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + next)
             customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + next)
             faceIDProtection = Self.storedFaceIDProtection(for: next)
+            automationScenes = Self.loadScenes(for: next)
+            alertPreferences = Self.loadAlertPreferences(for: next)
             UserDefaults.standard.set(next, forKey: AppStorageKeys.pairedVehicleID)
             isPaired = true
             Task { await connectFromUI() }
@@ -882,6 +1071,8 @@ final class VehicleController {
             vehicleModelName = nil
             customVehicleName = nil
             faceIDProtection = .sensitive
+            automationScenes = []
+            alertPreferences = VehicleAlertPreferences()
             isPaired = false
         }
     }
@@ -892,6 +1083,10 @@ final class VehicleController {
         // Tesla vehicle commands share one authenticated BLE session. Serialize them
         // so a second command cannot replace the first command's presentation state.
         guard executingAction == nil else { return false }
+        let sensitive = action == .unlock || action == .frunk || action == .drive
+        if !authorizedCommandBatchActive && (faceIDProtection == .all || (faceIDProtection == .sensitive && sensitive)) {
+            guard await authenticateVehicleControl(reason: "确认\(name)") else { return false }
+        }
         successClearTask?.cancel()
         lastSuccessAction = nil
         executingAction = action
@@ -919,6 +1114,17 @@ final class VehicleController {
             presentError(Self.describe(error))
             return false
         }
+    }
+
+    private func authenticateVehicleControl(reason: String) async -> Bool {
+        let context = LAContext()
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            presentError("请先在系统设置中启用 Face ID、Touch ID 或设备密码。")
+            return false
+        }
+        do { return try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) }
+        catch { return false }
     }
 
     private func appendCommandRecord(name: String, succeeded: Bool) {
@@ -1035,6 +1241,32 @@ final class VehicleController {
 
     private static func storedFaceIDProtection(for identifier: String) -> FaceIDProtection {
         FaceIDProtection(rawValue: UserDefaults.standard.string(forKey: AppStorageKeys.faceIDProtectionPrefix + identifier) ?? "") ?? .sensitive
+    }
+
+    private static func loadScenes(for identifier: String) -> [AutomationScene] {
+        guard !identifier.isEmpty,
+              let data = UserDefaults.standard.data(forKey: AppStorageKeys.automationScenesPrefix + identifier),
+              let scenes = try? JSONDecoder().decode([AutomationScene].self, from: data) else {
+            return [
+                AutomationScene(id: UUID(), name: "回家", symbol: "house.fill", actions: [.unlock]),
+                AutomationScene(id: UUID(), name: "上班", symbol: "briefcase.fill", actions: [.climate]),
+                AutomationScene(id: UUID(), name: "离车", symbol: "figure.walk.departure", actions: [.lock, .sentry]),
+                AutomationScene(id: UUID(), name: "冬季预热", symbol: "snowflake", actions: [.climate, .defrost])
+            ]
+        }
+        return scenes
+    }
+
+    private func persistScenes() {
+        if let data = try? JSONEncoder().encode(automationScenes) {
+            UserDefaults.standard.set(data, forKey: AppStorageKeys.automationScenesPrefix + vehicleID)
+        }
+    }
+
+    private static func loadAlertPreferences(for identifier: String) -> VehicleAlertPreferences {
+        guard let data = UserDefaults.standard.data(forKey: AppStorageKeys.alertPreferencesPrefix + identifier),
+              let value = try? JSONDecoder().decode(VehicleAlertPreferences.self, from: data) else { return VehicleAlertPreferences() }
+        return value
     }
 
     private static func isOpen(_ state: VCSEC_ClosureState_E) -> Bool? {

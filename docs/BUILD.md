@@ -3,6 +3,7 @@
 ## 环境
 
 - iOS deployment target：17.0
+- watchOS deployment target：10.0
 - GitHub Runner：`macos-26`
 - Xcode：26.2
 - Swift Package Manager：解析 `project.yml` 中固定 revision
@@ -24,6 +25,8 @@ open TeslaBLEKey.xcodeproj
 
 1. `Tesla protocol tests` 检出 `zwthys-cyber/TeslaBLEKeyKit` 的固定提交并执行 `swift test`。
 2. `Build unsigned TrollStore IPA` 生成 Xcode 工程、解析固定依赖、以禁用代码签名的 Release 配置编译真实 iPhone 目标，并打包 `Payload/TeslaBLEKey.app`。
+
+主 App 嵌入 watchOS 配套应用。无 Apple Watch 时不影响 iPhone 功能；TrollStore 对嵌入式 Watch App 的安装取决于系统和配对状态，CI 只验证编译与嵌入结构。
 
 Artifact 名称为 `TeslaBLEKey-iOS17-TrollStore`，文件名为 `TeslaBLEKey-unsigned.ipa`。工作流使用 `actions/checkout@v6` 和 `actions/upload-artifact@v6`，避免旧 Node 20 Action 运行时警告。
 

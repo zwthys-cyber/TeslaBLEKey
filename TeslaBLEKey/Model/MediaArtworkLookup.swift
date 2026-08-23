@@ -2,10 +2,6 @@ import Foundation
 import NeteaseCloudMusicAPI
 
 enum MediaArtworkLookup {
-    struct Metadata: Sendable {
-        let artworkURL: URL?
-        let durationSeconds: Int?
-    }
     private struct SearchResponse: Decodable {
         let results: [SearchResult]
     }
@@ -14,17 +10,16 @@ enum MediaArtworkLookup {
         let trackName: String?
         let artistName: String?
         let artworkUrl100: URL?
-        let trackTimeMillis: Int?
     }
 
-    static func metadata(title: String, artist: String?) async -> Metadata {
-        if let result = await neteaseMetadata(title: title, artist: artist) {
+    static func artworkURL(title: String, artist: String?) async -> URL? {
+        if let result = await neteaseArtworkURL(title: title, artist: artist) {
             return result
         }
-        return await appleMetadata(title: title, artist: artist)
+        return await appleArtworkURL(title: title, artist: artist)
     }
 
-    private static func neteaseMetadata(title: String, artist: String?) async -> Metadata? {
+    private static func neteaseArtworkURL(title: String, artist: String?) async -> URL? {
         do {
             let keywords = [title, artist].compactMap { $0 }.joined(separator: " ")
             let response = try await NCMClient().cloudsearch(keywords: keywords, type: .single, limit: 5)
@@ -42,22 +37,20 @@ enum MediaArtworkLookup {
             }
             guard let match else { return nil }
             let album = match["al"] as? [String: Any] ?? match["album"] as? [String: Any]
-            let duration = (match["dt"] as? Int ?? match["duration"] as? Int).map { $0 / 1000 }
-            guard let rawURL = album?["picUrl"] as? String, var components = URLComponents(string: rawURL) else {
-                return Metadata(artworkURL: nil, durationSeconds: duration)
-            }
+            guard let rawURL = album?["picUrl"] as? String,
+                  var components = URLComponents(string: rawURL) else { return nil }
             // NetEase search responses may still use an http artwork URL.
             // iOS ATS blocks it inside AsyncImage, while the same CDN supports
             // TLS, so always upgrade the image request to HTTPS.
             components.scheme = "https"
             components.queryItems = [URLQueryItem(name: "param", value: "300y300")]
-            return Metadata(artworkURL: components.url, durationSeconds: duration)
+            return components.url
         } catch {
             return nil
         }
     }
 
-    private static func appleMetadata(title: String, artist: String?) async -> Metadata {
+    private static func appleArtworkURL(title: String, artist: String?) async -> URL? {
         var components = URLComponents(string: "https://itunes.apple.com/search")
         components?.queryItems = [
             URLQueryItem(name: "term", value: [title, artist].compactMap { $0 }.joined(separator: " ")),
@@ -65,13 +58,11 @@ enum MediaArtworkLookup {
             URLQueryItem(name: "entity", value: "song"),
             URLQueryItem(name: "limit", value: "5")
         ]
-        guard let url = components?.url else { return Metadata(artworkURL: nil, durationSeconds: nil) }
+        guard let url = components?.url else { return nil }
 
         do {
             let (data, response) = try await URLSession.shared.data(from: url)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                return Metadata(artworkURL: nil, durationSeconds: nil)
-            }
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
             let results = try JSONDecoder().decode(SearchResponse.self, from: data).results
             let normalizedTitle = normalize(title)
             let normalizedArtist = artist.map(normalize)
@@ -82,10 +73,9 @@ enum MediaArtworkLookup {
             }
             // A wrong cover is worse than the neutral fallback. Only accept an
             // exact normalized title and artist match across music services.
-            return Metadata(artworkURL: highResolutionURL(from: match?.artworkUrl100),
-                            durationSeconds: match?.trackTimeMillis.map { $0 / 1000 })
+            return highResolutionURL(from: match?.artworkUrl100)
         } catch {
-            return Metadata(artworkURL: nil, durationSeconds: nil)
+            return nil
         }
     }
 

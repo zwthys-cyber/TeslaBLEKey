@@ -19,10 +19,18 @@
 - `Views/VehicleControlView.swift`：固定主页导航头、车辆卡、媒体卡和控制区。
 - `Views/VehicleDetailView.swift`：按类别分批读取并展示车辆详情。
 - `Model/MediaArtworkLookup.swift`：网易云封面精确匹配与 Apple 目录回退。
+- `Views/AutomationScenesView.swift`：每辆车独立的预设/自定义场景与串行动作执行。
+- `Views/ScheduleAndChargingSitesView.swift`：车辆端预约与附近超级充电站。
+- `Model/VehicleAlertManager.swift`：基于刷新快照的本地通知与重复抑制。
+- `App/WatchBridge.swift`：Apple Watch 与 iPhone 命令中继和状态快照。
 
 ## 后台与被动钥匙
 
 被动钥匙默认开启。固定的 TeslaBLEKeyKit 分支为 CoreBluetooth central manager 配置 restoration identifier，App 在系统恢复或连接断开后尝试重建 Phone Key 会话。最终的靠近拉门认证和离车上锁由车辆执行；iOS 仍可根据系统资源暂停或延迟后台 BLE 工作，因此实体钥匙卡始终是安全后备。
+
+Apple Watch 不持有 P-256 车辆私钥。手表通过 WatchConnectivity 将命令交给附近 iPhone，再由手机现有认证 BLE 会话执行；手机不可达时不会排队执行车辆安全命令。
+
+预约计划写入车辆而不是使用 App 本地定时器，并使用车辆返回的位置创建位置绑定计划。超级充电站同样来自车辆本地协议响应。
 
 ## 状态与媒体同步
 

@@ -1,5 +1,4 @@
 import SwiftUI
-import LocalAuthentication
 
 private enum HomeCard: String, CaseIterable, Identifiable {
     case vehicle, features, media, climate, controls, drive
@@ -18,6 +17,7 @@ struct VehicleControlView: View {
     @State private var showingRenameVehicle = false
     @State private var showingSecuritySettings = false
     @State private var showingHomeLayout = false
+    @State private var showingAlerts = false
     @State private var homeCardOrder = HomeCard.allCases
     @State private var hiddenHomeCards: Set<HomeCard> = []
     @State private var pressFeedback = 0
@@ -64,8 +64,11 @@ struct VehicleControlView: View {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            guard newPhase == .active else { return }
-            Task { await vehicle.refreshAfterReturningToForeground() }
+            if newPhase == .active {
+                Task { await vehicle.refreshAfterReturningToForeground() }
+            } else if newPhase == .background {
+                vehicle.noteAppMovedToBackground()
+            }
         }
         .onChange(of: vehicle.vehicleID) { _, _ in loadHomeLayout() }
         .confirmationDialog("移除本机车钥匙？", isPresented: $confirmForget) {
@@ -95,6 +98,9 @@ struct VehicleControlView: View {
             HomeLayoutView(order: $homeCardOrder, hidden: $hiddenHomeCards) {
                 saveHomeLayout()
             }.presentationDetents([.large])
+        }
+        .sheet(isPresented: $showingAlerts) {
+            VehicleAlertsView().environment(vehicle).presentationDetents([.large])
         }
     }
 
@@ -143,6 +149,9 @@ struct VehicleControlView: View {
                 }
                 Button { showingHomeLayout = true } label: {
                     Label("编辑主页", systemImage: "rectangle.3.group")
+                }
+                Button { showingAlerts = true } label: {
+                    Label("车辆提醒", systemImage: "bell.badge")
                 }
                 Button {
                     if connected { vehicle.disconnect() }
@@ -282,6 +291,9 @@ struct VehicleControlView: View {
                 featureLink("座舱", "fan.fill", CabinControlView())
                 featureLink("哨兵", "eye.fill", SentryControlView())
                 featureLink("诊断", "waveform.path.ecg", VehicleDiagnosticsView())
+                featureLink("场景", "sparkles", AutomationScenesView())
+                featureLink("预约", "calendar.badge.clock", VehicleSchedulesView())
+                featureLink("充电站", "bolt.car.fill", NearbyChargingSitesView())
             }
         }
         .scrollIndicators(.hidden)
@@ -303,7 +315,7 @@ struct VehicleControlView: View {
     }
 
     private var nowPlayingCard: some View {
-        VStack(spacing: 10) {
+        HStack(spacing: 13) {
             HStack(spacing: 13) {
                 AsyncImage(url: vehicle.mediaArtworkURL) { phase in
                     if case let .success(image) = phase {
@@ -337,34 +349,11 @@ struct VehicleControlView: View {
                     await vehicle.nextMediaTrack()
                 }
             }
-            Group {
-                if !vehicle.mediaProgressIsEstimated,
-                   let duration = vehicle.mediaDurationSeconds, duration > 0,
-                   let elapsed = vehicle.mediaElapsedSeconds {
-                    VStack(spacing: 5) {
-                        ProgressView(value: Double(min(elapsed, duration)), total: Double(duration)).tint(.white)
-                        HStack {
-                            Text(mediaTime(elapsed))
-                            Spacer()
-                            Text(mediaTime(duration))
-                        }.font(.caption2.monospacedDigit()).foregroundStyle(AppTheme.muted)
-                    }
-                } else {
-                    Text("当前媒体源未通过车机提供播放进度")
-                        .font(.caption2)
-                        .foregroundStyle(AppTheme.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
         }
         .padding(12)
         .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
         .accessibilityElement(children: .contain)
-    }
-
-    private func mediaTime(_ seconds: Int) -> String {
-        String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     private func compactMediaButton(
@@ -479,9 +468,6 @@ struct VehicleControlView: View {
         guard vehicle.executingAction == nil else { return }
         if haptic { pressFeedback += 1 }
         Task {
-            if vehicle.faceIDProtection == .all {
-                guard await authenticate(reason: "确认执行车辆控制") else { return }
-            }
             await operation()
         }
     }
@@ -499,35 +485,15 @@ struct VehicleControlView: View {
     }
 
     private func secureFrunk() async {
-        if vehicle.faceIDProtection == .sensitive {
-            guard await authenticate(reason: "确认打开车辆前备箱") else { return }
-        }
         await vehicle.openFrunk()
     }
 
     private func secureUnlock() async {
-        if vehicle.faceIDProtection == .sensitive {
-            guard await authenticate(reason: "确认解锁车辆") else { return }
-        }
         await vehicle.unlock()
     }
 
     private func secureDrive() async {
-        if vehicle.faceIDProtection == .sensitive {
-            guard await authenticate(reason: "确认授权车辆启动") else { return }
-        }
         await vehicle.authorizeDrive()
-    }
-
-    private func authenticate(reason: String) async -> Bool {
-        let context = LAContext()
-        var error: NSError?
-        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-            vehicle.presentUserError("请先在系统设置中启用 Face ID、Touch ID 或设备密码。")
-            return false
-        }
-        do { return try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) }
-        catch { return false }
     }
 
     private var statusSummary: String {
