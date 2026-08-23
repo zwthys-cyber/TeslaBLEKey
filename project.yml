@@ -6,7 +6,7 @@ options:
 packages:
   TeslaBLEKeyKit:
     url: https://github.com/zwthys-cyber/TeslaBLEKeyKit.git
-    revision: fb51e10ef6b092148909f09bacc3b19343b9fc75
+    revision: 1cfc8ee366d59320ae813e6e1f9f4ddf7bf3ead1
   NeteaseCloudMusicAPI:
     url: https://github.com/Lincb522/NeteaseCloudMusicApi-Swift.git
     revision: 8626b8fe628144e051dd9e07180850d253c808f2
@@ -35,7 +35,7 @@ targets:
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
         CURRENT_PROJECT_VERSION: 1
-        MARKETING_VERSION: 1.9.7
+        MARKETING_VERSION: 1.9.8
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: TeslaBLEKeyKit

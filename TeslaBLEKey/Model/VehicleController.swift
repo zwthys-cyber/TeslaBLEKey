@@ -95,6 +95,7 @@ final class VehicleController {
     var lastStateUpdate: Date?
     private var mediaArtworkLookupTask: Task<Void, Never>?
     private var lastArtworkLookupKey: String?
+    private var isRefreshingVehicleState = false
     private var successClearTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
@@ -395,7 +396,7 @@ final class VehicleController {
     /// Media changes made on the center display are not pushed over the BLE
     /// protocol. Poll only the two small media payloads while the app is active.
     func refreshMediaState() async {
-        guard phase == .connected, executingAction == nil, let tesla else { return }
+        guard !isRefreshingVehicleState, phase == .connected, executingAction == nil, let tesla else { return }
         if let data = await requestVehicleData(from: tesla, configure: { $0.getMediaState = CarServer_GetMediaState() }),
            data.hasMediaState { apply(data.mediaState) }
         if let details = await requestVehicleData(from: tesla, configure: { $0.getMediaDetailState = CarServer_GetMediaDetailState() }),
@@ -403,6 +404,12 @@ final class VehicleController {
     }
 
     func refreshVehicleState() async {
+        // The BLE dispatcher is request/response based. Do not let the
+        // two-second media poll or a second pull-to-refresh interleave with a
+        // full state refresh, otherwise receivers can wait on each other.
+        guard !isRefreshingVehicleState else { return }
+        isRefreshingVehicleState = true
+        defer { isRefreshingVehicleState = false }
         guard let tesla = try? await ensureModernSession() else { return }
         availableSoftwareVersion = nil
         softwareUpdateStatus = nil
@@ -462,7 +469,7 @@ final class VehicleController {
         configure(&request)
         var action = CarServer_VehicleAction()
         action.getVehicleData = request
-        guard let response = try? await vehicle.sendVehicleAction(action),
+        guard let response = try? await vehicle.sendVehicleAction(action, retryOnFailure: false),
               case .vehicleData(let data)? = response.responseMsg else { return nil }
         return data
     }

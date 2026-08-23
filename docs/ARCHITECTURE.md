@@ -1,6 +1,6 @@
 # 架构与协议
 
-本文对应 App `1.9.7` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
+本文对应 App `1.9.8` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
 
 1. `NearbyTeslaScanner` 使用 CoreBluetooth 扫描附近广播，并校验 Tesla 本地名称格式。
 2. App 为每辆车在 Keychain 生成独立 P-256 私钥。
@@ -23,13 +23,13 @@
 
 ## 状态与媒体同步
 
-整车状态在连接、手动下拉刷新和 App 回到前台时读取。为避免 BLE 单次响应超过 MTU，详情状态按 Charge、Climate、Closures、Tire、Drive、Software Update 和 Media 分批请求。
+整车状态在连接、手动下拉刷新和 App 回到前台时读取。为避免 BLE 单次响应超过 MTU，详情状态按 Charge、Climate、Closures、Tire、Drive、Software Update 和 Media 分批请求。只读 VehicleData 请求明确禁用车辆命令的可重试循环，因此车机未响应时请求会返回而不是无限重发。完整刷新期间媒体轮询会让路，并阻止第二个完整刷新进入，避免 BLE receiver 互相等待。
 
 Tesla 不会把中控屏切歌主动推送给本 App。主页在前台连接期间每 2 秒只轮询 MediaState 与 MediaDetailState；进入后台立即停止，不重复读取电池或车门等整车数据。
 
 ## 固定依赖
 
-- `zwthys-cyber/TeslaBLEKeyKit`：`fb51e10ef6b092148909f09bacc3b19343b9fc75`
+- `zwthys-cyber/TeslaBLEKeyKit`：`1cfc8ee366d59320ae813e6e1f9f4ddf7bf3ead1`
 - `Lincb522/NeteaseCloudMusicApi-Swift`：`8626b8fe628144e051dd9e07180850d253c808f2`
 
 具体固定值以仓库根目录的 `project.yml` 为唯一事实来源；CI 必须测试同一 TeslaBLEKeyKit 提交。

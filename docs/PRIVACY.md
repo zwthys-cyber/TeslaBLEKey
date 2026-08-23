@@ -16,7 +16,7 @@ App 不要求 Tesla 账号、Tesla 密码、OAuth、Fleet API，也没有开发�
 
 Tesla BLE 媒体协议不返回封面。播放媒体时，App 会使用车机返回的歌名和歌手：
 
-1. 先通过固定的第三方网易云 Swift SDK匿名搜索网易云目录；
+1. 先通过固定的第三方网易云 Swift SDK 匿名搜索网易云目录；
 2. 精确匹配失败时请求 Apple iTunes Search 公共目录；
 3. 两者都失败则仅显示本地图标。
 
