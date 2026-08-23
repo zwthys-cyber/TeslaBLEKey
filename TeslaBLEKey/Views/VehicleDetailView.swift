@@ -153,7 +153,6 @@ struct VehicleDetailView: View {
     private var vehicleRows: [(String, String)] {
         var rows: [(String, String)] = []
         if let value = vehicle.odometerKilometers { rows.append(("累计里程", String(format: "%.0f km", value))) }
-        rows.append(("当前版本", "本地蓝牙未提供"))
         if let value = vehicle.availableSoftwareVersion { rows.append(("待安装版本", value)) }
         if let value = vehicle.softwareUpdateStatus { rows.append(("更新状态", value)) }
         if let value = vehicle.vehicleSleepStatus { rows.append(("车辆电源", value)) }

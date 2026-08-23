@@ -4,6 +4,7 @@ import LocalAuthentication
 struct VehicleControlView: View {
     @Environment(VehicleController.self) private var vehicle
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var confirmForget = false
     @State private var confirmDrive = false
     @State private var pressFeedback = 0
@@ -40,6 +41,10 @@ struct VehicleControlView: View {
             animateRailEntrance = !railHasAppeared && !reduceMotion
             revealRail = true
             railHasAppeared = true
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            Task { await vehicle.refreshAfterReturningToForeground() }
         }
         .confirmationDialog("移除本机车钥匙？", isPresented: $confirmForget) {
             Button("移除", role: .destructive) { vehicle.forgetVehicle() }

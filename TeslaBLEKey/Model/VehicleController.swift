@@ -240,6 +240,21 @@ final class VehicleController {
         do { try await connect() } catch { presentError(Self.describe(error)) }
     }
 
+    /// iOS may suspend BLE work while the app is in the background. Refresh
+    /// immediately on return, or rebuild the session if restoration left the
+    /// controller disconnected.
+    func refreshAfterReturningToForeground() async {
+        guard isPaired else { return }
+        switch phase {
+        case .connected:
+            await refreshVehicleState()
+        case .idle, .failed:
+            await connectFromUI()
+        default:
+            break
+        }
+    }
+
     func presentUserError(_ message: String) { presentError(message) }
 
     func setPassiveEntryEnabled(_ enabled: Bool) async {
