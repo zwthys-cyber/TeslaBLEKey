@@ -1,6 +1,6 @@
 # 架构与协议
 
-本文对应 App `2.0.1` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
+本文对应 App `2.0.2` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
 
 1. `NearbyTeslaScanner` 使用 CoreBluetooth 扫描附近广播，并校验 Tesla 本地名称格式。
 2. App 为每辆车在 Keychain 生成独立 P-256 私钥。

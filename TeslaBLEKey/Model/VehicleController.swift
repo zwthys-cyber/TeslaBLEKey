@@ -102,6 +102,9 @@ final class VehicleController {
     var mediaPlaybackStatus: String?
     var mediaElapsedSeconds: Int?
     var mediaDurationSeconds: Int?
+    var mediaProgressIsEstimated = false
+    private var estimatedMediaAnchor = Date()
+    private var estimatedMediaBaseSeconds = 0
     var mediaArtworkURL: URL?
     var isSentryAvailable = false
     var isSentryOn = false
@@ -698,7 +701,15 @@ final class VehicleController {
     }
 
     private func apply(_ state: CarServer_MediaState) {
-        if state.optionalNowPlayingTitle != nil { mediaTitle = state.nowPlayingTitle.nilIfEmpty }
+        if state.optionalNowPlayingTitle != nil {
+            let newTitle = state.nowPlayingTitle.nilIfEmpty
+            if newTitle != mediaTitle {
+                estimatedMediaBaseSeconds = 0
+                estimatedMediaAnchor = .now
+                mediaElapsedSeconds = nil
+            }
+            mediaTitle = newTitle
+        }
         if state.optionalNowPlayingArtist != nil { mediaArtist = state.nowPlayingArtist.nilIfEmpty }
         if state.optionalMediaPlaybackStatus != nil {
             mediaPlaybackStatus = switch state.mediaPlaybackStatus {
@@ -725,18 +736,32 @@ final class VehicleController {
         mediaArtworkLookupTask?.cancel()
         let artist = mediaArtist
         mediaArtworkLookupTask = Task { [weak self] in
-            let url = await MediaArtworkLookup.artworkURL(title: title, artist: artist)
+            let metadata = await MediaArtworkLookup.metadata(title: title, artist: artist)
             guard !Task.isCancelled, self?.lastArtworkLookupKey == key else { return }
-            self?.mediaArtworkURL = url
+            self?.mediaArtworkURL = metadata.artworkURL
+            if self?.mediaDurationSeconds == nil, let duration = metadata.durationSeconds, duration > 0 {
+                self?.mediaDurationSeconds = duration
+                self?.mediaProgressIsEstimated = true
+            }
         }
     }
 
     private func apply(_ state: CarServer_MediaDetailState) {
-        if state.optionalNowPlayingElapsed != nil { mediaElapsedSeconds = max(0, Int(state.nowPlayingElapsed)) }
-        if state.optionalNowPlayingDuration != nil { mediaDurationSeconds = max(0, Int(state.nowPlayingDuration)) }
+        if state.optionalNowPlayingElapsed != nil {
+            mediaElapsedSeconds = max(0, Int(state.nowPlayingElapsed)); mediaProgressIsEstimated = false
+        }
+        if state.optionalNowPlayingDuration != nil {
+            mediaDurationSeconds = max(0, Int(state.nowPlayingDuration)); mediaProgressIsEstimated = false
+        }
         if state.optionalNowPlayingAlbum != nil { mediaAlbum = state.nowPlayingAlbum.nilIfEmpty }
         if state.optionalNowPlayingSourceString != nil { mediaSource = state.nowPlayingSourceString.nilIfEmpty }
         if mediaSource == nil, state.optionalA2DpSourceName != nil { mediaSource = state.a2DpSourceName.nilIfEmpty }
+    }
+
+    func displayedMediaElapsed(at date: Date) -> Int? {
+        if let elapsed = mediaElapsedSeconds { return elapsed }
+        guard mediaProgressIsEstimated, mediaPlaybackStatus == "播放中" else { return estimatedMediaBaseSeconds }
+        return estimatedMediaBaseSeconds + max(0, Int(date.timeIntervalSince(estimatedMediaAnchor)))
     }
 
     func disconnect() {

@@ -257,15 +257,23 @@ struct VehicleControlView: View {
                     await vehicle.nextMediaTrack()
                 }
             }
-            if let elapsed = vehicle.mediaElapsedSeconds,
-               let duration = vehicle.mediaDurationSeconds, duration > 0 {
-                VStack(spacing: 5) {
-                    ProgressView(value: Double(min(elapsed, duration)), total: Double(duration)).tint(.white)
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                if let duration = vehicle.mediaDurationSeconds, duration > 0,
+                   let elapsed = vehicle.displayedMediaElapsed(at: context.date) {
+                    VStack(spacing: 5) {
+                        ProgressView(value: Double(min(elapsed, duration)), total: Double(duration)).tint(.white)
+                        HStack {
+                            Text(mediaTime(elapsed))
+                            if vehicle.mediaProgressIsEstimated { Text("估算").foregroundStyle(.tertiary) }
+                            Spacer()
+                            Text(mediaTime(duration))
+                        }.font(.caption2.monospacedDigit()).foregroundStyle(AppTheme.muted)
+                    }
+                } else {
                     HStack {
-                        Text(mediaTime(elapsed))
-                        Spacer()
-                        Text(mediaTime(duration))
-                    }.font(.caption2.monospacedDigit()).foregroundStyle(AppTheme.muted)
+                        Capsule().fill(AppTheme.raised).frame(height: 3)
+                        Text("车机未提供进度").font(.caption2).foregroundStyle(AppTheme.muted)
+                    }
                 }
             }
         }
