@@ -107,7 +107,7 @@ final class VehicleController {
         vehicleModelName = defaults.string(forKey: AppStorageKeys.vehicleModelPrefix + storedVehicleID)
         let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
-        passiveEntryEnabled = defaults.bool(forKey: AppStorageKeys.passiveEntryEnabled)
+        passiveEntryEnabled = (defaults.object(forKey: AppStorageKeys.passiveEntryEnabled) as? Bool) ?? true
         if !pairingWasVerified {
             defaults.set(false, forKey: AppStorageKeys.paired)
         }
