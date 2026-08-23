@@ -9,14 +9,18 @@ final class VehicleDiscoveryTests: XCTestCase {
     }
 
     func testVehicleSignalPresentation() {
-        let close = NearbyTesla(id: UUID(), peripheralName: "S1a87a5a75f3df858C", rssi: -48, lastSeen: .now)
-        let nearby = NearbyTesla(id: UUID(), peripheralName: "S1a87a5a75f3df858C", rssi: -63, lastSeen: .now)
-        let far = NearbyTesla(id: UUID(), peripheralName: "S1a87a5a75f3df858C", rssi: -82, lastSeen: .now)
+        let close = NearbyTesla(id: UUID(), peripheralName: "S1a87a5a75f3df858C", rssi: -48, txPower: -59, lastSeen: .now, modelName: nil)
+        let nearby = NearbyTesla(id: UUID(), peripheralName: "S1a87a5a75f3df858C", rssi: -63, txPower: -59, lastSeen: .now, modelName: nil)
+        let far = NearbyTesla(id: UUID(), peripheralName: "S1a87a5a75f3df858C", rssi: -82, txPower: -59, lastSeen: .now, modelName: nil)
 
         XCTAssertEqual(close.signalLabel, "很近")
         XCTAssertEqual(nearby.signalLabel, "附近")
         XCTAssertEqual(far.signalLabel, "较远")
         XCTAssertEqual(close.shortIdentifier, "F858")
+        XCTAssertLessThan(close.estimatedDistance, nearby.estimatedDistance)
+        XCTAssertLessThan(nearby.estimatedDistance, far.estimatedDistance)
+        XCTAssertEqual(VehicleController.modelName(fromVIN: "LRWYGCEK1NC000000"), "Model Y")
+        XCTAssertEqual(VehicleController.modelName(fromVIN: "5YJ3E1EA7KF000000"), "Model 3")
     }
 
     func testLegacyVCSECWireVectors() {

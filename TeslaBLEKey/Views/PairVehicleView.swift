@@ -65,7 +65,7 @@ struct PairVehicleView: View {
                         Image(systemName: selectedVehicle?.id == candidate.id ? "checkmark.circle.fill" : "circle")
                             .font(.title3)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("Tesla · \(candidate.shortIdentifier)")
+                            Text(candidate.modelName ?? "Tesla · \(candidate.shortIdentifier)")
                                 .font(.subheadline.weight(.semibold))
                             Text(scanner.vehicles.count == 1 ? "本地蓝牙钥匙" : "候选车辆 \(index + 1)")
                                 .font(.caption)
@@ -76,6 +76,9 @@ struct PairVehicleView: View {
                             Label(candidate.signalLabel, systemImage: signalSymbol(candidate.signalLevel))
                                 .font(.caption.weight(.semibold))
                             Text("\(candidate.rssi) dBm")
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(AppTheme.muted)
+                            Text(candidate.distanceLabel)
                                 .font(.caption2.monospacedDigit())
                                 .foregroundStyle(AppTheme.muted)
                         }

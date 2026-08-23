@@ -38,6 +38,7 @@ final class VehicleController {
 
     var vehicleID: String
     var isPaired: Bool
+    var vehicleModelName: String?
     var phase: Phase = .idle
     var showingError = false
     var errorMessage = ""
@@ -51,6 +52,7 @@ final class VehicleController {
     init() {
         let defaults = UserDefaults.standard
         vehicleID = defaults.string(forKey: AppStorageKeys.pairedVehicleID) ?? ""
+        vehicleModelName = defaults.string(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
         let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
         if !pairingWasVerified {
@@ -143,6 +145,10 @@ final class VehicleController {
         let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
         do {
             let discoveredVIN = try await bootstrap.vehicleVIN()
+            if let model = Self.modelName(fromVIN: discoveredVIN) {
+                vehicleModelName = model
+                UserDefaults.standard.set(model, forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
+            }
             link.vin = discoveredVIN
             let client = try TeslaVehicle(
                 connector: link,
@@ -198,6 +204,7 @@ final class VehicleController {
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.paired)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.pairingSchemaVersion)
         vehicleID = ""
+        vehicleModelName = nil
         isPaired = false
     }
 
@@ -254,6 +261,17 @@ final class VehicleController {
 
     private static func describe(_ error: Error) -> String {
         (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+    }
+
+    static func modelName(fromVIN vin: String) -> String? {
+        guard vin.count == 17 else { return nil }
+        switch vin[vin.index(vin.startIndex, offsetBy: 3)] {
+        case "3": "Model 3"
+        case "Y": "Model Y"
+        case "S": "Model S"
+        case "X": "Model X"
+        default: nil
+        }
     }
 
     private enum LocalError: LocalizedError {

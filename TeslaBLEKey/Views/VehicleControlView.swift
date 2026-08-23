@@ -55,7 +55,8 @@ struct VehicleControlView: View {
     private var topBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
-                Text("我的车辆").font(.system(size: 28, weight: .semibold)).tracking(-0.5)
+                Text(vehicle.vehicleModelName.map { "我的 \($0)" } ?? "我的车辆")
+                    .font(.system(size: 28, weight: .semibold)).tracking(-0.5)
                 Text("蓝牙车钥匙").font(.caption).foregroundStyle(AppTheme.muted)
             }
             Spacer()

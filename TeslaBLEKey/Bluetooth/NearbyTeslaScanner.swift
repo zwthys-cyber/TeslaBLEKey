@@ -6,7 +6,9 @@ struct NearbyTesla: Identifiable, Equatable {
     let id: UUID
     let peripheralName: String
     let rssi: Int
+    let txPower: Int?
     let lastSeen: Date
+    let modelName: String?
 
     var signalLabel: String {
         switch rssi {
@@ -25,6 +27,20 @@ struct NearbyTesla: Identifiable, Equatable {
         case (-55)...: 3
         case (-70) ..< (-55): 2
         default: 1
+        }
+    }
+
+    var estimatedDistance: Double {
+        let calibratedPower = txPower ?? -59
+        let meters = pow(10, Double(calibratedPower - rssi) / 22.0)
+        return min(max(meters, 0.05), 99)
+    }
+
+    var distanceLabel: String {
+        switch estimatedDistance {
+        case ..<1: String(format: "约 %.2f 米", estimatedDistance)
+        case ..<10: String(format: "约 %.1f 米", estimatedDistance)
+        default: String(format: "约 %.0f 米", estimatedDistance)
         }
     }
 }
@@ -91,6 +107,7 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         nearbyDeviceCount = nearbyPeripheralIDs.count
 
         let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+        let advertisedTxPower = (advertisementData[CBAdvertisementDataTxPowerLevelKey] as? NSNumber)?.intValue
         let name = advertisedName ?? peripheral.name ?? "Tesla"
 
         // Tesla vehicle advertisements use S + 16 lowercase hex digits + C.
@@ -107,7 +124,9 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
             id: peripheral.identifier,
             peripheralName: name,
             rssi: smoothedRSSI,
-            lastSeen: .now
+            txPower: advertisedTxPower,
+            lastSeen: .now,
+            modelName: UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + name)
         )
         scanTimedOut = false
         timeoutTask?.cancel()
