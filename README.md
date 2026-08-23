@@ -3,13 +3,13 @@
 [![Build iOS 17 IPA](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/ac54u-mobile/TeslaBLEKey)](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
-纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。当前版本：**1.3.2**。
+纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。当前版本：**1.3.3**。
 
 > [下载最新 TrollStore IPA](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
 ## 当前功能
 
-- 自动扫描附近 Tesla，并优先选择信号最强的车辆
+- 自动扫描附近 Tesla；单车自动选择，多车显示实时信号强度并由用户确认
 - 前台扫描全部 BLE 广播后仅保留符合 Tesla 官方本地名称格式的车辆，避免服务 UUID 广播缺失造成漏检
 - 在设备 Keychain 中生成并保存每辆车独立的 P-256 密钥
 - 发送 Tesla VCSEC `addKey` 请求，通过已有 NFC 钥匙卡在车内授权
@@ -29,7 +29,7 @@
 1. 在 TrollStore 中安装 Actions 生成的 IPA。
 2. 打开蓝牙并允许 App 使用蓝牙。
 3. 坐进车辆，携带一张已经授权的 Tesla NFC 钥匙卡。
-4. App 自动选择信号最强的兼容车辆，点击“添加车钥匙”。
+4. 仅发现一辆时 App 自动选择；发现多辆时按信号强度排列，确认离手机最近的车辆后点击“添加车钥匙”。
 5. App 提示后，把钥匙卡放到中控台读卡区域，并在车机屏幕确认。
 
 密钥使用 `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`，不会同步或迁移。卸载 App、清理

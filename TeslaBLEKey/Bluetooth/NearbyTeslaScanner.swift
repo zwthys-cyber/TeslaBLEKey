@@ -15,6 +15,18 @@ struct NearbyTesla: Identifiable, Equatable {
         default: "较远"
         }
     }
+
+    var shortIdentifier: String {
+        String(peripheralName.dropLast().suffix(4)).uppercased()
+    }
+
+    var signalLevel: Int {
+        switch rssi {
+        case (-55)...: 3
+        case (-70) ..< (-55): 2
+        default: 1
+        }
+    }
 }
 
 @MainActor
@@ -82,14 +94,19 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         let name = advertisedName ?? peripheral.name ?? "Tesla"
 
         // Tesla vehicle advertisements use S + 16 lowercase hex digits + C.
-        // Filtering the service UUID already excludes normal Bluetooth devices;
-        // validating the name prevents presenting unrelated service collisions.
+        // The broad foreground scan also sees normal Bluetooth devices, so strict
+        // name validation prevents presenting unrelated peripherals as vehicles.
         guard Self.isTeslaAdvertisementName(name) else { return }
 
+        let previousRSSI = vehiclesByID[peripheral.identifier]?.rssi
+        // BLE RSSI moves several dBm even when neither phone nor car moves. A
+        // light moving average keeps the ordering and signal UI from flickering.
+        let smoothedRSSI = previousRSSI.map { Int((Double($0) * 0.7) + (Double(RSSI.intValue) * 0.3)) }
+            ?? RSSI.intValue
         vehiclesByID[peripheral.identifier] = NearbyTesla(
             id: peripheral.identifier,
             peripheralName: name,
-            rssi: RSSI.intValue,
+            rssi: smoothedRSSI,
             lastSeen: .now
         )
         scanTimedOut = false

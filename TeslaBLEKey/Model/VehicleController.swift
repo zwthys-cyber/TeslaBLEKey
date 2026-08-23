@@ -42,6 +42,8 @@ final class VehicleController {
     var executingAction: VehicleAction?
     var lastSuccessAction: VehicleAction?
     private var successClearTask: Task<Void, Never>?
+    private var handshakeTimeoutTask: Task<Void, Never>?
+    private var handshakeDidTimeOut = false
 
     func pair(with nearby: NearbyTesla) async {
         phase = .connecting
@@ -87,7 +89,19 @@ final class VehicleController {
         try await link.connect(timeout: 30)
         try await client.connect()
         phase = .handshaking
+        handshakeDidTimeOut = false
+        handshakeTimeoutTask?.cancel()
+        handshakeTimeoutTask = Task { [weak self, weak link] in
+            try? await Task.sleep(for: .seconds(20))
+            guard !Task.isCancelled, let self, self.phase == .handshaking else { return }
+            self.handshakeDidTimeOut = true
+            link?.close()
+            self.presentError("安全连接超时。请唤醒车辆、靠近驾驶位后重试。")
+        }
         try await client.startVCSECSession()
+        handshakeTimeoutTask?.cancel()
+        handshakeTimeoutTask = nil
+        guard !handshakeDidTimeOut else { throw LocalError.handshakeTimedOut }
         phase = .connected
     }
 
@@ -104,6 +118,8 @@ final class VehicleController {
     func authorizeDrive() async { await execute(.drive, name: "启动车辆") { try await $0.remoteDrive() } }
 
     func disconnect() {
+        handshakeTimeoutTask?.cancel()
+        handshakeTimeoutTask = nil
         tesla?.disconnect()
         tesla = nil
         connection = nil
@@ -155,11 +171,12 @@ final class VehicleController {
     }
 
     private enum LocalError: LocalizedError {
-        case noVehicle, keyMissing
+        case noVehicle, keyMissing, handshakeTimedOut
         var errorDescription: String? {
             switch self {
             case .noVehicle: "没有已配对车辆"
             case .keyMissing: "本机车辆密钥已丢失，请重新配对"
+            case .handshakeTimedOut: "安全连接超时。请唤醒车辆、靠近驾驶位后重试。"
             }
         }
     }
