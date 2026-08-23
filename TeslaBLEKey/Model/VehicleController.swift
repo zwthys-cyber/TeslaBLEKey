@@ -49,9 +49,11 @@ final class VehicleController {
     private var intentionalDisconnect = false
 
     var vehicleID: String
+    var pairedVehicleIDs: [String]
     var isPaired: Bool
     var passiveEntryEnabled: Bool
     var vehicleModelName: String?
+    var customVehicleName: String?
     var phase: Phase = .idle
     var showingError = false
     var errorMessage = ""
@@ -123,6 +125,7 @@ final class VehicleController {
     private var handshakeDidTimeOut = false
 
     var displayVehicleName: String {
+        if let customVehicleName, !customVehicleName.isEmpty { return customVehicleName }
         if let vehicleModelName { return "Tesla \(vehicleModelName)" }
         guard !vehicleID.isEmpty else { return "Tesla Vehicle" }
         return "Tesla · \(String(vehicleID.dropLast().suffix(4)).uppercased())"
@@ -132,7 +135,11 @@ final class VehicleController {
         let defaults = UserDefaults.standard
         let storedVehicleID = defaults.string(forKey: AppStorageKeys.pairedVehicleID) ?? ""
         vehicleID = storedVehicleID
+        var storedIDs = defaults.stringArray(forKey: AppStorageKeys.pairedVehicleIDs) ?? []
+        if !storedVehicleID.isEmpty, !storedIDs.contains(storedVehicleID) { storedIDs.insert(storedVehicleID, at: 0) }
+        pairedVehicleIDs = storedIDs
         vehicleModelName = defaults.string(forKey: AppStorageKeys.vehicleModelPrefix + storedVehicleID)
+        customVehicleName = defaults.string(forKey: AppStorageKeys.customVehicleNamePrefix + storedVehicleID)
         let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
         passiveEntryEnabled = (defaults.object(forKey: AppStorageKeys.passiveEntryEnabled) as? Bool) ?? true
@@ -176,6 +183,8 @@ final class VehicleController {
                 link.close()
                 connection = nil
                 vehicleID = nearby.peripheralName
+                vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
+                customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
                 UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
                 try? await Task.sleep(for: .milliseconds(500))
                 try await connect()
@@ -202,6 +211,31 @@ final class VehicleController {
         }
     }
 
+    func switchVehicle(to identifier: String) async {
+        guard identifier != vehicleID, pairedVehicleIDs.contains(identifier) else { return }
+        disconnect()
+        vehicleID = identifier
+        vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + identifier)
+        customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + identifier)
+        UserDefaults.standard.set(identifier, forKey: AppStorageKeys.pairedVehicleID)
+        isPaired = true
+        await connectFromUI()
+    }
+
+    func saveCustomVehicleName(_ input: String) {
+        let value = String(input.trimmingCharacters(in: .whitespacesAndNewlines).prefix(24))
+        customVehicleName = value.isEmpty ? nil : value
+        let key = AppStorageKeys.customVehicleNamePrefix + vehicleID
+        if value.isEmpty { UserDefaults.standard.removeObject(forKey: key) }
+        else { UserDefaults.standard.set(value, forKey: key) }
+    }
+
+    func vehicleDisplayName(for identifier: String) -> String {
+        if let name = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + identifier), !name.isEmpty { return name }
+        if let model = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + identifier) { return "Tesla \(model)" }
+        return "Tesla · \(String(identifier.dropLast().suffix(4)).uppercased())"
+    }
+
     func confirmPairingAndConnect() async {
         guard let pendingPairing else {
             presentError("配对会话已失效，请重新搜索车辆。")
@@ -214,6 +248,8 @@ final class VehicleController {
         self.pendingPairing = nil
         connection = nil
         vehicleID = selectedVehicle.peripheralName
+        vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
+        customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
         UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
 
         // Give VCSEC a brief moment to commit the approved key before reconnecting.
@@ -808,14 +844,28 @@ final class VehicleController {
     func forgetVehicle() {
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.vehicleVINPrefix + vehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
+        let removedID = vehicleID
         disconnect()
-        try? keyStore.delete(for: vehicleID)
-        UserDefaults.standard.removeObject(forKey: AppStorageKeys.pairedVehicleID)
-        UserDefaults.standard.removeObject(forKey: AppStorageKeys.paired)
-        UserDefaults.standard.removeObject(forKey: AppStorageKeys.pairingSchemaVersion)
-        vehicleID = ""
-        vehicleModelName = nil
-        isPaired = false
+        try? keyStore.delete(for: removedID)
+        pairedVehicleIDs.removeAll { $0 == removedID }
+        UserDefaults.standard.set(pairedVehicleIDs, forKey: AppStorageKeys.pairedVehicleIDs)
+        if let next = pairedVehicleIDs.first {
+            vehicleID = next
+            vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + next)
+            customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + next)
+            UserDefaults.standard.set(next, forKey: AppStorageKeys.pairedVehicleID)
+            isPaired = true
+            Task { await connectFromUI() }
+        } else {
+            UserDefaults.standard.removeObject(forKey: AppStorageKeys.pairedVehicleID)
+            UserDefaults.standard.removeObject(forKey: AppStorageKeys.paired)
+            UserDefaults.standard.removeObject(forKey: AppStorageKeys.pairingSchemaVersion)
+            vehicleID = ""
+            vehicleModelName = nil
+            customVehicleName = nil
+            isPaired = false
+        }
     }
 
     @discardableResult
@@ -941,6 +991,8 @@ final class VehicleController {
         UserDefaults.standard.set(true, forKey: AppStorageKeys.paired)
         UserDefaults.standard.set(3, forKey: AppStorageKeys.pairingSchemaVersion)
         isPaired = true
+        if !pairedVehicleIDs.contains(vehicleID) { pairedVehicleIDs.append(vehicleID) }
+        UserDefaults.standard.set(pairedVehicleIDs, forKey: AppStorageKeys.pairedVehicleIDs)
     }
 
     private static func describe(_ error: Error) -> String {

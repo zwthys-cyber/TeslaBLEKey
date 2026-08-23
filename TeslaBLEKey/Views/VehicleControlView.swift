@@ -7,6 +7,8 @@ struct VehicleControlView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var confirmForget = false
     @State private var confirmDrive = false
+    @State private var showingAddVehicle = false
+    @State private var showingRenameVehicle = false
     @State private var pressFeedback = 0
     @SceneStorage("controlRailHasAppeared") private var railHasAppeared = false
     @State private var revealRail = false
@@ -69,6 +71,14 @@ struct VehicleControlView: View {
         .sensoryFeedback(.success, trigger: vehicle.lastSuccessAction)
         .sensoryFeedback(.error, trigger: vehicle.showingError)
         .animation(reduceMotion ? AppMotion.reduced : AppMotion.state, value: vehicle.mediaPlaybackStatus)
+        .sheet(isPresented: $showingAddVehicle) {
+            NavigationStack { AddVehicleView() }
+                .environment(vehicle)
+                .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showingRenameVehicle) {
+            RenameVehicleView().environment(vehicle).presentationDetents([.height(250)])
+        }
     }
 
     private var fixedHeader: some View {
@@ -93,6 +103,24 @@ struct VehicleControlView: View {
             }
             Spacer()
             Menu {
+                if vehicle.pairedVehicleIDs.count > 1 {
+                    Section("切换车辆") {
+                        ForEach(vehicle.pairedVehicleIDs, id: \.self) { identifier in
+                            Button {
+                                Task { await vehicle.switchVehicle(to: identifier) }
+                            } label: {
+                                Label(vehicle.vehicleDisplayName(for: identifier),
+                                      systemImage: identifier == vehicle.vehicleID ? "checkmark.circle.fill" : "car.side")
+                            }
+                        }
+                    }
+                }
+                Button { vehicle.disconnect(); showingAddVehicle = true } label: {
+                    Label("添加车辆", systemImage: "plus.circle")
+                }
+                Button { showingRenameVehicle = true } label: {
+                    Label("自定义车辆名称", systemImage: "pencil")
+                }
                 Button {
                     if connected { vehicle.disconnect() }
                     else { Task { await vehicle.connectFromUI() } }
@@ -454,6 +482,49 @@ struct VehicleControlView: View {
 
     private var busy: Bool {
         switch vehicle.phase { case .scanning, .connecting, .handshaking: true; default: false }
+    }
+}
+
+private struct AddVehicleView: View {
+    @Environment(VehicleController.self) private var vehicle
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        PairVehicleView()
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("取消") {
+                        dismiss()
+                        Task { await vehicle.connectFromUI() }
+                    }
+                }
+            }
+            .onChange(of: vehicle.phase) { _, phase in
+                if phase == .connected { dismiss() }
+            }
+    }
+}
+
+private struct RenameVehicleView: View {
+    @Environment(VehicleController.self) private var vehicle
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("例如：我的 Model 3", text: $name).textInputAutocapitalization(.words)
+                Text("名称只保存在本机，留空会恢复显示真实车型。")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle("车辆名称").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") { vehicle.saveCustomVehicleName(name); dismiss() }
+                }
+            }
+            .onAppear { name = vehicle.customVehicleName ?? "" }
+        }
     }
 }
 

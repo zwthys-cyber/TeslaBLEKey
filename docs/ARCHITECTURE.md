@@ -1,6 +1,6 @@
 # 架构与协议
 
-本文对应 App `2.0.2` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
+本文对应 App `2.1.0` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
 
 1. `NearbyTeslaScanner` 使用 CoreBluetooth 扫描附近广播，并校验 Tesla 本地名称格式。
 2. App 为每辆车在 Keychain 生成独立 P-256 私钥。
@@ -15,6 +15,7 @@
 - `Bluetooth/NearbyTeslaScanner.swift`：扫描、RSSI 平滑、距离估算和候选车过滤。
 - `Bluetooth/LegacyVCSECClient.swift`：VIN-free 配对及会话引导。
 - `Model/VehicleController.swift`：连接生命周期、车辆状态、命令调度、媒体同步和错误呈现。
+- 多车辆索引保存在本机偏好中，每辆车继续使用独立 Keychain 密钥、VIN、车型和自定义名称；旧版单车辆记录会自动迁移。
 - `Views/VehicleControlView.swift`：固定主页导航头、车辆卡、媒体卡和控制区。
 - `Views/VehicleDetailView.swift`：按类别分批读取并展示车辆详情。
 - `Model/MediaArtworkLookup.swift`：网易云封面精确匹配与 Apple 目录回退。

@@ -8,4 +8,6 @@ enum AppStorageKeys {
     static let vehicleVINPrefix = "vehicleVIN."
     static let passiveEntryEnabled = "passiveEntryEnabled"
     static let commandHistory = "commandHistory"
+    static let pairedVehicleIDs = "pairedVehicleIDs"
+    static let customVehicleNamePrefix = "customVehicleName."
 }
