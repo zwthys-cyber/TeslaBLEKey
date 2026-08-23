@@ -292,23 +292,23 @@ struct VehicleControlView: View {
                     await vehicle.nextMediaTrack()
                 }
             }
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                if let duration = vehicle.mediaDurationSeconds, duration > 0,
-                   let elapsed = vehicle.displayedMediaElapsed(at: context.date) {
+            Group {
+                if !vehicle.mediaProgressIsEstimated,
+                   let duration = vehicle.mediaDurationSeconds, duration > 0,
+                   let elapsed = vehicle.mediaElapsedSeconds {
                     VStack(spacing: 5) {
                         ProgressView(value: Double(min(elapsed, duration)), total: Double(duration)).tint(.white)
                         HStack {
                             Text(mediaTime(elapsed))
-                            if vehicle.mediaProgressIsEstimated { Text("估算").foregroundStyle(.tertiary) }
                             Spacer()
                             Text(mediaTime(duration))
                         }.font(.caption2.monospacedDigit()).foregroundStyle(AppTheme.muted)
                     }
                 } else {
-                    HStack {
-                        Capsule().fill(AppTheme.raised).frame(height: 3)
-                        Text("车机未提供进度").font(.caption2).foregroundStyle(AppTheme.muted)
-                    }
+                    Text("当前媒体源未通过车机提供播放进度")
+                        .font(.caption2)
+                        .foregroundStyle(AppTheme.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
