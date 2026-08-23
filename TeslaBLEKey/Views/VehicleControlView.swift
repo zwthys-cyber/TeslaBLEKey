@@ -50,7 +50,7 @@ struct VehicleControlView: View {
     private var topBar: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
-                Text(vehicle.vehicleModelName.map { "我的 \($0)" } ?? "我的车辆")
+                Text(vehicle.displayVehicleName)
                     .font(.system(size: 28, weight: .semibold)).tracking(-0.5)
                 Text("蓝牙车钥匙").font(.caption).foregroundStyle(AppTheme.muted)
             }
@@ -85,9 +85,15 @@ struct VehicleControlView: View {
             }
         } label: {
             HStack(spacing: 14) {
-                Image(systemName: "car.side.fill")
-                    .font(.system(size: 28, weight: .light))
-                    .frame(width: 42)
+                ZStack(alignment: .bottomTrailing) {
+                    Image(systemName: "car.side.fill")
+                        .font(.system(size: 28, weight: .light))
+                        .frame(width: 42)
+                    Circle()
+                        .fill(connected ? Color.green : AppTheme.muted)
+                        .frame(width: 9, height: 9)
+                        .overlay(Circle().stroke(AppTheme.background, lineWidth: 2))
+                }
                 VStack(alignment: .leading, spacing: 4) {
                     Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
                     Text(statusSummary).font(.caption).foregroundStyle(AppTheme.muted)
@@ -102,6 +108,7 @@ struct VehicleControlView: View {
             .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
         }
         .buttonStyle(UtilityPressStyle())
+        .accessibilityValue(connected ? "绿色状态，车辆已连接" : "灰色状态，车辆未连接")
         .accessibilityHint(connected ? "轻点刷新车辆状态" : "轻点重新连接")
     }
 

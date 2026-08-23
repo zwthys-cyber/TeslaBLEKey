@@ -56,6 +56,12 @@ final class VehicleController {
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
 
+    var displayVehicleName: String {
+        if let vehicleModelName { return "Tesla \(vehicleModelName)" }
+        guard !vehicleID.isEmpty else { return "Tesla Vehicle" }
+        return "Tesla · \(String(vehicleID.dropLast().suffix(4)).uppercased())"
+    }
+
     init() {
         let defaults = UserDefaults.standard
         let storedVehicleID = defaults.string(forKey: AppStorageKeys.pairedVehicleID) ?? ""
