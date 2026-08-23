@@ -126,9 +126,13 @@ struct PairVehicleView: View {
 
     private var pairButton: some View {
         Button {
-            guard let selectedVehicle else { return }
-            scanner.stop()
-            Task { await vehicle.pair(with: selectedVehicle) }
+            if vehicle.phase == .pairingAwaitingCard {
+                Task { await vehicle.confirmPairingAndConnect() }
+            } else {
+                guard let selectedVehicle else { return }
+                scanner.stop()
+                Task { await vehicle.pair(with: selectedVehicle) }
+            }
         } label: {
             HStack(spacing: 8) {
                 if isPairing { ProgressView().controlSize(.small).tint(.black) }
@@ -139,8 +143,8 @@ struct PairVehicleView: View {
             .foregroundStyle(.black)
         }
         .buttonStyle(PrimaryPressStyle())
-        .disabled(selectedVehicle == nil || isPairing)
-        .opacity(selectedVehicle == nil || isPairing ? 0.38 : 1)
+        .disabled((selectedVehicle == nil && vehicle.phase != .pairingAwaitingCard) || isBusyWithoutConfirmation)
+        .opacity((selectedVehicle == nil && vehicle.phase != .pairingAwaitingCard) || isBusyWithoutConfirmation ? 0.38 : 1)
     }
 
     private var privacy: some View {
@@ -176,7 +180,7 @@ struct PairVehicleView: View {
             return scanner.vehicles.count > 1
                 ? "发现多辆车辆，请选择信号最强且离你最近的一辆"
                 : "无需 VIN，准备添加本机钥匙 · \(selectedVehicle?.rssi ?? 0) dBm"
-        case .awaitingCard: return "将现有钥匙卡放在中控台感应区"
+        case .awaitingCard: return "刷钥匙卡并在车机点确认；看到新钥匙后再继续"
         case .connecting:
             if vehicle.phase == .connecting { return "正在连接所选车辆，最长等待 30 秒" }
             return "正在验证本机密钥，最长等待 20 秒"
@@ -188,9 +192,18 @@ struct PairVehicleView: View {
         switch vehicle.phase { case .connecting, .pairingAwaitingCard, .handshaking: true; default: false }
     }
 
+    private var isBusyWithoutConfirmation: Bool {
+        switch vehicle.phase {
+        case .connecting, .handshaking: true
+        case .pairingAwaitingCard: !vehicle.canConfirmPairing
+        default: false
+        }
+    }
+
     private var actionTitle: String {
         switch vehicle.phase {
-        case .pairingAwaitingCard: "刷卡并在车机确认"
+        case .pairingAwaitingCard:
+            vehicle.canConfirmPairing ? "已在车机确认，继续" : "等待车机授权"
         case .connecting, .handshaking: "正在配对"
         default: selectedVehicle == nil ? "正在搜索" : "添加车钥匙"
         }

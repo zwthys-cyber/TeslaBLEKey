@@ -3,7 +3,7 @@
 [![Build iOS 17 IPA](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/ac54u-mobile/TeslaBLEKey)](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
-纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。当前版本：**1.3.3**。
+纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。当前版本：**1.3.4**。
 
 > [下载最新 TrollStore IPA](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
@@ -30,7 +30,7 @@
 2. 打开蓝牙并允许 App 使用蓝牙。
 3. 坐进车辆，携带一张已经授权的 Tesla NFC 钥匙卡。
 4. 仅发现一辆时 App 自动选择；发现多辆时按信号强度排列，确认离手机最近的车辆后点击“添加车钥匙”。
-5. App 提示后，把钥匙卡放到中控台读卡区域，并在车机屏幕确认。
+5. App 提示后，把钥匙卡放到中控台读卡区域并在车机确认；看到新钥匙后，回到 App 点“已在车机确认，继续”。
 
 密钥使用 `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`，不会同步或迁移。卸载 App、清理
 Keychain 或换机后必须重新配对。忘记车辆时，还应在车机“控制 > 锁”中删除旧钥匙记录。

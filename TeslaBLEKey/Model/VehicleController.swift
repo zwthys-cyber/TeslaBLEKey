@@ -33,19 +33,32 @@ final class VehicleController {
     private let keyStore = LocalTeslaKeyStore(service: "com.local.teslablekey.keys")
     private var connection: BLEConnection?
     private var tesla: TeslaVehicle?
+    private var pendingPairing: (vehicle: NearbyTesla, connection: BLEConnection)?
 
-    var vehicleID = UserDefaults.standard.string(forKey: AppStorageKeys.pairedVehicleID) ?? ""
-    var isPaired = UserDefaults.standard.bool(forKey: AppStorageKeys.paired)
+    var vehicleID: String
+    var isPaired: Bool
     var phase: Phase = .idle
     var showingError = false
     var errorMessage = ""
+    var canConfirmPairing = false
     var executingAction: VehicleAction?
     var lastSuccessAction: VehicleAction?
     private var successClearTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
 
+    init() {
+        let defaults = UserDefaults.standard
+        vehicleID = defaults.string(forKey: AppStorageKeys.pairedVehicleID) ?? ""
+        let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 2
+        isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
+        if !pairingWasVerified {
+            defaults.set(false, forKey: AppStorageKeys.paired)
+        }
+    }
+
     func pair(with nearby: NearbyTesla) async {
+        canConfirmPairing = false
         phase = .connecting
         do {
             let key = try keyStore.loadOrCreate(for: nearby.peripheralName)
@@ -60,14 +73,39 @@ final class VehicleController {
                 role: .owner,
                 formFactor: .iosDevice
             )
+            // An unauthenticated add-key request can return before the vehicle
+            // has committed the physical key-card approval. Wait for an explicit
+            // confirmation instead of immediately starting an authenticated session.
+            pendingPairing = (nearby, link)
+            phase = .pairingAwaitingCard
+            canConfirmPairing = true
+        } catch {
+            disconnect()
+            presentError(Self.describe(error))
+        }
+    }
 
-            vehicleID = nearby.peripheralName
-            UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
-            UserDefaults.standard.set(true, forKey: AppStorageKeys.paired)
-            isPaired = true
-            link.close()
-            connection = nil
+    func confirmPairingAndConnect() async {
+        guard let pendingPairing else {
+            presentError("配对会话已失效，请重新搜索车辆。")
+            return
+        }
+
+        let selectedVehicle = pendingPairing.vehicle
+        canConfirmPairing = false
+        pendingPairing.connection.close()
+        self.pendingPairing = nil
+        connection = nil
+        vehicleID = selectedVehicle.peripheralName
+        UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
+
+        // Give VCSEC a brief moment to commit the approved key before reconnecting.
+        try? await Task.sleep(for: .milliseconds(800))
+        do {
             try await connect()
+            UserDefaults.standard.set(true, forKey: AppStorageKeys.paired)
+            UserDefaults.standard.set(2, forKey: AppStorageKeys.pairingSchemaVersion)
+            isPaired = true
         } catch {
             disconnect()
             presentError(Self.describe(error))
@@ -121,6 +159,10 @@ final class VehicleController {
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
         tesla?.disconnect()
+        pendingPairing?.connection.close()
+        connection?.close()
+        pendingPairing = nil
+        canConfirmPairing = false
         tesla = nil
         connection = nil
         phase = .idle
@@ -131,6 +173,7 @@ final class VehicleController {
         try? keyStore.delete(for: vehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.pairedVehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.paired)
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.pairingSchemaVersion)
         vehicleID = ""
         isPaired = false
     }
