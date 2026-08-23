@@ -5,6 +5,7 @@ struct PairVehicleView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scanner = NearbyTeslaScanner()
     @State private var selectedVehicle: NearbyTesla?
+    @State private var selectionWasManual = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,15 +40,27 @@ struct PairVehicleView: View {
         .onDisappear { scanner.stop() }
         .onChange(of: scanner.vehicles) { _, vehicles in
             guard vehicle.phase != .pairingAwaitingCard else { return }
-            let selectionStillAvailable = vehicles.contains { $0.id == selectedVehicle?.id }
-            guard !selectionStillAvailable else {
-                if let selectedID = selectedVehicle?.id {
-                    selectedVehicle = vehicles.first { $0.id == selectedID }
-                }
+            guard !vehicles.isEmpty else {
+                selectedVehicle = nil
+                selectionWasManual = false
+                return
+            }
+
+            if selectionWasManual,
+               let selectedID = selectedVehicle?.id,
+               let refreshedSelection = vehicles.first(where: { $0.id == selectedID }) {
+                selectedVehicle = refreshedSelection
+                return
+            }
+
+            selectionWasManual = false
+            let nearestVehicle = vehicles.min { NearbyTesla.isNearer($0, than: $1) }
+            guard selectedVehicle?.id != nearestVehicle?.id else {
+                selectedVehicle = nearestVehicle
                 return
             }
             withAnimation(reduceMotion ? AppMotion.reduced : AppMotion.spatial) {
-                selectedVehicle = vehicles.first
+                selectedVehicle = nearestVehicle
             }
         }
         .sensoryFeedback(.selection, trigger: selectedVehicle?.id)
@@ -57,6 +70,7 @@ struct PairVehicleView: View {
         VStack(spacing: 0) {
             ForEach(Array(scanner.vehicles.enumerated()), id: \.element.id) { index, candidate in
                 Button {
+                    selectionWasManual = true
                     withAnimation(reduceMotion ? AppMotion.reduced : AppMotion.state) {
                         selectedVehicle = candidate
                     }
@@ -67,7 +81,7 @@ struct PairVehicleView: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(candidate.modelName ?? "Tesla · \(candidate.shortIdentifier)")
                                 .font(.subheadline.weight(.semibold))
-                            Text(scanner.vehicles.count == 1 ? "本地蓝牙钥匙" : "候选车辆 \(index + 1)")
+                            Text(scanner.vehicles.count == 1 ? "本地蓝牙钥匙" : index == 0 ? "距离最近" : "附近车辆")
                                 .font(.caption)
                                 .foregroundStyle(AppTheme.muted)
                         }

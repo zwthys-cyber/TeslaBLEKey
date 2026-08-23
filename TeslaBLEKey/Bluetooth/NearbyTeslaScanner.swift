@@ -43,6 +43,16 @@ struct NearbyTesla: Identifiable, Equatable {
         default: String(format: "约 %.0f 米", estimatedDistance)
         }
     }
+
+    static func isNearer(_ lhs: NearbyTesla, than rhs: NearbyTesla) -> Bool {
+        if abs(lhs.estimatedDistance - rhs.estimatedDistance) > 0.001 {
+            return lhs.estimatedDistance < rhs.estimatedDistance
+        }
+        if lhs.rssi != rhs.rssi {
+            return lhs.rssi > rhs.rssi
+        }
+        return lhs.peripheralName.localizedStandardCompare(rhs.peripheralName) == .orderedAscending
+    }
 }
 
 @MainActor
@@ -130,7 +140,7 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         )
         scanTimedOut = false
         timeoutTask?.cancel()
-        vehicles = vehiclesByID.values.sorted { $0.rssi > $1.rssi }
+        vehicles = vehiclesByID.values.sorted { NearbyTesla.isNearer($0, than: $1) }
     }
 
     static func isTeslaAdvertisementName(_ value: String) -> Bool {

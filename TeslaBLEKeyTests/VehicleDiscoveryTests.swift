@@ -23,6 +23,15 @@ final class VehicleDiscoveryTests: XCTestCase {
         XCTAssertEqual(VehicleController.modelName(fromVIN: "5YJ3E1EA7KF000000"), "Model 3")
     }
 
+    func testVehiclesSortByEstimatedDistanceThenSignalStrength() {
+        let farther = NearbyTesla(id: UUID(), peripheralName: "S0000000000000002C", rssi: -60, txPower: -45, lastSeen: .now, modelName: nil)
+        let closer = NearbyTesla(id: UUID(), peripheralName: "S0000000000000001C", rssi: -60, txPower: -70, lastSeen: .now, modelName: nil)
+
+        let sorted = [farther, closer].sorted { NearbyTesla.isNearer($0, than: $1) }
+
+        XCTAssertEqual(sorted.first?.id, closer.id)
+    }
+
     func testLegacyVCSECWireVectors() {
         let keyID = Data([1, 2, 3, 4])
         let request = LegacyVCSECClient.enumField(1, 3)

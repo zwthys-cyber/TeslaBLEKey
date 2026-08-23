@@ -3,13 +3,13 @@
 [![Build iOS 17 IPA](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/ac54u-mobile/TeslaBLEKey)](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
-纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。当前版本：**1.4.1**。
+纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。
 
 > [下载最新 TrollStore IPA](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
 ## 当前功能
 
-- 自动扫描附近 Tesla；单车自动选择，多车显示实时信号强度并由用户确认
+- 自动扫描附近 Tesla，并默认选择估算距离最近的一辆；多车场景仍可手动改选
 - 候选车辆显示平滑 RSSI、dBm 和基于广播功率估算的距离；已识别车辆显示真实车型
 - 前台扫描全部 BLE 广播后仅保留符合 Tesla 官方本地名称格式的车辆，避免服务 UUID 广播缺失造成漏检
 - 在设备 Keychain 中生成并保存每辆车独立的 P-256 密钥
@@ -32,11 +32,12 @@
 1. 在 TrollStore 中安装 Actions 生成的 IPA。
 2. 打开蓝牙并允许 App 使用蓝牙。
 3. 坐进车辆，携带一张已经授权的 Tesla NFC 钥匙卡。
-4. 仅发现一辆时 App 自动选择；发现多辆时按信号强度排列，确认离手机最近的车辆后点击“添加车钥匙”。
+4. App 按估算距离实时排列车辆并默认选择最近的一辆；附近有多辆车时，可核对车型、设备标识、dBm 和距离后手动改选。
 5. App 提示后，把钥匙卡放到中控台读卡区域并在车机确认；看到新钥匙后，回到 App 点“已在车机确认，继续”。
 
-密钥使用 `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`，不会同步或迁移。卸载 App、清理
-Keychain 或换机后必须重新配对。忘记车辆时，还应在车机“控制 > 锁”中删除旧钥匙记录。
+密钥使用 `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`，不会同步或迁移。清理 Keychain 或换机后需要重新配对；卸载 App 前应先在 App 内忘记车辆，并在车机“控制 > 锁”中删除旧钥匙记录。
+
+距离是根据 BLE 广播功率与平滑后的 RSSI 估算，会受车身遮挡、手机朝向和现场干扰影响；默认选择仅用于减少操作，不代替用户核对车辆。
 
 ## GitHub 编译
 
@@ -49,7 +50,7 @@ Keychain 或换机后必须重新配对。忘记车辆时，还应在车机“�
 
 工作流使用 Node 24 版本的 `actions/checkout@v6` 与 `actions/upload-artifact@v6`，避免 GitHub 托管 Runner 的 Node 20 弃用警告。
 
-下载 artifact，解压后将 IPA 分享给 TrollStore 安装。
+普通安装请直接从 [Releases](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest) 下载 IPA；Actions artifact 用于检查每次提交的开发构建。
 
 ## 本机编译
 
