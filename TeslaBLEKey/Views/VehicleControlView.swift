@@ -13,26 +13,29 @@ struct VehicleControlView: View {
     @State private var animateRailEntrance = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                topBar
-                vehicleSummary.padding(.top, 18)
-                if showsNowPlaying {
-                    nowPlayingCard.padding(.top, 14)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+        VStack(spacing: 0) {
+            fixedHeader
+            ScrollView {
+                VStack(spacing: 0) {
+                    vehicleSummary.padding(.top, 18)
+                    if showsNowPlaying {
+                        nowPlayingCard.padding(.top, 14)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                    climateControl.padding(.top, 22)
+                    utilityGrid.padding(.top, 22)
+                    driveControl.padding(.top, 12)
+                    safetyNote.padding(.top, 24)
                 }
-                climateControl.padding(.top, 22)
-                utilityGrid.padding(.top, 22)
-                driveControl.padding(.top, 12)
-                safetyNote.padding(.top, 24)
+                .padding(.horizontal, 22)
+                .padding(.bottom, 36)
             }
-            .padding(.horizontal, 22)
-            .padding(.bottom, 36)
+            .scrollIndicators(.hidden)
+            .refreshable {
+                await vehicle.refreshVehicleState()
+            }
         }
         .background(AppTheme.background.ignoresSafeArea())
-        .refreshable {
-            await vehicle.refreshVehicleState()
-        }
         .preferredColorScheme(.dark)
         .toolbar(.hidden, for: .navigationBar)
         .task {
@@ -65,6 +68,19 @@ struct VehicleControlView: View {
         .sensoryFeedback(.success, trigger: vehicle.lastSuccessAction)
         .sensoryFeedback(.error, trigger: vehicle.showingError)
         .animation(reduceMotion ? AppMotion.reduced : AppMotion.state, value: vehicle.mediaPlaybackStatus)
+    }
+
+    private var fixedHeader: some View {
+        topBar
+            .padding(.horizontal, 22)
+            .padding(.bottom, 12)
+            .background(AppTheme.background)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(AppTheme.hairline.opacity(0.55))
+                    .frame(height: 0.5)
+            }
+            .zIndex(1)
     }
 
     private var topBar: some View {
