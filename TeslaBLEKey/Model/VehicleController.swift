@@ -225,7 +225,11 @@ final class VehicleController {
     func openFrunk() async { await execute(.frunk, name: "开启前备箱") { try await self.perform(modern: { try await $0.openFrunk() }, legacy: { try await $0.rke(3) }) } }
     func flashLights() async { await execute(.flash, name: "闪灯") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.flashLights() } } }
     func honk() async { await execute(.horn, name: "鸣笛") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.honkHorn() } } }
-    func authorizeDrive() async { await execute(.drive, name: "启动车辆") { try await self.perform(modern: { try await $0.remoteDrive() }, legacy: { try await $0.rke(20) }) } }
+    func authorizeDrive() async {
+        await execute(.drive, name: "启动车辆") {
+            try await self.performModern { try await self.sendRawRKE(.rkeActionRemoteDrive, to: $0) }
+        }
+    }
 
     func toggleChargePort() async {
         let opening = !isChargePortOpen
@@ -456,6 +460,12 @@ final class VehicleController {
         request.rearTrunk = action
         var payload = VCSEC_UnsignedMessage()
         payload.closureMoveRequest = request
+        _ = try await vehicle.sendRawVCSEC(payload: payload.serializedData())
+    }
+
+    private func sendRawRKE(_ action: VCSEC_RKEAction_E, to vehicle: TeslaVehicle) async throws {
+        var payload = VCSEC_UnsignedMessage()
+        payload.rkeaction = action
         _ = try await vehicle.sendRawVCSEC(payload: payload.serializedData())
     }
 
