@@ -17,6 +17,10 @@ struct VehicleControlView: View {
                 topBar
                 vehicleSummary.padding(.top, 18)
                 primaryControl.padding(.top, 18)
+                if vehicle.mediaPlaybackStatus == "播放中", vehicle.mediaTitle != nil {
+                    nowPlayingCard.padding(.top, 14)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
                 climateControl.padding(.top, 22)
                 utilityGrid.padding(.top, 22)
                 driveControl.padding(.top, 12)
@@ -26,6 +30,9 @@ struct VehicleControlView: View {
             .padding(.bottom, 36)
         }
         .background(AppTheme.background.ignoresSafeArea())
+        .refreshable {
+            await vehicle.refreshVehicleState()
+        }
         .preferredColorScheme(.dark)
         .toolbar(.hidden, for: .navigationBar)
         .task {
@@ -45,6 +52,7 @@ struct VehicleControlView: View {
         .sensoryFeedback(.impact(weight: .light), trigger: pressFeedback)
         .sensoryFeedback(.success, trigger: vehicle.lastSuccessAction)
         .sensoryFeedback(.error, trigger: vehicle.showingError)
+        .animation(reduceMotion ? AppMotion.reduced : AppMotion.state, value: vehicle.mediaPlaybackStatus)
     }
 
     private var topBar: some View {
@@ -120,6 +128,57 @@ struct VehicleControlView: View {
             if vehicle.isLocked == true { submit(.unlock) { await vehicle.unlock() } }
             else { submit(.lock) { await vehicle.lock() } }
         }
+    }
+
+    private var nowPlayingCard: some View {
+        HStack(spacing: 13) {
+            Image(systemName: "music.note")
+                .font(.system(size: 18, weight: .semibold))
+                .frame(width: 46, height: 46)
+                .background(AppTheme.raised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(vehicle.mediaTitle ?? "正在播放")
+                    .font(.subheadline.weight(.semibold)).lineLimit(1)
+                Text(vehicle.mediaArtist ?? vehicle.mediaSource ?? "车载媒体")
+                    .font(.caption).foregroundStyle(AppTheme.muted).lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            compactMediaButton("backward.end.fill", label: "上一首", action: .mediaPrevious) {
+                await vehicle.previousMediaTrack()
+            }
+            compactMediaButton("pause.fill", label: "暂停", action: .mediaPlayPause, emphasized: true) {
+                await vehicle.toggleMediaPlayback()
+            }
+            compactMediaButton("forward.end.fill", label: "下一首", action: .mediaNext) {
+                await vehicle.nextMediaTrack()
+            }
+        }
+        .padding(12)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
+        .accessibilityElement(children: .contain)
+    }
+
+    private func compactMediaButton(
+        _ symbol: String,
+        label: String,
+        action: VehicleController.VehicleAction,
+        emphasized: Bool = false,
+        operation: @escaping () async -> Void
+    ) -> some View {
+        Button { submit(action) { await operation() } } label: {
+            Group {
+                if vehicle.executingAction == action { ProgressView().controlSize(.mini).tint(emphasized ? .black : .white) }
+                else { Image(systemName: symbol).font(.caption.weight(.semibold)) }
+            }
+            .frame(width: 36, height: 36)
+            .background(emphasized ? Color.white : AppTheme.raised, in: Circle())
+            .foregroundStyle(emphasized ? .black : .white)
+        }
+        .buttonStyle(UtilityPressStyle())
+        .disabled(vehicle.executingAction != nil)
+        .accessibilityLabel(label)
     }
 
     private var climateControl: some View {

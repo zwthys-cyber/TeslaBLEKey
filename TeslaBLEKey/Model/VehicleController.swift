@@ -317,9 +317,9 @@ final class VehicleController {
     }
 
     func previousMediaTrack() async {
-        await execute(.mediaPrevious, name: "切换上一首") {
+        if await execute(.mediaPrevious, name: "切换上一首", operation: {
             try await self.performModern { try await $0.mediaPreviousTrack() }
-        }
+        }) { await refreshMediaAfterTrackChange() }
     }
 
     func toggleMediaPlayback() async {
@@ -331,9 +331,19 @@ final class VehicleController {
     }
 
     func nextMediaTrack() async {
-        await execute(.mediaNext, name: "切换下一首") {
+        if await execute(.mediaNext, name: "切换下一首", operation: {
             try await self.performModern { try await $0.mediaNextTrack() }
-        }
+        }) { await refreshMediaAfterTrackChange() }
+    }
+
+    private func refreshMediaAfterTrackChange() async {
+        try? await Task.sleep(for: .milliseconds(450))
+        guard let tesla,
+              let data = await requestVehicleData(from: tesla, configure: { $0.getMediaState = CarServer_GetMediaState() }),
+              data.hasMediaState else { return }
+        apply(data.mediaState)
+        if let details = await requestVehicleData(from: tesla, configure: { $0.getMediaDetailState = CarServer_GetMediaDetailState() }),
+           details.hasMediaDetailState { apply(details.mediaDetailState) }
     }
 
     func refreshVehicleState() async {
