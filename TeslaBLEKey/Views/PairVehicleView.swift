@@ -110,10 +110,10 @@ struct PairVehicleView: View {
             if scanner.scanTimedOut { return "打开车门或轻踩刹车唤醒车辆，然后保持在驾驶位附近" }
             if scanner.nearbyDeviceCount > 0 { return "正在识别附近车辆 · 已收到 \(scanner.nearbyDeviceCount) 个蓝牙信号" }
             return "正在扫描附近兼容车辆"
-        case .found: "无需 VIN，准备添加本机钥匙"
-        case .awaitingCard: "将现有钥匙卡放在中控台感应区"
-        case .connecting: "密钥仅保存在这台 iPhone"
-        default: ""
+        case .found: return "无需 VIN，准备添加本机钥匙"
+        case .awaitingCard: return "将现有钥匙卡放在中控台感应区"
+        case .connecting: return "密钥仅保存在这台 iPhone"
+        default: return ""
         }
     }
 
