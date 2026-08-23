@@ -32,7 +32,9 @@ enum MediaArtworkLookup {
                 guard let normalizedArtist else { return true }
                 return result.artistName.map(normalize)?.contains(normalizedArtist) == true
             }
-            return highResolutionURL(from: (match ?? results.first)?.artworkUrl100)
+            // A wrong cover is worse than the neutral fallback. Only accept an
+            // exact normalized title and artist match across music services.
+            return highResolutionURL(from: match?.artworkUrl100)
         } catch {
             return nil
         }
