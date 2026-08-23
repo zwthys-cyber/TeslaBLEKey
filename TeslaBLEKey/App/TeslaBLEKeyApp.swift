@@ -4,7 +4,9 @@ import SwiftUI
 struct TeslaBLEKeyApp: App {
     @State private var vehicle = VehicleController()
 
-    init() {}
+    init() {
+        AppDiagnostics.shared.start()
+    }
 
     var body: some Scene {
         WindowGroup {

@@ -170,6 +170,7 @@ final class VehicleController {
     private var passiveReconnectTask: Task<Void, Never>?
     private var passiveRecoveryInProgress = false
     private var sessionNeedsForegroundValidation = false
+    private var appIsBackgrounded = false
     private var authorizedCommandBatchActive = false
 
     var displayVehicleName: String {
@@ -210,10 +211,12 @@ final class VehicleController {
                 guard let self,
                       let disconnected = notification.object as? BLEConnection else { return }
                 if disconnected === self.passiveConnection {
+                    AppDiagnostics.shared.record("ble.passive.disconnected")
                     self.passiveKeyOnline = false
                     guard !self.intentionalDisconnect, self.passiveEntryEnabled else { return }
                     await self.restoreDedicatedPhoneKeyConnection(on: disconnected)
                 } else if disconnected === self.connection {
+                    AppDiagnostics.shared.record("ble.command.disconnected")
                     if self.passiveConnection == nil { self.passiveKeyOnline = false }
                     guard !self.intentionalDisconnect, self.passiveEntryEnabled else { return }
                     await self.restoreCommandConnection(on: disconnected)
@@ -454,6 +457,7 @@ final class VehicleController {
     func connect() async throws {
         guard !vehicleID.isEmpty else { throw LocalError.noVehicle }
         intentionalDisconnect = false
+        AppDiagnostics.shared.record("ble.connect.begin")
         phase = .connecting
         let key = try keyStore.load(for: vehicleID)
         let vin = cachedVIN()
@@ -504,6 +508,7 @@ final class VehicleController {
             }
         }
         phase = .connected
+        AppDiagnostics.shared.record("ble.connect.ready")
         await refreshVehicleState()
     }
 
@@ -533,11 +538,16 @@ final class VehicleController {
     /// immediately on return, or rebuild the session if restoration left the
     /// controller disconnected.
     func refreshAfterReturningToForeground() async {
+        appIsBackgrounded = false
         guard isPaired else { return }
         switch phase {
         case .connected:
             guard sessionNeedsForegroundValidation else { await refreshVehicleState(); return }
             sessionNeedsForegroundValidation = false
+            // Block media polling and user commands while the authenticated
+            // dispatcher is being validated. MainActor is re-entrant at every
+            // await, so leaving phase as connected permits reply-stream races.
+            phase = .handshaking
             if let tesla {
                 do {
                     // A restored CoreBluetooth link can still leave the phone
@@ -546,13 +556,13 @@ final class VehicleController {
                     // request that also makes the key immediately present.
                     try await activatePhoneKeySession(tesla)
                     if passiveEntryEnabled, !passiveKeyOnline {
-                        let key = try keyStore.load(for: vehicleID)
-                        do { try await startDedicatedPhoneKeyConnection(key: key) }
+                        do { try await recoverDedicatedPhoneKey() }
                         catch {
                             passiveKeyOnline = false
                             schedulePassiveKeyReconnect()
                         }
                     }
+                    phase = .connected
                     await refreshVehicleState()
                 } catch {
                     disconnect()
@@ -572,7 +582,13 @@ final class VehicleController {
     }
 
     func noteAppMovedToBackground() {
+        appIsBackgrounded = true
         sessionNeedsForegroundValidation = true
+        // CoreBluetooth keeps the outstanding restoration connection. A
+        // periodic retry loop while iOS is backgrounded can accumulate timed
+        // out continuations and lead to watchdog/jetsam termination.
+        passiveReconnectTask?.cancel()
+        passiveReconnectTask = nil
     }
 
     func presentUserError(_ message: String) { presentError(message) }
@@ -815,7 +831,8 @@ final class VehicleController {
         // The BLE dispatcher is request/response based. Do not let the
         // two-second media poll or a second pull-to-refresh interleave with a
         // full state refresh, otherwise receivers can wait on each other.
-        guard !isRefreshingVehicleState else { return }
+        guard !isRefreshingVehicleState, executingAction == nil,
+              phase == .connected else { return }
         isRefreshingVehicleState = true
         defer { isRefreshingVehicleState = false }
         guard let tesla = try? await ensureModernSession() else { return }
@@ -1121,6 +1138,7 @@ final class VehicleController {
         guard passiveEntryEnabled, passiveConnection === link,
               !passiveRecoveryInProgress else { return }
         passiveRecoveryInProgress = true
+        AppDiagnostics.shared.record("ble.passive.restore.begin")
         defer { passiveRecoveryInProgress = false }
         passiveKeyClient?.stopPassiveAuthenticationResponder()
         passiveKeyClient = nil
@@ -1134,7 +1152,9 @@ final class VehicleController {
             client.startPassiveAuthenticationResponder()
             passiveKeyClient = client
             passiveKeyOnline = true
+            AppDiagnostics.shared.record("ble.passive.restore.ready")
         } catch {
+            AppDiagnostics.shared.record("ble.passive.restore.failed")
             // Keep this CBCentralManager alive. Replacing it with another
             // manager using the same restoration identifier can strand iOS
             // in a permanent "restoring" state until the app is terminated.
@@ -1142,13 +1162,25 @@ final class VehicleController {
         }
     }
 
+    private func recoverDedicatedPhoneKey() async throws {
+        if let existingLink = passiveConnection {
+            await restoreDedicatedPhoneKeyConnection(on: existingLink)
+            guard passiveKeyOnline else { throw LocalError.handshakeTimedOut }
+        } else {
+            let key = try keyStore.load(for: vehicleID)
+            try await startDedicatedPhoneKeyConnection(key: key)
+        }
+    }
+
     private func schedulePassiveKeyReconnect() {
-        guard passiveEntryEnabled, isPaired, !passiveKeyOnline, passiveReconnectTask == nil else { return }
+        guard passiveEntryEnabled, isPaired, !passiveKeyOnline,
+              !appIsBackgrounded, passiveReconnectTask == nil else { return }
         passiveReconnectTask = Task { [weak self] in
             defer { self?.passiveReconnectTask = nil }
             try? await Task.sleep(for: .seconds(5))
             guard let self, !Task.isCancelled else { return }
-            while self.passiveEntryEnabled, self.isPaired, !self.passiveKeyOnline, !Task.isCancelled {
+            while self.passiveEntryEnabled, self.isPaired, !self.passiveKeyOnline,
+                  !self.appIsBackgrounded, !Task.isCancelled {
                 if let existingLink = self.passiveConnection {
                     await self.restoreDedicatedPhoneKeyConnection(on: existingLink)
                     if self.passiveKeyOnline { return }
@@ -1204,7 +1236,8 @@ final class VehicleController {
         guard tesla != nil || legacyClient != nil else { presentError("请先连接车辆。"); return false }
         // Tesla vehicle commands share one authenticated BLE session. Serialize them
         // so a second command cannot replace the first command's presentation state.
-        guard executingAction == nil else { return false }
+        guard executingAction == nil, !isRefreshingVehicleState,
+              phase == .connected else { return false }
         let sensitive = action == .unlock || action == .frunk || action == .drive
         if !authorizedCommandBatchActive && (faceIDProtection == .all || (faceIDProtection == .sensitive && sensitive)) {
             guard await authenticateVehicleControl(reason: "确认\(name)") else { return false }
@@ -1212,6 +1245,7 @@ final class VehicleController {
         successClearTask?.cancel()
         lastSuccessAction = nil
         executingAction = action
+        AppDiagnostics.shared.record("command.\(action.rawValue).begin")
         phase = .executing(name)
         do {
             try await operation()
@@ -1219,6 +1253,7 @@ final class VehicleController {
             executingAction = nil
             lastSuccessAction = action
             phase = .connected
+            AppDiagnostics.shared.record("command.\(action.rawValue).success")
             successClearTask = Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(700))
                 guard !Task.isCancelled else { return }
@@ -1226,6 +1261,7 @@ final class VehicleController {
             }
             return true
         } catch {
+            AppDiagnostics.shared.record("command.\(action.rawValue).failed")
             appendCommandRecord(name: name, succeeded: false)
             executingAction = nil
             if case LocalError.vehicleIdentityUnavailable = error {

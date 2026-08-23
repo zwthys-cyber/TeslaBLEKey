@@ -163,7 +163,20 @@ struct VehicleDiagnosticsView: View {
                     }
                 }
             }
-            Section { Text("记录仅保存在本机，最多保留最近 20 条，不包含 VIN 或位置。") }
+            Section("本地运行记录") {
+                if AppDiagnostics.shared.recentEvents.isEmpty {
+                    Text("暂无运行记录").foregroundStyle(.secondary)
+                } else {
+                    ForEach(Array(AppDiagnostics.shared.recentEvents.suffix(12).reversed()), id: \.self) {
+                        Text($0).font(.caption.monospaced()).textSelection(.enabled)
+                    }
+                }
+                if AppDiagnostics.shared.latestMetricKitDiagnostic != nil {
+                    Text("已收到系统 MetricKit 诊断，可用于定位崩溃、卡死或资源终止。")
+                        .font(.caption).foregroundStyle(.orange)
+                }
+            }
+            Section { Text("操作记录和运行诊断仅保存在本机，不包含 VIN、位置、媒体或车辆命令内容。") }
         }.scrollContentBackground(.hidden).featurePage(title: "状态与诊断")
     }
     private var freshness: String {
