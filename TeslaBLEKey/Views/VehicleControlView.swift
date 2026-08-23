@@ -41,6 +41,14 @@ struct VehicleControlView: View {
             revealRail = true
             railHasAppeared = true
         }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(2)) }
+                catch { return }
+                await vehicle.refreshMediaState()
+            }
+        }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             Task { await vehicle.refreshAfterReturningToForeground() }

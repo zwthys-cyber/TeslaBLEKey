@@ -389,10 +389,15 @@ final class VehicleController {
 
     private func refreshMediaAfterTrackChange() async {
         try? await Task.sleep(for: .milliseconds(450))
-        guard let tesla,
-              let data = await requestVehicleData(from: tesla, configure: { $0.getMediaState = CarServer_GetMediaState() }),
-              data.hasMediaState else { return }
-        apply(data.mediaState)
+        await refreshMediaState()
+    }
+
+    /// Media changes made on the center display are not pushed over the BLE
+    /// protocol. Poll only the two small media payloads while the app is active.
+    func refreshMediaState() async {
+        guard phase == .connected, executingAction == nil, let tesla else { return }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getMediaState = CarServer_GetMediaState() }),
+           data.hasMediaState { apply(data.mediaState) }
         if let details = await requestVehicleData(from: tesla, configure: { $0.getMediaDetailState = CarServer_GetMediaDetailState() }),
            details.hasMediaDetailState { apply(details.mediaDetailState) }
     }
