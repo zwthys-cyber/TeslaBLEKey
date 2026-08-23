@@ -13,6 +13,7 @@ struct VehicleDetailView: View {
                 if hasClosureData { detailSection("车辆状态", icon: "car.side.fill", rows: closureRows) }
                 if hasTireData { tireSection }
                 if hasVehicleData { detailSection("车辆信息", icon: "info.circle", rows: vehicleRows) }
+                if hasMediaData { detailSection("正在播放", icon: "play.fill", rows: mediaRows) }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 32)
@@ -115,7 +116,11 @@ struct VehicleDetailView: View {
         if let value = vehicle.chargingStatus { rows.append(("充电状态", value)) }
         if let value = vehicle.chargeLimit { rows.append(("充电上限", "\(value)%")) }
         if let value = vehicle.chargerPowerKilowatts { rows.append(("充电功率", "\(value) kW")) }
+        if let value = vehicle.chargerCurrentAmps { rows.append(("充电电流", "\(value) A")) }
+        if let value = vehicle.chargerVoltage { rows.append(("充电电压", "\(value) V")) }
         if let value = vehicle.minutesToChargeLimit { rows.append(("距目标电量", "\(value) 分钟")) }
+        if let value = vehicle.chargeCableStatus { rows.append(("充电枪", value)) }
+        if let value = vehicle.chargePortLatchStatus { rows.append(("充电口锁止", value)) }
         return rows
     }
 
@@ -133,9 +138,15 @@ struct VehicleDetailView: View {
         if let value = vehicle.isLocked { rows.append(("车辆", value ? "已上锁" : "已解锁")) }
         if let value = vehicle.openDoorCount { rows.append(("车门", value == 0 ? "全部关闭" : "\(value) 个开启")) }
         if let value = vehicle.openWindowCount { rows.append(("车窗", value == 0 ? "全部关闭" : "\(value) 个开启")) }
-        rows.append(("前备箱", "状态以车机为准"))
+        if let value = vehicle.isFrunkOpen { rows.append(("前备箱", value ? "已开启" : "已关闭")) }
         rows.append(("后备箱", vehicle.isTrunkOpen ? "已开启" : "已关闭"))
         rows.append(("充电口", vehicle.isChargePortOpen ? "已开启" : "已关闭"))
+        for key in ["左前门", "右前门", "左后门", "右后门"] {
+            if let value = vehicle.doorStates[key] { rows.append((key, value ? "已开启" : "已关闭")) }
+        }
+        for key in ["左前窗", "右前窗", "左后窗", "右后窗"] {
+            if let value = vehicle.windowStates[key] { rows.append((key, value ? "已开启" : "已关闭")) }
+        }
         return rows
     }
 
@@ -144,6 +155,18 @@ struct VehicleDetailView: View {
         if let value = vehicle.odometerKilometers { rows.append(("累计里程", String(format: "%.0f km", value))) }
         if let value = vehicle.softwareVersion { rows.append(("软件版本", value)) }
         if let value = vehicle.softwareUpdateStatus { rows.append(("软件更新", value)) }
+        if let value = vehicle.vehicleSleepStatus { rows.append(("车辆电源", value)) }
+        if let value = vehicle.currentGear { rows.append(("当前挡位", value)) }
+        return rows
+    }
+
+    private var mediaRows: [(String, String)] {
+        var rows: [(String, String)] = []
+        if let value = vehicle.mediaTitle { rows.append(("曲目", value)) }
+        if let value = vehicle.mediaArtist { rows.append(("艺术家", value)) }
+        if let value = vehicle.mediaAlbum { rows.append(("专辑", value)) }
+        if let value = vehicle.mediaSource { rows.append(("来源", value)) }
+        if let value = vehicle.mediaPlaybackStatus { rows.append(("播放状态", value)) }
         return rows
     }
 
@@ -152,6 +175,7 @@ struct VehicleDetailView: View {
     private var hasClosureData: Bool { vehicle.isLocked != nil || vehicle.openDoorCount != nil || vehicle.openWindowCount != nil }
     private var hasTireData: Bool { [vehicle.tirePressureFL, vehicle.tirePressureFR, vehicle.tirePressureRL, vehicle.tirePressureRR].contains { $0 != nil } }
     private var hasVehicleData: Bool { !vehicleRows.isEmpty }
+    private var hasMediaData: Bool { !mediaRows.isEmpty }
     private var updateLabel: String {
         guard let date = vehicle.lastStateUpdate else { return refreshing ? "正在读取车辆状态" : "尚未刷新" }
         return "更新于 \(date.formatted(date: .omitted, time: .shortened))"

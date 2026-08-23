@@ -58,11 +58,20 @@ final class VehicleController {
     var estimatedRangeKilometers: Double?
     var chargeLimit: Int?
     var chargerPowerKilowatts: Int?
+    var chargerVoltage: Int?
+    var chargerCurrentAmps: Int?
     var minutesToChargeLimit: Int?
     var chargingStatus: String?
+    var chargeCableStatus: String?
+    var chargePortLatchStatus: String?
     var outsideTemperature: Double?
     var openDoorCount: Int?
     var openWindowCount: Int?
+    var doorStates: [String: Bool] = [:]
+    var windowStates: [String: Bool] = [:]
+    var isFrunkOpen: Bool?
+    var vehicleSleepStatus: String?
+    var currentGear: String?
     var odometerKilometers: Double?
     var tirePressureFL: Double?
     var tirePressureFR: Double?
@@ -71,6 +80,11 @@ final class VehicleController {
     var hasTirePressureWarning = false
     var softwareVersion: String?
     var softwareUpdateStatus: String?
+    var mediaTitle: String?
+    var mediaArtist: String?
+    var mediaAlbum: String?
+    var mediaSource: String?
+    var mediaPlaybackStatus: String?
     var lastStateUpdate: Date?
     private var successClearTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
@@ -304,9 +318,15 @@ final class VehicleController {
     func refreshVehicleState() async {
         guard let tesla = try? await ensureModernSession() else { return }
         if let status = try? await tesla.vehicleStatus() {
-            isTrunkOpen = status.closureStatuses.rearTrunk != .closurestateClosed
-            isChargePortOpen = status.closureStatuses.chargePort != .closurestateClosed
+            if let value = Self.isOpen(status.closureStatuses.rearTrunk) { isTrunkOpen = value }
+            if let value = Self.isOpen(status.closureStatuses.frontTrunk) { isFrunkOpen = value }
+            if let value = Self.isOpen(status.closureStatuses.chargePort) { isChargePortOpen = value }
             isLocked = status.vehicleLockState == .vehiclelockstateLocked || status.vehicleLockState == .vehiclelockstateInternalLocked
+            vehicleSleepStatus = switch status.vehicleSleepStatus {
+            case .vehicleSleepStatusAwake: "已唤醒"
+            case .vehicleSleepStatusAsleep: "休眠"
+            default: "状态未知"
+            }
         }
         try? await tesla.startInfotainmentSession()
         if let data = await requestVehicleData(from: tesla, configure: { $0.getChargeState = CarServer_GetChargeState() }), data.hasChargeState {
@@ -322,12 +342,25 @@ final class VehicleController {
             apply(data.tirePressureState)
         }
         if let data = await requestVehicleData(from: tesla, configure: { $0.getDriveState = CarServer_GetDriveState() }), data.hasDriveState {
+            currentGear = switch data.driveState.shiftState.type {
+            case .p?: "P · 已驻车"
+            case .r?: "R · 倒车"
+            case .n?: "N · 空挡"
+            case .d?: "D · 行驶"
+            default: "挡位未知"
+            }
             if data.driveState.optionalOdometerInHundredthsOfAMile != nil {
                 odometerKilometers = Double(data.driveState.odometerInHundredthsOfAMile) / 100 * 1.609344
             }
         }
         if let data = await requestVehicleData(from: tesla, configure: { $0.getSoftwareUpdateState = CarServer_GetSoftwareUpdateState() }), data.hasSoftwareUpdateState {
             apply(data.softwareUpdateState)
+        }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getMediaState = CarServer_GetMediaState() }), data.hasMediaState {
+            apply(data.mediaState)
+        }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getMediaDetailState = CarServer_GetMediaDetailState() }), data.hasMediaDetailState {
+            apply(data.mediaDetailState)
         }
         lastStateUpdate = .now
     }
@@ -350,8 +383,28 @@ final class VehicleController {
         if state.optionalBatteryRange != nil { estimatedRangeKilometers = Double(state.batteryRange) * 1.609344 }
         if state.optionalChargeLimitSoc != nil { chargeLimit = Int(state.chargeLimitSoc) }
         if state.optionalChargerPower != nil { chargerPowerKilowatts = Int(state.chargerPower) }
+        if state.optionalChargerVoltage != nil { chargerVoltage = Int(state.chargerVoltage) }
+        if state.optionalChargerActualCurrent != nil { chargerCurrentAmps = Int(state.chargerActualCurrent) }
         if state.optionalMinutesToChargeLimit != nil { minutesToChargeLimit = Int(state.minutesToChargeLimit) }
         if state.optionalChargePortDoorOpen != nil { isChargePortOpen = state.chargePortDoorOpen }
+        if state.hasConnChargeCable {
+            chargeCableStatus = switch state.connChargeCable.type {
+            case .sna?: "未连接"
+            case .iec?: "IEC 已连接"
+            case .sae?: "SAE 已连接"
+            case .gbAc?: "国标交流已连接"
+            case .gbDc?: "国标直流已连接"
+            default: "状态未知"
+            }
+        }
+        if state.hasChargePortLatch {
+            chargePortLatchStatus = switch state.chargePortLatch.type {
+            case .engaged?: "已锁止"
+            case .disengaged?: "未锁止"
+            case .blocking?: "锁止受阻"
+            default: "状态未知"
+            }
+        }
         if state.hasChargingState {
             chargingStatus = switch state.chargingState.type {
             case .disconnected?: "未连接充电枪"
@@ -381,6 +434,11 @@ final class VehicleController {
             (state.optionalDoorOpenPassengerRear != nil, state.doorOpenPassengerRear)
         ]
         if doorValues.contains(where: { $0.0 }) { openDoorCount = doorValues.filter { $0.0 && $0.1 }.count }
+        doorStates = [:]
+        if state.optionalDoorOpenDriverFront != nil { doorStates["左前门"] = state.doorOpenDriverFront }
+        if state.optionalDoorOpenDriverRear != nil { doorStates["左后门"] = state.doorOpenDriverRear }
+        if state.optionalDoorOpenPassengerFront != nil { doorStates["右前门"] = state.doorOpenPassengerFront }
+        if state.optionalDoorOpenPassengerRear != nil { doorStates["右后门"] = state.doorOpenPassengerRear }
         let windowValues: [(Bool, Bool)] = [
             (state.optionalWindowOpenDriverFront != nil, state.windowOpenDriverFront),
             (state.optionalWindowOpenDriverRear != nil, state.windowOpenDriverRear),
@@ -388,6 +446,13 @@ final class VehicleController {
             (state.optionalWindowOpenPassengerRear != nil, state.windowOpenPassengerRear)
         ]
         if windowValues.contains(where: { $0.0 }) { openWindowCount = windowValues.filter { $0.0 && $0.1 }.count }
+        windowStates = [:]
+        if state.optionalWindowOpenDriverFront != nil { windowStates["左前窗"] = state.windowOpenDriverFront }
+        if state.optionalWindowOpenDriverRear != nil { windowStates["左后窗"] = state.windowOpenDriverRear }
+        if state.optionalWindowOpenPassengerFront != nil { windowStates["右前窗"] = state.windowOpenPassengerFront }
+        if state.optionalWindowOpenPassengerRear != nil { windowStates["右后窗"] = state.windowOpenPassengerRear }
+        if state.optionalDoorOpenTrunkFront != nil { isFrunkOpen = state.doorOpenTrunkFront }
+        if state.optionalDoorOpenTrunkRear != nil { isTrunkOpen = state.doorOpenTrunkRear }
         if state.optionalLocked != nil { isLocked = state.locked }
     }
 
@@ -414,6 +479,25 @@ final class VehicleController {
             default: "已是当前状态"
             }
         }
+    }
+
+    private func apply(_ state: CarServer_MediaState) {
+        if state.optionalNowPlayingTitle != nil { mediaTitle = state.nowPlayingTitle.nilIfEmpty }
+        if state.optionalNowPlayingArtist != nil { mediaArtist = state.nowPlayingArtist.nilIfEmpty }
+        if state.optionalMediaPlaybackStatus != nil {
+            mediaPlaybackStatus = switch state.mediaPlaybackStatus {
+            case .playing: "播放中"
+            case .paused: "已暂停"
+            case .stopped: "已停止"
+            default: "状态未知"
+            }
+        }
+    }
+
+    private func apply(_ state: CarServer_MediaDetailState) {
+        if state.optionalNowPlayingAlbum != nil { mediaAlbum = state.nowPlayingAlbum.nilIfEmpty }
+        if state.optionalNowPlayingSourceString != nil { mediaSource = state.nowPlayingSourceString.nilIfEmpty }
+        if mediaSource == nil, state.optionalA2DpSourceName != nil { mediaSource = state.a2DpSourceName.nilIfEmpty }
     }
 
     func disconnect() {
@@ -579,6 +663,14 @@ final class VehicleController {
         return "S" + digest.prefix(8).map { String(format: "%02x", $0) }.joined() + "C"
     }
 
+    private static func isOpen(_ state: VCSEC_ClosureState_E) -> Bool? {
+        switch state {
+        case .closurestateClosed: false
+        case .closurestateUnknown, .UNRECOGNIZED: nil
+        default: true
+        }
+    }
+
     private enum LocalError: LocalizedError {
         case noVehicle, keyMissing, handshakeTimedOut, vehicleIdentityUnavailable
         var errorDescription: String? {
@@ -649,4 +741,8 @@ final class VehicleController {
             }
         }
     }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
