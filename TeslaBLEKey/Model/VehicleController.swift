@@ -168,6 +168,7 @@ final class VehicleController {
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
     private var passiveReconnectTask: Task<Void, Never>?
+    private var passiveRecoveryInProgress = false
     private var sessionNeedsForegroundValidation = false
     private var authorizedCommandBatchActive = false
 
@@ -1117,7 +1118,11 @@ final class VehicleController {
     }
 
     private func restoreDedicatedPhoneKeyConnection(on link: BLEConnection) async {
-        guard passiveEntryEnabled, passiveConnection === link else { return }
+        guard passiveEntryEnabled, passiveConnection === link,
+              !passiveRecoveryInProgress else { return }
+        passiveRecoveryInProgress = true
+        defer { passiveRecoveryInProgress = false }
+        passiveKeyClient?.stopPassiveAuthenticationResponder()
         passiveKeyClient = nil
         passiveKeyOnline = false
         do {
@@ -1130,10 +1135,9 @@ final class VehicleController {
             passiveKeyClient = client
             passiveKeyOnline = true
         } catch {
-            // CoreBluetooth owns restoration attempts while the app remains
-            // eligible for bluetooth-central background execution.
-            link.close()
-            if passiveConnection === link { passiveConnection = nil }
+            // Keep this CBCentralManager alive. Replacing it with another
+            // manager using the same restoration identifier can strand iOS
+            // in a permanent "restoring" state until the app is terminated.
             schedulePassiveKeyReconnect()
         }
     }
@@ -1145,13 +1149,17 @@ final class VehicleController {
             try? await Task.sleep(for: .seconds(5))
             guard let self, !Task.isCancelled else { return }
             while self.passiveEntryEnabled, self.isPaired, !self.passiveKeyOnline, !Task.isCancelled {
-                do {
-                    let key = try self.keyStore.load(for: self.vehicleID)
-                    try await self.startDedicatedPhoneKeyConnection(key: key)
-                    return
-                } catch {
-                    try? await Task.sleep(for: .seconds(15))
+                if let existingLink = self.passiveConnection {
+                    await self.restoreDedicatedPhoneKeyConnection(on: existingLink)
+                    if self.passiveKeyOnline { return }
+                } else {
+                    do {
+                        let key = try self.keyStore.load(for: self.vehicleID)
+                        try await self.startDedicatedPhoneKeyConnection(key: key)
+                        return
+                    } catch { }
                 }
+                try? await Task.sleep(for: .seconds(15))
             }
         }
     }

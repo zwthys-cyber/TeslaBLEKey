@@ -119,9 +119,16 @@ final class LegacyVCSECClient: @unchecked Sendable {
     }
 
     func close() {
+        stopPassiveAuthenticationResponder()
+        connection.close()
+    }
+
+    /// Stops only the receive loop. Recovery must keep the restorable
+    /// CoreBluetooth connection object alive instead of closing it and
+    /// recreating another central with the same restoration identifier.
+    func stopPassiveAuthenticationResponder() {
         passiveAuthenticationTask?.cancel()
         passiveAuthenticationTask = nil
-        connection.close()
     }
 
     private func sendSigned(
