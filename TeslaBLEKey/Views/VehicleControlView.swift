@@ -479,8 +479,9 @@ struct VehicleControlView: View {
         guard vehicle.executingAction == nil else { return }
         if haptic { pressFeedback += 1 }
         Task {
-            if vehicle.faceIDProtection == .all,
-               !await authenticate(reason: "确认执行车辆控制") { return }
+            if vehicle.faceIDProtection == .all {
+                guard await authenticate(reason: "确认执行车辆控制") else { return }
+            }
             await operation()
         }
     }
