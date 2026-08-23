@@ -65,9 +65,9 @@ struct PairVehicleView: View {
                         Image(systemName: selectedVehicle?.id == candidate.id ? "checkmark.circle.fill" : "circle")
                             .font(.title3)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(scanner.vehicles.count == 1 ? "附近车辆" : "附近车辆 \(index + 1)")
+                            Text("Tesla · \(candidate.shortIdentifier)")
                                 .font(.subheadline.weight(.semibold))
-                            Text("识别码 ·\(candidate.shortIdentifier)")
+                            Text(scanner.vehicles.count == 1 ? "本地蓝牙钥匙" : "候选车辆 \(index + 1)")
                                 .font(.caption)
                                 .foregroundStyle(AppTheme.muted)
                         }
@@ -94,7 +94,7 @@ struct PairVehicleView: View {
         .padding(.horizontal, 14)
         .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(scanner.vehicles.count == 1 ? "附近车辆" : "发现多辆车辆，请选择距离最近的一辆")
+        .accessibilityLabel(scanner.vehicles.count == 1 ? "Tesla \(scanner.vehicles[0].shortIdentifier)" : "发现多辆 Tesla，请选择距离最近的一辆")
     }
 
     private func signalSymbol(_ level: Int) -> String {
