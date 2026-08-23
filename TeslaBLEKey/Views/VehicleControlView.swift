@@ -17,7 +17,7 @@ struct VehicleControlView: View {
                 topBar
                 vehicleSummary.padding(.top, 18)
                 primaryControl.padding(.top, 18)
-                if vehicle.mediaPlaybackStatus == "播放中", vehicle.mediaTitle != nil {
+                if showsNowPlaying {
                     nowPlayingCard.padding(.top, 14)
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
@@ -153,7 +153,9 @@ struct VehicleControlView: View {
             compactMediaButton("backward.end.fill", label: "上一首", action: .mediaPrevious) {
                 await vehicle.previousMediaTrack()
             }
-            compactMediaButton("pause.fill", label: "暂停", action: .mediaPlayPause, emphasized: true) {
+            compactMediaButton(vehicle.mediaPlaybackStatus == "播放中" ? "pause.fill" : "play.fill",
+                               label: vehicle.mediaPlaybackStatus == "播放中" ? "暂停" : "继续播放",
+                               action: .mediaPlayPause, emphasized: true) {
                 await vehicle.toggleMediaPlayback()
             }
             compactMediaButton("forward.end.fill", label: "下一首", action: .mediaNext) {
@@ -324,6 +326,11 @@ struct VehicleControlView: View {
         if vehicle.phase == .connected { return true }
         if case .executing = vehicle.phase { return true }
         return false
+    }
+
+    private var showsNowPlaying: Bool {
+        guard vehicle.mediaTitle != nil else { return false }
+        return vehicle.mediaPlaybackStatus == "播放中" || vehicle.mediaPlaybackStatus == "已暂停"
     }
 
     private var busy: Bool {
