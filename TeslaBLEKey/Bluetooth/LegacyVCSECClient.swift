@@ -29,6 +29,7 @@ final class LegacyVCSECClient: @unchecked Sendable {
     private var sharedKey: Data?
     private var counter: UInt32 = 0
     private var iterator: AsyncStream<Data>.Iterator
+    private var passiveAuthenticationTask: Task<Void, Never>?
 
     init(connection: BLEConnection, privateKey: TeslaPrivateKey) {
         self.connection = connection
@@ -88,6 +89,29 @@ final class LegacyVCSECClient: @unchecked Sendable {
         try await awaitCommandResult()
     }
 
+    /// Responds to the token-bound AuthenticationRequest emitted by VCSEC
+    /// when a handle is pulled. Merely keeping a whitelisted BLE connection
+    /// open is insufficient for passive entry: the vehicle requires a fresh
+    /// AES-GCM-TOKEN response at its requested authentication level.
+    func startPassiveAuthenticationResponder() {
+        guard passiveAuthenticationTask == nil else { return }
+        passiveAuthenticationTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                do {
+                    let response = try await self.nextMessage(seconds: 60)
+                    try await self.respondToAuthenticationRequest(in: response)
+                } catch is CancellationError {
+                    return
+                } catch {
+                    // Idle timeouts are expected while no handle is pulled.
+                    // A physical disconnect is reported by BLEConnection and
+                    // rebuilt by VehicleController.
+                }
+            }
+        }
+    }
+
     func closure(field: Int, action: UInt64 = 3) async throws {
         let moveRequest = Self.enumField(field, action)
         try await sendSigned(unsignedMessage: Self.messageField(4, moveRequest))
@@ -95,25 +119,65 @@ final class LegacyVCSECClient: @unchecked Sendable {
     }
 
     func close() {
+        passiveAuthenticationTask?.cancel()
+        passiveAuthenticationTask = nil
         connection.close()
     }
 
-    private func sendSigned(unsignedMessage: Data) async throws {
+    private func sendSigned(
+        unsignedMessage: Data,
+        authenticatedData: Data = Data(),
+        signatureType: UInt64 = 0
+    ) async throws {
         guard let sharedKey else { throw ClientError.malformedSession }
         let nonce = Data(uint32BigEndian: counter)
         let box = try VariableNonceAESGCM(key: sharedKey).seal(
             plaintext: unsignedMessage,
+            authenticatedData: authenticatedData,
             nonce: nonce
         )
 
         // Legacy SignedMessage fields: encrypted protobuf=2, signature=4,
         // keyId=5, counter=6. Signature type AES_GCM is the default value 0.
         let signed = Self.bytesField(2, box.ciphertext)
+            + (signatureType == 0 ? Data() : Self.enumField(3, signatureType))
             + Self.bytesField(4, box.tag)
             + Self.bytesField(5, keyID)
             + Self.enumField(6, UInt64(counter))
         counter &+= 1
         try await connection.send(Self.messageField(1, signed))
+    }
+
+    private func respondToAuthenticationRequest(in response: Data) async throws {
+        // FromVCSECMessage.authenticationRequest = field 3.
+        guard let request = Self.firstLengthDelimitedField(3, in: response),
+              let session = Self.firstLengthDelimitedField(2, in: request),
+              let token = Self.firstLengthDelimitedField(1, in: session),
+              token.count == 20 else { return }
+
+        // Ignore challenges addressed to another enrolled phone key.
+        if let identifier = Self.firstLengthDelimitedField(1, in: request),
+           let requestedKeyID = Self.firstLengthDelimitedField(1, in: identifier),
+           requestedKeyID != keyID { return }
+
+        let requestedLevel = Self.firstVarintField(3, in: request) ?? 0
+        guard requestedLevel == 1 || requestedLevel == 2 else { return }
+        if let vehicleCounter = Self.firstVarintField(2, in: session) {
+            let receivedCounter = UInt32(clamping: vehicleCounter)
+            if receivedCounter < UInt32.max {
+                counter = max(counter, receivedCounter + 1)
+            }
+        }
+
+        // AuthenticationResponse.authenticationLevel = field 1;
+        // UnsignedMessage.authenticationResponse = field 3.
+        let authenticationResponse = Self.enumField(1, requestedLevel)
+        let unsigned = Self.messageField(3, authenticationResponse)
+        try await sendSigned(
+            unsignedMessage: unsigned,
+            authenticatedData: token,
+            signatureType: 3 // SIGNATURE_TYPE_AES_GCM_TOKEN
+        )
     }
 
     private func awaitCommandResult() async throws {

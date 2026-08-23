@@ -460,12 +460,10 @@ final class VehicleController {
         // The command transport and native Phone Key transport have distinct
         // receive streams. Sharing one dispatcher lets replies race each
         // other and a modern command session is not passive-key presence.
-        // VIN-free mode already uses the native Phone Key connection for its
-        // limited commands, so that single link owns state restoration.
-        let restorationID = passiveEntryEnabled && !usesModernCommands
-            ? "com.local.teslablekey.phonekey.\(vehicleID)"
-            : nil
-        let link = try BLEConnection(localName: vehicleID, restorationIdentifier: restorationID)
+        // Command replies and handle-pull authentication challenges must never
+        // share an iterator. The passive Phone Key gets its own restorable BLE
+        // link even when commands use the VIN-free legacy protocol.
+        let link = try BLEConnection(localName: vehicleID)
         connection = link
         try await link.connect(timeout: 30)
         phase = .handshaking
@@ -486,13 +484,6 @@ final class VehicleController {
             handshakeTimeoutTask?.cancel()
             handshakeTimeoutTask = nil
             guard !handshakeDidTimeOut else { throw LocalError.handshakeTimedOut }
-            if passiveEntryEnabled {
-                do { try await startDedicatedPhoneKeyConnection(key: key) }
-                catch {
-                    passiveKeyOnline = false
-                    schedulePassiveKeyReconnect()
-                }
-            }
         } else {
             let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
             // Establish the VIN-free phone-key session. Tesla's published
@@ -500,11 +491,17 @@ final class VehicleController {
             // later after the user supplies and locally verifies it once.
             try await bootstrap.startSession()
             legacyClient = bootstrap
-            passiveKeyOnline = true
         }
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
         guard !handshakeDidTimeOut else { throw LocalError.handshakeTimedOut }
+        if passiveEntryEnabled {
+            do { try await startDedicatedPhoneKeyConnection(key: key) }
+            catch {
+                passiveKeyOnline = false
+                schedulePassiveKeyReconnect()
+            }
+        }
         phase = .connected
         await refreshVehicleState()
     }
@@ -1085,7 +1082,6 @@ final class VehicleController {
                 let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
                 try await bootstrap.startSession()
                 legacyClient = bootstrap
-                passiveKeyOnline = true
             }
             phase = .connected
             await refreshVehicleState()
@@ -1110,6 +1106,7 @@ final class VehicleController {
             try await link.connect(timeout: 30)
             let client = LegacyVCSECClient(connection: link, privateKey: key)
             try await client.startSession()
+            client.startPassiveAuthenticationResponder()
             passiveKeyClient = client
             passiveKeyOnline = true
         } catch {
@@ -1129,6 +1126,7 @@ final class VehicleController {
             let client = LegacyVCSECClient(connection: link, privateKey: key)
             try await client.startSession()
             guard passiveConnection === link else { client.close(); return }
+            client.startPassiveAuthenticationResponder()
             passiveKeyClient = client
             passiveKeyOnline = true
         } catch {
