@@ -1,6 +1,13 @@
 import SwiftUI
 import LocalAuthentication
 
+private enum HomeCard: String, CaseIterable, Identifiable {
+    case vehicle, features, media, climate, controls, drive
+    var id: String { rawValue }
+    var title: String { switch self { case .vehicle: "车辆状态"; case .features: "功能入口"; case .media: "正在播放"; case .climate: "座舱温度"; case .controls: "快捷控制"; case .drive: "驾驶授权" } }
+    var icon: String { switch self { case .vehicle: "car.side.fill"; case .features: "square.grid.2x2"; case .media: "music.note"; case .climate: "fan.fill"; case .controls: "switch.2"; case .drive: "power" } }
+}
+
 struct VehicleControlView: View {
     @Environment(VehicleController.self) private var vehicle
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -10,6 +17,9 @@ struct VehicleControlView: View {
     @State private var showingAddVehicle = false
     @State private var showingRenameVehicle = false
     @State private var showingSecuritySettings = false
+    @State private var showingHomeLayout = false
+    @State private var homeCardOrder = HomeCard.allCases
+    @State private var hiddenHomeCards: Set<HomeCard> = []
     @State private var pressFeedback = 0
     @SceneStorage("controlRailHasAppeared") private var railHasAppeared = false
     @State private var revealRail = false
@@ -20,15 +30,11 @@ struct VehicleControlView: View {
             fixedHeader
             ScrollView {
                 VStack(spacing: 0) {
-                    vehicleSummary.padding(.top, 18)
-                    featureRail.padding(.top, 14)
-                    if showsNowPlaying {
-                        nowPlayingCard.padding(.top, 14)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    ForEach(homeCardOrder) { card in
+                        if !hiddenHomeCards.contains(card) {
+                            homeCard(card)
+                        }
                     }
-                    climateControl.padding(.top, 22)
-                    utilityGrid.padding(.top, 22)
-                    driveControl.padding(.top, 12)
                     safetyNote.padding(.top, 24)
                 }
                 .padding(.horizontal, 22)
@@ -47,6 +53,7 @@ struct VehicleControlView: View {
             animateRailEntrance = !railHasAppeared && !reduceMotion
             revealRail = true
             railHasAppeared = true
+            loadHomeLayout()
         }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
@@ -60,6 +67,7 @@ struct VehicleControlView: View {
             guard newPhase == .active else { return }
             Task { await vehicle.refreshAfterReturningToForeground() }
         }
+        .onChange(of: vehicle.vehicleID) { _, _ in loadHomeLayout() }
         .confirmationDialog("移除本机车钥匙？", isPresented: $confirmForget) {
             Button("移除", role: .destructive) { vehicle.forgetVehicle() }
             Button("取消", role: .cancel) {}
@@ -82,6 +90,11 @@ struct VehicleControlView: View {
         }
         .sheet(isPresented: $showingSecuritySettings) {
             SecuritySettingsView().environment(vehicle).presentationDetents([.height(310)])
+        }
+        .sheet(isPresented: $showingHomeLayout) {
+            HomeLayoutView(order: $homeCardOrder, hidden: $hiddenHomeCards) {
+                saveHomeLayout()
+            }.presentationDetents([.large])
         }
     }
 
@@ -127,6 +140,9 @@ struct VehicleControlView: View {
                 }
                 Button { showingSecuritySettings = true } label: {
                     Label("Face ID 保护", systemImage: "faceid")
+                }
+                Button { showingHomeLayout = true } label: {
+                    Label("编辑主页", systemImage: "rectangle.3.group")
                 }
                 Button {
                     if connected { vehicle.disconnect() }
@@ -203,6 +219,35 @@ struct VehicleControlView: View {
         .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private func homeCard(_ card: HomeCard) -> some View {
+        switch card {
+        case .vehicle: vehicleSummary.padding(.top, 18)
+        case .features: featureRail.padding(.top, 14)
+        case .media:
+            if showsNowPlaying {
+                nowPlayingCard.padding(.top, 14).transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        case .climate: climateControl.padding(.top, 22)
+        case .controls: utilityGrid.padding(.top, 22)
+        case .drive: driveControl.padding(.top, 12)
+        }
+    }
+
+    private func loadHomeLayout() {
+        let defaults = UserDefaults.standard
+        let orderKey = AppStorageKeys.homeCardOrderPrefix + vehicle.vehicleID
+        let hiddenKey = AppStorageKeys.hiddenHomeCardsPrefix + vehicle.vehicleID
+        let stored = defaults.stringArray(forKey: orderKey)?.compactMap(HomeCard.init(rawValue:)) ?? []
+        homeCardOrder = stored.count == HomeCard.allCases.count ? stored : HomeCard.allCases
+        hiddenHomeCards = Set((defaults.stringArray(forKey: hiddenKey) ?? []).compactMap(HomeCard.init(rawValue:)))
+    }
+
+    private func saveHomeLayout() {
+        UserDefaults.standard.set(homeCardOrder.map(\.rawValue), forKey: AppStorageKeys.homeCardOrderPrefix + vehicle.vehicleID)
+        UserDefaults.standard.set(hiddenHomeCards.map(\.rawValue), forKey: AppStorageKeys.hiddenHomeCardsPrefix + vehicle.vehicleID)
     }
 
     private var compactLockButton: some View {
@@ -559,6 +604,50 @@ private struct SecuritySettingsView: View {
             .navigationTitle("Face ID 保护").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
         }
+    }
+}
+
+private struct HomeLayoutView: View {
+    @Binding var order: [HomeCard]
+    @Binding var hidden: Set<HomeCard>
+    let save: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("拖动排序") {
+                    ForEach(order) { card in
+                        HStack {
+                            Label(card.title, systemImage: card.icon)
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { !hidden.contains(card) },
+                                set: { visible in
+                                    if visible { hidden.remove(card) } else { hidden.insert(card) }
+                                    save()
+                                }
+                            )).labelsHidden()
+                        }
+                    }
+                    .onMove { source, destination in
+                        order.move(fromOffsets: source, toOffset: destination)
+                        save()
+                    }
+                }
+                Section {
+                    Button("恢复默认布局") {
+                        order = HomeCard.allCases
+                        hidden = []
+                        save()
+                    }
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle("编辑主页").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { save(); dismiss() } } }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 

@@ -11,4 +11,6 @@ enum AppStorageKeys {
     static let pairedVehicleIDs = "pairedVehicleIDs"
     static let customVehicleNamePrefix = "customVehicleName."
     static let faceIDProtectionPrefix = "faceIDProtection."
+    static let homeCardOrderPrefix = "homeCardOrder."
+    static let hiddenHomeCardsPrefix = "hiddenHomeCards."
 }
