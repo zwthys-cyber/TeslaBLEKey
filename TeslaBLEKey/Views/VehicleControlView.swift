@@ -498,17 +498,23 @@ struct VehicleControlView: View {
     }
 
     private func secureFrunk() async {
-        guard vehicle.faceIDProtection == .off || vehicle.faceIDProtection == .all || await authenticate(reason: "确认打开车辆前备箱") else { return }
+        if vehicle.faceIDProtection == .sensitive {
+            guard await authenticate(reason: "确认打开车辆前备箱") else { return }
+        }
         await vehicle.openFrunk()
     }
 
     private func secureUnlock() async {
-        guard vehicle.faceIDProtection == .off || vehicle.faceIDProtection == .all || await authenticate(reason: "确认解锁车辆") else { return }
+        if vehicle.faceIDProtection == .sensitive {
+            guard await authenticate(reason: "确认解锁车辆") else { return }
+        }
         await vehicle.unlock()
     }
 
     private func secureDrive() async {
-        guard vehicle.faceIDProtection == .off || vehicle.faceIDProtection == .all || await authenticate(reason: "确认授权车辆启动") else { return }
+        if vehicle.faceIDProtection == .sensitive {
+            guard await authenticate(reason: "确认授权车辆启动") else { return }
+        }
         await vehicle.authorizeDrive()
     }
 
