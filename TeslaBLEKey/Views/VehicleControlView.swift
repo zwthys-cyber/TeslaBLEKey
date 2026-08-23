@@ -1,11 +1,11 @@
 import SwiftUI
+import LocalAuthentication
 
 struct VehicleControlView: View {
     @Environment(VehicleController.self) private var vehicle
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var confirmForget = false
     @State private var confirmDrive = false
-    @State private var nextDoorAction: VehicleController.VehicleAction = .lock
     @State private var pressFeedback = 0
     @SceneStorage("controlRailHasAppeared") private var railHasAppeared = false
     @State private var revealRail = false
@@ -15,12 +15,10 @@ struct VehicleControlView: View {
         ScrollView {
             VStack(spacing: 0) {
                 topBar
-                VehicleStage(state: stage)
-                    .frame(maxWidth: 440)
-                    .padding(.top, 18)
-                connectionButton.padding(.top, 6)
-                primaryControl.padding(.top, 24)
-                utilityGrid.padding(.top, 26)
+                vehicleSummary.padding(.top, 18)
+                primaryControl.padding(.top, 18)
+                climateControl.padding(.top, 22)
+                utilityGrid.padding(.top, 22)
                 driveControl.padding(.top, 12)
                 safetyNote.padding(.top, 24)
             }
@@ -36,16 +34,12 @@ struct VehicleControlView: View {
             revealRail = true
             railHasAppeared = true
         }
-        .onChange(of: vehicle.lastSuccessAction) { _, action in
-            if action == .lock { nextDoorAction = .unlock }
-            if action == .unlock { nextDoorAction = .lock }
-        }
         .confirmationDialog("移除本机车钥匙？", isPresented: $confirmForget) {
             Button("移除", role: .destructive) { vehicle.forgetVehicle() }
             Button("取消", role: .cancel) {}
         } message: { Text("还需要在车机的钥匙管理中删除对应记录。") }
         .confirmationDialog("授权启动车辆？", isPresented: $confirmDrive) {
-            Button("授权启动") { submit(.drive, haptic: false) { await vehicle.authorizeDrive() } }
+            Button("授权启动") { submit(.drive, haptic: false) { await secureDrive() } }
             Button("取消", role: .cancel) {}
         } message: { Text("授权后车辆可在没有实体钥匙卡的情况下行驶。请确认车辆处于你的控制范围内。") }
         .sensoryFeedback(.impact(weight: .light), trigger: pressFeedback)
@@ -82,38 +76,82 @@ struct VehicleControlView: View {
         .padding(.top, 10)
     }
 
-    private var connectionButton: some View {
+    private var vehicleSummary: some View {
         Button {
             guard !busy else { return }
-            if !connected { Task { await vehicle.connectFromUI() } }
-        } label: {
-            HStack(spacing: 7) {
-                Circle().fill(connected ? Color.white : AppTheme.muted).frame(width: 6, height: 6)
-                Text(vehicle.phase.title).font(.caption.weight(.medium))
-                if busy { ProgressView().controlSize(.mini).tint(.white) }
-                if !connected && !busy { Image(systemName: "arrow.clockwise").font(.caption2.weight(.bold)) }
+            Task {
+                if connected { await vehicle.refreshVehicleState() }
+                else { await vehicle.connectFromUI() }
             }
-            .foregroundStyle(connected ? .white : AppTheme.muted)
-            .frame(minHeight: 44)
-            .padding(.horizontal, 16)
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "car.side.fill")
+                    .font(.system(size: 28, weight: .light))
+                    .frame(width: 42)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
+                    Text(statusSummary).font(.caption).foregroundStyle(AppTheme.muted)
+                }
+                Spacer()
+                if busy { ProgressView().controlSize(.small).tint(.white) }
+                else { Image(systemName: "arrow.clockwise").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted) }
+            }
+            .foregroundStyle(.white)
+            .padding(16)
+            .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
         }
         .buttonStyle(UtilityPressStyle())
-        .accessibilityHint(connected ? "车辆连接正常" : "轻点重新连接")
+        .accessibilityHint(connected ? "轻点刷新车辆状态" : "轻点重新连接")
     }
 
     private var primaryControl: some View {
         ActionButton(
-            title: nextDoorAction == .lock ? "上锁" : "解锁",
-            icon: nextDoorAction == .lock ? "lock.fill" : "lock.open",
-            actionID: nextDoorAction,
+            title: vehicle.isLocked == true ? "解锁车辆" : "锁定车辆",
+            icon: vehicle.isLocked == true ? "lock.open" : "lock.fill",
+            actionID: vehicle.isLocked == true ? .unlock : .lock,
             appearance: .primary,
             enabled: connected,
             executing: vehicle.executingAction,
             success: vehicle.lastSuccessAction
         ) {
-            if nextDoorAction == .lock { submit(.lock) { await vehicle.lock() } }
-            else { submit(.unlock) { await vehicle.unlock() } }
+            if vehicle.isLocked == true { submit(.unlock) { await vehicle.unlock() } }
+            else { submit(.lock) { await vehicle.lock() } }
         }
+    }
+
+    private var climateControl: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("座舱温度").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted)
+                    Text(vehicle.cabinTemperature.map { String(format: "车内 %.1f°", $0) } ?? "车内温度读取中")
+                        .font(.subheadline.weight(.medium))
+                }
+                Spacer()
+                Button { submit(.climate) { await vehicle.toggleClimate() } } label: {
+                    Label(vehicle.isClimateOn ? "关闭" : "开启", systemImage: vehicle.isClimateOn ? "fan.fill" : "fan")
+                        .font(.caption.weight(.semibold))
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, 12)
+                        .background(vehicle.isClimateOn ? Color.white : AppTheme.raised, in: Capsule())
+                        .foregroundStyle(vehicle.isClimateOn ? .black : .white)
+                }
+                .buttonStyle(UtilityPressStyle())
+                .disabled(!connected || vehicle.executingAction != nil)
+            }
+            HStack {
+                temperatureButton("minus") { vehicle.targetTemperature - 0.5 }
+                Spacer()
+                Text(String(format: "%.1f°", vehicle.targetTemperature))
+                    .font(.title2.weight(.semibold)).monospacedDigit()
+                Spacer()
+                temperatureButton("plus") { vehicle.targetTemperature + 0.5 }
+            }
+        }
+        .padding(16)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
     }
 
     private var utilityGrid: some View {
@@ -122,7 +160,7 @@ struct VehicleControlView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.muted)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                utility("前备箱", "car.side.front.open", .frunk, index: 0) { await vehicle.openFrunk() }
+                utility("前备箱", "car.side.front.open", .frunk, index: 0) { await secureFrunk() }
                 utility(
                     vehicle.isTrunkOpen ? "关闭后备箱" : "打开后备箱",
                     vehicle.isTrunkOpen ? "door.garage.closed" : "car.side.rear.open",
@@ -134,6 +172,8 @@ struct VehicleControlView: View {
                 }
                 utility("闪灯", "light.beacon.max", .flash, index: 2) { await vehicle.flashLights() }
                 utility("鸣笛", "speaker.wave.2", .horn, index: 3) { await vehicle.honk() }
+                utility(vehicle.isChargePortOpen ? "关闭充电口" : "打开充电口", "bolt.circle", .chargePort, index: 4) { await vehicle.toggleChargePort() }
+                utility(vehicle.areWindowsVented ? "关闭车窗" : "车窗通风", "rectangle.split.3x1", .windows, index: 5) { await vehicle.toggleWindows() }
             }
         }
     }
@@ -171,14 +211,44 @@ struct VehicleControlView: View {
         Task { await operation() }
     }
 
-    private var stage: VehicleStageState {
-        if vehicle.lastSuccessAction != nil { return .success }
-        if vehicle.executingAction != nil { return .executing }
-        switch vehicle.phase {
-        case .connecting, .handshaking: return .connecting
-        case .connected: return .ready
-        default: return .found
+    private func temperatureButton(_ symbol: String, value: @escaping () -> Double) -> some View {
+        Button {
+            submit(.climate) { await vehicle.setCabinTemperature(value()) }
+        } label: {
+            Image(systemName: symbol).font(.body.weight(.semibold)).frame(width: 48, height: 44)
+                .background(AppTheme.raised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
+        .buttonStyle(UtilityPressStyle())
+        .disabled(!connected || vehicle.executingAction != nil)
+        .accessibilityLabel(symbol == "minus" ? "降低温度" : "升高温度")
+    }
+
+    private func secureFrunk() async {
+        guard await authenticate(reason: "确认打开车辆前备箱") else { return }
+        await vehicle.openFrunk()
+    }
+
+    private func secureDrive() async {
+        guard await authenticate(reason: "确认授权车辆启动") else { return }
+        await vehicle.authorizeDrive()
+    }
+
+    private func authenticate(reason: String) async -> Bool {
+        let context = LAContext()
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            vehicle.presentUserError("请先在系统设置中启用 Face ID、Touch ID 或设备密码。")
+            return false
+        }
+        do { return try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) }
+        catch { return false }
+    }
+
+    private var statusSummary: String {
+        guard connected else { return "轻点重新连接" }
+        let lock = vehicle.isLocked.map { $0 ? "已上锁" : "已解锁" } ?? "锁车状态读取中"
+        let trunk = vehicle.isTrunkOpen ? "尾门已开" : "尾门已关"
+        return "\(lock) · \(trunk)"
     }
 
     private var connected: Bool {

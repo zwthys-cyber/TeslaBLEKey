@@ -7,7 +7,7 @@ import Security
 @Observable
 final class VehicleController {
     enum VehicleAction: String, CaseIterable, Hashable, Identifiable, Sendable {
-        case lock, unlock, frunk, trunk, drive, flash, horn
+        case lock, unlock, frunk, trunk, drive, flash, horn, chargePort, climate, windows
         var id: String { rawValue }
     }
 
@@ -46,6 +46,12 @@ final class VehicleController {
     var executingAction: VehicleAction?
     var lastSuccessAction: VehicleAction?
     var isTrunkOpen = false
+    var isLocked: Bool?
+    var isChargePortOpen = false
+    var isClimateOn = false
+    var cabinTemperature: Double?
+    var targetTemperature = 22.0
+    var areWindowsVented = false
     private var successClearTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
@@ -167,17 +173,21 @@ final class VehicleController {
         handshakeTimeoutTask = nil
         guard !handshakeDidTimeOut else { throw LocalError.handshakeTimedOut }
         phase = .connected
-        if let tesla, let status = try? await tesla.vehicleStatus() {
-            isTrunkOpen = status.closureStatuses.rearTrunk != .closurestateClosed
-        }
+        await refreshVehicleState()
     }
 
     func connectFromUI() async {
         do { try await connect() } catch { presentError(Self.describe(error)) }
     }
 
-    func lock() async { await execute(.lock, name: "上锁") { try await self.perform(modern: { try await $0.lock() }, legacy: { try await $0.rke(1) }) } }
-    func unlock() async { await execute(.unlock, name: "解锁") { try await self.perform(modern: { try await $0.unlock() }, legacy: { try await $0.rke(0) }) } }
+    func presentUserError(_ message: String) { presentError(message) }
+
+    func lock() async {
+        if await execute(.lock, name: "上锁", operation: { try await self.perform(modern: { try await $0.lock() }, legacy: { try await $0.rke(1) }) }) { isLocked = true }
+    }
+    func unlock() async {
+        if await execute(.unlock, name: "解锁", operation: { try await self.perform(modern: { try await $0.unlock() }, legacy: { try await $0.rke(0) }) }) { isLocked = false }
+    }
     func openTrunk() async {
         if await execute(.trunk, name: "开启后备箱", operation: {
             try await self.perform(modern: { try await self.moveRearTrunk($0, action: .closureMoveTypeMove) }, legacy: { try await $0.rke(2) })
@@ -192,6 +202,83 @@ final class VehicleController {
     func flashLights() async { await execute(.flash, name: "闪灯") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.flashLights() } } }
     func honk() async { await execute(.horn, name: "鸣笛") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.honkHorn() } } }
     func authorizeDrive() async { await execute(.drive, name: "启动车辆") { try await self.perform(modern: { try await $0.remoteDrive() }, legacy: { try await $0.rke(20) }) } }
+
+    func toggleChargePort() async {
+        let opening = !isChargePortOpen
+        if await execute(.chargePort, name: opening ? "打开充电口" : "关闭充电口", operation: {
+            try await self.performModern { vehicle in
+                var action = CarServer_VehicleAction()
+                if opening { action.chargePortDoorOpen = CarServer_ChargePortDoorOpen() }
+                else { action.chargePortDoorClose = CarServer_ChargePortDoorClose() }
+                try await self.send(action, to: vehicle)
+            }
+        }) { isChargePortOpen = opening }
+    }
+
+    func toggleClimate() async {
+        let turningOn = !isClimateOn
+        if await execute(.climate, name: turningOn ? "打开空调" : "关闭空调", operation: {
+            try await self.performModern { vehicle in
+                var hvac = CarServer_HvacAutoAction()
+                hvac.powerOn = turningOn
+                var action = CarServer_VehicleAction()
+                action.hvacAutoAction = hvac
+                try await self.send(action, to: vehicle)
+            }
+        }) { isClimateOn = turningOn }
+    }
+
+    func setCabinTemperature(_ celsius: Double) async {
+        let target = min(max(celsius, 15), 28)
+        if await execute(.climate, name: "设置温度", operation: {
+            try await self.performModern { vehicle in
+                var temperature = CarServer_HvacTemperatureAdjustmentAction()
+                temperature.driverTempCelsius = Float(target)
+                temperature.passengerTempCelsius = Float(target)
+                var action = CarServer_VehicleAction()
+                action.hvacTemperatureAdjustmentAction = temperature
+                try await self.send(action, to: vehicle)
+            }
+        }) { targetTemperature = target }
+    }
+
+    func toggleWindows() async {
+        let venting = !areWindowsVented
+        if await execute(.windows, name: venting ? "车窗通风" : "关闭车窗", operation: {
+            try await self.performModern { vehicle in
+                var windows = CarServer_VehicleControlWindowAction()
+                if venting { windows.vent = CarServer_Void() }
+                else { windows.close = CarServer_Void() }
+                var action = CarServer_VehicleAction()
+                action.vehicleControlWindowAction = windows
+                try await self.send(action, to: vehicle)
+            }
+        }) { areWindowsVented = venting }
+    }
+
+    func refreshVehicleState() async {
+        guard let tesla else { return }
+        if let status = try? await tesla.vehicleStatus() {
+            isTrunkOpen = status.closureStatuses.rearTrunk != .closurestateClosed
+            isChargePortOpen = status.closureStatuses.chargePort != .closurestateClosed
+            isLocked = status.vehicleLockState == .vehiclelockstateLocked || status.vehicleLockState == .vehiclelockstateInternalLocked
+        }
+        try? await tesla.startInfotainmentSession()
+        var request = CarServer_GetVehicleData()
+        request.getClimateState = CarServer_GetClimateState()
+        request.getChargeState = CarServer_GetChargeState()
+        var action = CarServer_VehicleAction()
+        action.getVehicleData = request
+        if let response = try? await tesla.sendVehicleAction(action),
+           case .vehicleData(let data)? = response.responseMsg {
+            if data.hasClimateState {
+                isClimateOn = data.climateState.isClimateOn
+                if data.climateState.optionalInsideTempCelsius != nil { cabinTemperature = Double(data.climateState.insideTempCelsius) }
+                if data.climateState.optionalDriverTempSetting != nil { targetTemperature = Double(data.climateState.driverTempSetting) }
+            }
+            if data.hasChargeState { isChargePortOpen = data.chargeState.chargePortDoorOpen }
+        }
+    }
 
     func disconnect() {
         handshakeTimeoutTask?.cancel()
@@ -255,6 +342,12 @@ final class VehicleController {
         var payload = VCSEC_UnsignedMessage()
         payload.closureMoveRequest = request
         _ = try await vehicle.sendRawVCSEC(payload: payload.serializedData())
+    }
+
+    private func send(_ action: CarServer_VehicleAction, to vehicle: TeslaVehicle) async throws {
+        try? await vehicle.wakeVehicle()
+        try await vehicle.startInfotainmentSession()
+        _ = try await vehicle.sendVehicleAction(action)
     }
 
     private func perform(
