@@ -596,7 +596,15 @@ final class VehicleController {
     func honk() async { await execute(.horn, name: "鸣笛") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.honkHorn() } } }
     func authorizeDrive() async {
         await execute(.drive, name: "启动车辆") {
-            try await self.performModern { try await self.sendRawRKE(.rkeActionRemoteDrive, to: $0) }
+            try await self.performModern { vehicle in
+                do {
+                    try await self.sendRawRKE(.rkeActionRemoteDrive, to: vehicle)
+                } catch where Self.isVCSECAlreadyOn(error) {
+                    // Remote-drive authorization is idempotent. Tesla returns
+                    // genericerrorAlreadyOn when the grant is already active;
+                    // that is the requested end state, not an operation error.
+                }
+            }
         }
     }
 
@@ -1247,6 +1255,13 @@ final class VehicleController {
         errorMessage = message
         phase = .failed(message)
         showingError = true
+    }
+
+    private static func isVCSECAlreadyOn(_ error: Error) -> Bool {
+        let diagnostic = "\(String(describing: error)) \(error.localizedDescription)"
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
+        return diagnostic.contains("genericerroralreadyon") || diagnostic.contains("alreadyon")
     }
 
     private func markPairingVerified() {
