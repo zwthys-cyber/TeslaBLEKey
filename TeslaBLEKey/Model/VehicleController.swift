@@ -45,6 +45,7 @@ final class VehicleController {
     var canConfirmPairing = false
     var executingAction: VehicleAction?
     var lastSuccessAction: VehicleAction?
+    var isTrunkOpen = false
     private var successClearTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
@@ -166,6 +167,9 @@ final class VehicleController {
         handshakeTimeoutTask = nil
         guard !handshakeDidTimeOut else { throw LocalError.handshakeTimedOut }
         phase = .connected
+        if let tesla, let status = try? await tesla.vehicleStatus() {
+            isTrunkOpen = status.closureStatuses.rearTrunk != .closurestateClosed
+        }
     }
 
     func connectFromUI() async {
@@ -174,7 +178,16 @@ final class VehicleController {
 
     func lock() async { await execute(.lock, name: "上锁") { try await self.perform(modern: { try await $0.lock() }, legacy: { try await $0.rke(1) }) } }
     func unlock() async { await execute(.unlock, name: "解锁") { try await self.perform(modern: { try await $0.unlock() }, legacy: { try await $0.rke(0) }) } }
-    func openTrunk() async { await execute(.trunk, name: "开启后备箱") { try await self.perform(modern: { try await $0.openTrunk() }, legacy: { try await $0.rke(2) }) } }
+    func openTrunk() async {
+        if await execute(.trunk, name: "开启后备箱", operation: {
+            try await self.perform(modern: { try await self.moveRearTrunk($0, action: .closureMoveTypeMove) }, legacy: { try await $0.rke(2) })
+        }) { isTrunkOpen = true }
+    }
+    func closeTrunk() async {
+        if await execute(.trunk, name: "关闭后备箱", operation: {
+            try await self.perform(modern: { try await self.moveRearTrunk($0, action: .closureMoveTypeClose) }, legacy: { try await $0.rke(2) })
+        }) { isTrunkOpen = false }
+    }
     func openFrunk() async { await execute(.frunk, name: "开启前备箱") { try await self.perform(modern: { try await $0.openFrunk() }, legacy: { try await $0.rke(3) }) } }
     func flashLights() async { await execute(.flash, name: "闪灯") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.flashLights() } } }
     func honk() async { await execute(.horn, name: "鸣笛") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.honkHorn() } } }
@@ -208,11 +221,12 @@ final class VehicleController {
         isPaired = false
     }
 
-    private func execute(_ action: VehicleAction, name: String, operation: () async throws -> Void) async {
-        guard tesla != nil || legacyClient != nil else { presentError("请先连接车辆。"); return }
+    @discardableResult
+    private func execute(_ action: VehicleAction, name: String, operation: () async throws -> Void) async -> Bool {
+        guard tesla != nil || legacyClient != nil else { presentError("请先连接车辆。"); return false }
         // Tesla vehicle commands share one authenticated BLE session. Serialize them
         // so a second command cannot replace the first command's presentation state.
-        guard executingAction == nil else { return }
+        guard executingAction == nil else { return false }
         successClearTask?.cancel()
         lastSuccessAction = nil
         executingAction = action
@@ -227,10 +241,20 @@ final class VehicleController {
                 guard !Task.isCancelled else { return }
                 self?.lastSuccessAction = nil
             }
+            return true
         } catch {
             executingAction = nil
             presentError(Self.describe(error))
+            return false
         }
+    }
+
+    private func moveRearTrunk(_ vehicle: TeslaVehicle, action: VCSEC_ClosureMoveType_E) async throws {
+        var request = VCSEC_ClosureMoveRequest()
+        request.rearTrunk = action
+        var payload = VCSEC_UnsignedMessage()
+        payload.closureMoveRequest = request
+        _ = try await vehicle.sendRawVCSEC(payload: payload.serializedData())
     }
 
     private func perform(

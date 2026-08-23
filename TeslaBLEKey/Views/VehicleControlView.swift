@@ -123,7 +123,15 @@ struct VehicleControlView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     utility("前备箱", "car.side.front.open", .frunk, index: 0) { await vehicle.openFrunk() }
-                    utility("后备箱", "car.side.rear.open", .trunk, index: 1) { await vehicle.openTrunk() }
+                    utility(
+                        vehicle.isTrunkOpen ? "关闭后备箱" : "打开后备箱",
+                        vehicle.isTrunkOpen ? "door.garage.closed" : "car.side.rear.open",
+                        .trunk,
+                        index: 1
+                    ) {
+                        if vehicle.isTrunkOpen { await vehicle.closeTrunk() }
+                        else { await vehicle.openTrunk() }
+                    }
                     utility("闪灯", "light.beacon.max", .flash, index: 2) { await vehicle.flashLights() }
                     utility("鸣笛", "speaker.wave.2", .horn, index: 3) { await vehicle.honk() }
                     ActionButton(title: "启动", icon: "power", actionID: .drive, appearance: .safety,
