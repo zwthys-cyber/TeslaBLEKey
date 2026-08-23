@@ -35,7 +35,6 @@ struct VehicleControlView: View {
                             homeCard(card)
                         }
                     }
-                    safetyNote.padding(.top, 24)
                 }
                 .padding(.horizontal, 22)
                 .padding(.bottom, 36)
@@ -194,6 +193,18 @@ struct VehicleControlView: View {
                                 .fill(connected ? Color.green : AppTheme.muted)
                                 .frame(width: 7, height: 7)
                             Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
+                            if connected {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(passiveKeyStatusColor)
+                                        .frame(width: 6, height: 6)
+                                    Text(passiveKeyCompactStatus)
+                                }
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(AppTheme.muted)
+                                .padding(.leading, 2)
+                                .accessibilityElement(children: .combine)
+                            }
                         }
                         Text(statusSummary).font(.caption).foregroundStyle(AppTheme.muted)
                     }
@@ -455,28 +466,14 @@ struct VehicleControlView: View {
         .reveal(index: index, active: revealRail, skip: !animateRailEntrance)
     }
 
-    private var safetyNote: some View {
-        HStack(alignment: .top, spacing: 7) {
-            if vehicle.passiveEntryEnabled {
-                Circle()
-                    .fill(vehicle.passiveKeyOnline ? Color.green : Color.orange)
-                    .frame(width: 7, height: 7)
-                    .padding(.top, 5)
-            }
-            Text(passiveKeyStatusText)
-                .font(.caption).foregroundStyle(AppTheme.muted).multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
+    private var passiveKeyCompactStatus: String {
+        guard vehicle.passiveEntryEnabled else { return "钥匙关闭" }
+        return vehicle.passiveKeyOnline ? "钥匙在线" : "钥匙恢复中"
     }
 
-    private var passiveKeyStatusText: String {
-        guard vehicle.passiveEntryEnabled else {
-            return "离车前确认车辆已上锁，并随身携带实体钥匙卡。"
-        }
-        if vehicle.passiveKeyOnline {
-            return "被动钥匙在线。请在车机启用「离车后自动上锁」，并随身携带实体钥匙卡。"
-        }
-        return "车辆控制可用，但被动钥匙正在恢复；恢复前请使用 App 解锁并携带实体钥匙卡。"
+    private var passiveKeyStatusColor: Color {
+        guard vehicle.passiveEntryEnabled else { return AppTheme.muted }
+        return vehicle.passiveKeyOnline ? .green : .orange
     }
 
     private func submit(_ id: VehicleController.VehicleAction, haptic: Bool = true,
