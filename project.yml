@@ -15,7 +15,7 @@ targets:
     info:
       path: TeslaBLEKey/Info.plist
       properties:
-        CFBundleDisplayName: Tesla BLE Key
+        CFBundleDisplayName: 小特蓝牙钥匙
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
