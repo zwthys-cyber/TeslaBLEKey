@@ -1,0 +1,35 @@
+# 架构与协议
+
+本文对应 App `1.9.7` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
+
+1. `NearbyTeslaScanner` 使用 CoreBluetooth 扫描附近广播，并校验 Tesla 本地名称格式。
+2. App 为每辆车在 Keychain 生成独立 P-256 私钥。
+3. `LegacyVCSECClient` 建立无需 VIN 的 Phone Key 引导会话，并通过车内已有 NFC 钥匙卡授权公钥。
+4. 基础 VCSEC 会话负责 Phone Key 认证和基础门锁能力。
+5. 需要 Infotainment 完整身份的功能使用本机保存的 VIN 建立现代会话；VIN 会与当前车辆 BLE 广播标识校验。
+
+## 主要模块
+
+- `Bluetooth/NearbyTeslaScanner.swift`：扫描、RSSI 平滑、距离估算和候选车过滤。
+- `Bluetooth/LegacyVCSECClient.swift`：VIN-free 配对及会话引导。
+- `Model/VehicleController.swift`：连接生命周期、车辆状态、命令调度、媒体同步和错误呈现。
+- `Views/VehicleControlView.swift`：固定主页导航头、车辆卡、媒体卡和控制区。
+- `Views/VehicleDetailView.swift`：按类别分批读取并展示车辆详情。
+- `Model/MediaArtworkLookup.swift`：网易云封面精确匹配与 Apple 目录回退。
+
+## 后台与被动钥匙
+
+被动钥匙默认开启。固定的 TeslaBLEKeyKit 分支为 CoreBluetooth central manager 配置 restoration identifier，App 在系统恢复或连接断开后尝试重建 Phone Key 会话。最终的靠近拉门认证和离车上锁由车辆执行；iOS 仍可根据系统资源暂停或延迟后台 BLE 工作，因此实体钥匙卡始终是安全后备。
+
+## 状态与媒体同步
+
+整车状态在连接、手动下拉刷新和 App 回到前台时读取。为避免 BLE 单次响应超过 MTU，详情状态按 Charge、Climate、Closures、Tire、Drive、Software Update 和 Media 分批请求。
+
+Tesla 不会把中控屏切歌主动推送给本 App。主页在前台连接期间每 2 秒只轮询 MediaState 与 MediaDetailState；进入后台立即停止，不重复读取电池或车门等整车数据。
+
+## 固定依赖
+
+- `zwthys-cyber/TeslaBLEKeyKit`：`fb51e10ef6b092148909f09bacc3b19343b9fc75`
+- `Lincb522/NeteaseCloudMusicApi-Swift`：`8626b8fe628144e051dd9e07180850d253c808f2`
+
+具体固定值以仓库根目录的 `project.yml` 为唯一事实来源；CI 必须测试同一 TeslaBLEKeyKit 提交。

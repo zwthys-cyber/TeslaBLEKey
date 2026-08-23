@@ -3,9 +3,13 @@
 [![Build iOS 17 IPA](https://github.com/zwthys-cyber/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/zwthys-cyber/TeslaBLEKey/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/zwthys-cyber/TeslaBLEKey)](https://github.com/zwthys-cyber/TeslaBLEKey/releases/latest)
 
-纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。
+面向 TrollStore 与 iOS 17 的 Tesla 本地蓝牙钥匙客户端。车辆发现、配对、认证、状态读取和控制均不使用 Tesla 账号、OAuth、Fleet API 或开发者后端。
+
+基础 Phone Key 配对与门锁控制不要求 VIN；需要 Infotainment 完整身份的高级功能会在首次使用时要求一次性补全 VIN，并仅保存在本机。音乐封面是独立的联网增强功能，详见[隐私说明](docs/PRIVACY.md)。
 
 > [下载最新 TrollStore IPA](https://github.com/zwthys-cyber/TeslaBLEKey/releases/latest)
+
+文档：[架构与协议](docs/ARCHITECTURE.md) · [构建与发布](docs/BUILD.md) · [隐私说明](docs/PRIVACY.md) · [版本记录](CHANGELOG.md)
 
 ## 当前功能
 
@@ -39,9 +43,9 @@
 - 统一的无弹跳动效语言，并完整支持“减弱动态效果”
 - GitHub Actions 编译无签名 IPA，供 TrollStore 安装
 
-协议层使用固定到提交 `e186c5a2ade352b719cb53b92599619f2556b841` 的
-[`TeslaBLEKeyKit`](https://github.com/misakatao/TeslaBLEKeyKit)，其消息定义来源于 Tesla 官方
-[`vehicle-command`](https://github.com/teslamotors/vehicle-command)。依赖固定提交是为了避免构建时自动拉取未经审查的新代码。
+协议层使用固定到提交 `fb51e10ef6b092148909f09bacc3b19343b9fc75` 的
+[`zwthys-cyber/TeslaBLEKeyKit`](https://github.com/zwthys-cyber/TeslaBLEKeyKit)。该分支基于上游 TeslaBLEKeyKit，增加 CoreBluetooth 状态恢复和被动钥匙连接处理；消息定义来源于 Tesla 官方
+[`vehicle-command`](https://github.com/teslamotors/vehicle-command)。依赖固定提交是为了确保 App 构建与 CI 测试使用同一份已审查代码。
 
 网易云封面搜索使用固定到提交 `8626b8fe628144e051dd9e07180850d253c808f2` 的原生 Swift
 [`NeteaseCloudMusicAPI-Swift`](https://github.com/Lincb522/NeteaseCloudMusicApi-Swift)，仅调用匿名歌曲搜索并读取专辑封面，不使用登录、Cookie、播放或解灰接口。
@@ -62,7 +66,7 @@
 
 将此目录作为仓库推送到 GitHub。Actions 中的 **Build iOS 17 IPA** 会：
 
-1. 在 macOS/Xcode 26 上运行协议库的密码学与协议测试；
+1. 在 macOS 26/Xcode 26.2 上检出 App 实际固定的 TeslaBLEKeyKit 分支并运行密码学与协议测试；
 2. 用 XcodeGen 生成工程；
 3. 为真实 iPhone 编译 Release；
 4. 生成 `TeslaBLEKey-unsigned.ipa` artifact。
@@ -73,7 +77,7 @@
 
 ## 本机编译
 
-需要 Xcode 26、XcodeGen 和联网的 Swift Package Manager：
+需要 Xcode 26.2、XcodeGen 和联网的 Swift Package Manager：
 
 ```bash
 brew install xcodegen
@@ -82,6 +86,8 @@ open TeslaBLEKey.xcodeproj
 ```
 
 默认 bundle identifier 是 `com.local.teslablekey`，可以在 `project.yml` 中修改。
+
+完整的 CI、依赖固定策略、无签名 IPA 结构和发布检查见[构建与发布文档](docs/BUILD.md)。
 
 ## 重要限制
 

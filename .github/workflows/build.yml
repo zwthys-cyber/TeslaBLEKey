@@ -22,11 +22,11 @@ jobs:
         with:
           xcode-version: "26.2"
 
-      - name: Checkout pinned TeslaBLEKeyKit library
+      - name: Checkout pinned app TeslaBLEKeyKit fork
         uses: actions/checkout@v6
         with:
-          repository: misakatao/TeslaBLEKeyKit
-          ref: e186c5a2ade352b719cb53b92599619f2556b841
+          repository: zwthys-cyber/TeslaBLEKeyKit
+          ref: fb51e10ef6b092148909f09bacc3b19343b9fc75
           path: .ci/TeslaBLEKeyKit
 
       - name: Run protocol and crypto tests
