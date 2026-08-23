@@ -360,8 +360,31 @@ final class VehicleController {
     }
 
     private func performModern(_ operation: (TeslaVehicle) async throws -> Void) async throws {
-        guard let tesla else { throw LegacyVCSECClient.ClientError.unsupportedAction }
-        try await operation(tesla)
+        let modernVehicle = try await ensureModernSession()
+        try await operation(modernVehicle)
+    }
+
+    private func ensureModernSession() async throws -> TeslaVehicle {
+        if let tesla { return tesla }
+        guard let legacyClient, let connection else { throw LocalError.noVehicle }
+
+        // Climate, windows, charge-port, horn and lights terminate in the
+        // Infotainment domain. A vehicle may omit VehicleInfo while waking and
+        // leave the initial connection in the VCSEC-only phone-key session.
+        // Wake it through that authenticated session and retry identity
+        // discovery before declaring the command unavailable.
+        try? await legacyClient.rke(30)
+        try? await Task.sleep(for: .milliseconds(700))
+        guard let vin = try? await legacyClient.vehicleVIN() else {
+            throw LocalError.vehicleIdentityUnavailable
+        }
+
+        let key = try keyStore.load(for: vehicleID)
+        cacheVehicleIdentity(vin: vin)
+        try await startModernSession(on: connection, key: key, vin: vin)
+        self.legacyClient = nil
+        guard let tesla else { throw LocalError.vehicleIdentityUnavailable }
+        return tesla
     }
 
     private func cachedVIN() -> String? {
@@ -416,12 +439,13 @@ final class VehicleController {
     }
 
     private enum LocalError: LocalizedError {
-        case noVehicle, keyMissing, handshakeTimedOut
+        case noVehicle, keyMissing, handshakeTimedOut, vehicleIdentityUnavailable
         var errorDescription: String? {
             switch self {
             case .noVehicle: "没有已配对车辆"
             case .keyMissing: "本机车辆密钥已丢失，请重新配对"
             case .handshakeTimedOut: "安全连接超时。请唤醒车辆、靠近驾驶位后重试。"
+            case .vehicleIdentityUnavailable: "车辆已连接，但暂未返回完整控制身份。请打开车门或轻踩刹车唤醒车辆，然后重试。"
             }
         }
     }
