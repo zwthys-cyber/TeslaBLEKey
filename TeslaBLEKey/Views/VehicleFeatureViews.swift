@@ -145,7 +145,9 @@ struct VehicleDiagnosticsView: View {
             Section("连接") {
                 LabeledContent("状态", value: vehicle.phase.title)
                 LabeledContent("车辆", value: vehicle.displayVehicleName)
-                LabeledContent("被动钥匙", value: vehicle.passiveEntryEnabled ? "已开启" : "已关闭")
+                LabeledContent("被动钥匙", value: vehicle.passiveEntryEnabled
+                               ? (vehicle.passiveKeyOnline ? "在线" : "恢复中")
+                               : "已关闭")
                 LabeledContent("最后更新", value: freshness)
             }
             Section("最近操作") {

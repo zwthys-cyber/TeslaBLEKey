@@ -1,6 +1,6 @@
 # 架构与协议
 
-本文对应 App `2.1.2` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
+本文对应 App `2.2.0` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
 
 1. `NearbyTeslaScanner` 使用 CoreBluetooth 扫描附近广播，并校验 Tesla 本地名称格式。
 2. App 为每辆车在 Keychain 生成独立 P-256 私钥。
@@ -26,7 +26,7 @@
 
 ## 后台与被动钥匙
 
-被动钥匙默认开启。固定的 TeslaBLEKeyKit 分支为 CoreBluetooth central manager 配置 restoration identifier，App 在系统恢复或连接断开后尝试重建 Phone Key 会话。最终的靠近拉门认证和离车上锁由车辆执行；iOS 仍可根据系统资源暂停或延迟后台 BLE 工作，因此实体钥匙卡始终是安全后备。
+被动钥匙默认开启。现代 Vehicle Command 和原生 Phone Key 各自拥有 BLE 连接及接收流：前者承载空调、充电、媒体和数据请求，后者持续执行车辆识别的手机钥匙会话。Phone Key 连接单独配置 CoreBluetooth restoration identifier，连接断开时独立恢复，不通过现代命令心跳模拟钥匙存在。最终的靠近拉门认证、离车上锁和钥匙丢失提示由车辆执行；iOS 仍可根据系统资源暂停或延迟后台 BLE 工作，因此实体钥匙卡始终是安全后备。
 
 Apple Watch 不持有 P-256 车辆私钥。手表通过 WatchConnectivity 将命令交给附近 iPhone，再由手机现有认证 BLE 会话执行；手机不可达时不会排队执行车辆安全命令。
 

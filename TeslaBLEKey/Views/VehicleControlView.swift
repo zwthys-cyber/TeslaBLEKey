@@ -456,11 +456,27 @@ struct VehicleControlView: View {
     }
 
     private var safetyNote: some View {
-        Text(vehicle.passiveEntryEnabled
-             ? "被动钥匙已开启。请在车机启用「离车后自动上锁」，并随身携带实体钥匙卡。"
-             : "离车前确认车辆已上锁，并随身携带实体钥匙卡。")
-            .font(.caption).foregroundStyle(AppTheme.muted).multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
+        HStack(alignment: .top, spacing: 7) {
+            if vehicle.passiveEntryEnabled {
+                Circle()
+                    .fill(vehicle.passiveKeyOnline ? Color.green : Color.orange)
+                    .frame(width: 7, height: 7)
+                    .padding(.top, 5)
+            }
+            Text(passiveKeyStatusText)
+                .font(.caption).foregroundStyle(AppTheme.muted).multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var passiveKeyStatusText: String {
+        guard vehicle.passiveEntryEnabled else {
+            return "离车前确认车辆已上锁，并随身携带实体钥匙卡。"
+        }
+        if vehicle.passiveKeyOnline {
+            return "被动钥匙在线。请在车机启用「离车后自动上锁」，并随身携带实体钥匙卡。"
+        }
+        return "车辆控制可用，但被动钥匙正在恢复；恢复前请使用 App 解锁并携带实体钥匙卡。"
     }
 
     private func submit(_ id: VehicleController.VehicleAction, haptic: Bool = true,

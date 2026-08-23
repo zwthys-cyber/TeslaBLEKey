@@ -82,6 +82,8 @@ final class VehicleController {
     private var connection: BLEConnection?
     private var tesla: TeslaVehicle?
     private var legacyClient: LegacyVCSECClient?
+    private var passiveConnection: BLEConnection?
+    private var passiveKeyClient: LegacyVCSECClient?
     private var pendingPairing: (vehicle: NearbyTesla, connection: BLEConnection)?
     private var passiveDisconnectObserver: NSObjectProtocol?
     private var intentionalDisconnect = false
@@ -90,6 +92,7 @@ final class VehicleController {
     var pairedVehicleIDs: [String]
     var isPaired: Bool
     var passiveEntryEnabled: Bool
+    var passiveKeyOnline = false
     var vehicleModelName: String?
     var customVehicleName: String?
     var faceIDProtection: FaceIDProtection
@@ -164,9 +167,9 @@ final class VehicleController {
     private var successClearTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
+    private var passiveReconnectTask: Task<Void, Never>?
     private var sessionNeedsForegroundValidation = false
     private var authorizedCommandBatchActive = false
-    private var lastPassiveKeyHeartbeat: Date?
 
     var displayVehicleName: String {
         if let customVehicleName, !customVehicleName.isEmpty { return customVehicleName }
@@ -204,14 +207,16 @@ final class VehicleController {
         ) { [weak self] notification in
             Task { @MainActor [weak self] in
                 guard let self,
-                      let disconnected = notification.object as? BLEConnection,
-                      disconnected === self.connection else { return }
-                if self.intentionalDisconnect {
-                    self.intentionalDisconnect = false
-                    return
+                      let disconnected = notification.object as? BLEConnection else { return }
+                if disconnected === self.passiveConnection {
+                    self.passiveKeyOnline = false
+                    guard !self.intentionalDisconnect, self.passiveEntryEnabled else { return }
+                    await self.restoreDedicatedPhoneKeyConnection(on: disconnected)
+                } else if disconnected === self.connection {
+                    if self.passiveConnection == nil { self.passiveKeyOnline = false }
+                    guard !self.intentionalDisconnect, self.passiveEntryEnabled else { return }
+                    await self.restoreCommandConnection(on: disconnected)
                 }
-                guard self.passiveEntryEnabled else { return }
-                await self.restorePassiveConnection(on: disconnected)
             }
         }
     }
@@ -450,7 +455,16 @@ final class VehicleController {
         intentionalDisconnect = false
         phase = .connecting
         let key = try keyStore.load(for: vehicleID)
-        let restorationID = passiveEntryEnabled ? "com.local.teslablekey.passive.\(vehicleID)" : nil
+        let vin = cachedVIN()
+        let usesModernCommands = vin?.count == 17
+        // The command transport and native Phone Key transport have distinct
+        // receive streams. Sharing one dispatcher lets replies race each
+        // other and a modern command session is not passive-key presence.
+        // VIN-free mode already uses the native Phone Key connection for its
+        // limited commands, so that single link owns state restoration.
+        let restorationID = passiveEntryEnabled && !usesModernCommands
+            ? "com.local.teslablekey.phonekey.\(vehicleID)"
+            : nil
         let link = try BLEConnection(localName: vehicleID, restorationIdentifier: restorationID)
         connection = link
         try await link.connect(timeout: 30)
@@ -467,8 +481,18 @@ final class VehicleController {
             link?.close()
             self.presentError("安全连接超时。请唤醒车辆、靠近驾驶位后重试。")
         }
-        if let cachedVIN = cachedVIN(), cachedVIN.count == 17 {
+        if let cachedVIN = vin, usesModernCommands {
             try await startModernSession(on: link, key: key, vin: cachedVIN)
+            handshakeTimeoutTask?.cancel()
+            handshakeTimeoutTask = nil
+            guard !handshakeDidTimeOut else { throw LocalError.handshakeTimedOut }
+            if passiveEntryEnabled {
+                do { try await startDedicatedPhoneKeyConnection(key: key) }
+                catch {
+                    passiveKeyOnline = false
+                    schedulePassiveKeyReconnect()
+                }
+            }
         } else {
             let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
             // Establish the VIN-free phone-key session. Tesla's published
@@ -476,6 +500,7 @@ final class VehicleController {
             // later after the user supplies and locally verifies it once.
             try await bootstrap.startSession()
             legacyClient = bootstrap
+            passiveKeyOnline = true
         }
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
@@ -522,6 +547,14 @@ final class VehicleController {
                     // authenticated request. Wake is the only side-effect-free
                     // request that also makes the key immediately present.
                     try await activatePhoneKeySession(tesla)
+                    if passiveEntryEnabled, !passiveKeyOnline {
+                        let key = try keyStore.load(for: vehicleID)
+                        do { try await startDedicatedPhoneKeyConnection(key: key) }
+                        catch {
+                            passiveKeyOnline = false
+                            schedulePassiveKeyReconnect()
+                        }
+                    }
                     await refreshVehicleState()
                 } catch {
                     disconnect()
@@ -774,21 +807,6 @@ final class VehicleController {
     /// protocol. Poll only the two small media payloads while the app is active.
     func refreshMediaState() async {
         guard !isRefreshingVehicleState, phase == .connected, executingAction == nil, let tesla else { return }
-        // Keep the authenticated VCSEC presence fresh while the app is
-        // scheduled. The CoreBluetooth connection itself remains owned by iOS
-        // in the background; if the user force-quits, that link disappears and
-        // the vehicle can report that its previously present key was lost.
-        if passiveEntryEnabled,
-           lastPassiveKeyHeartbeat.map({ Date.now.timeIntervalSince($0) >= 10 }) ?? true {
-            do {
-                _ = try await tesla.vehicleStatus()
-                lastPassiveKeyHeartbeat = .now
-            } catch {
-                // The disconnect observer owns reconnection. A heartbeat must
-                // never turn a transient radio gap into a user-facing command
-                // failure or perform a physical vehicle action.
-            }
-        }
         if let data = await requestVehicleData(from: tesla, configure: { $0.getMediaState = CarServer_GetMediaState() }),
            data.hasMediaState { apply(data.mediaState) }
         if let details = await requestVehicleData(from: tesla, configure: { $0.getMediaDetailState = CarServer_GetMediaDetailState() }),
@@ -1031,22 +1049,28 @@ final class VehicleController {
 
     func disconnect() {
         intentionalDisconnect = true
+        passiveReconnectTask?.cancel()
+        passiveReconnectTask = nil
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
         tesla?.disconnect()
         legacyClient?.close()
+        passiveKeyClient?.close()
         pendingPairing?.connection.close()
         connection?.close()
+        passiveConnection?.close()
         pendingPairing = nil
         canConfirmPairing = false
         tesla = nil
         legacyClient = nil
+        passiveKeyClient = nil
         connection = nil
-        lastPassiveKeyHeartbeat = nil
+        passiveConnection = nil
+        passiveKeyOnline = false
         phase = .idle
     }
 
-    private func restorePassiveConnection(on link: BLEConnection) async {
+    private func restoreCommandConnection(on link: BLEConnection) async {
         guard passiveEntryEnabled, connection === link else { return }
         tesla = nil
         legacyClient = nil
@@ -1061,6 +1085,7 @@ final class VehicleController {
                 let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
                 try await bootstrap.startSession()
                 legacyClient = bootstrap
+                passiveKeyOnline = true
             }
             phase = .connected
             await refreshVehicleState()
@@ -1068,6 +1093,68 @@ final class VehicleController {
             // A pending CoreBluetooth reconnect is preserved by iOS. Keep the
             // UI neutral here; the physical key card remains the safe fallback.
             phase = .idle
+        }
+    }
+
+    private func startDedicatedPhoneKeyConnection(key: TeslaPrivateKey) async throws {
+        passiveKeyClient?.close()
+        passiveConnection?.close()
+        passiveKeyClient = nil
+        passiveConnection = nil
+        passiveKeyOnline = false
+
+        let restorationID = "com.local.teslablekey.phonekey.\(vehicleID)"
+        let link = try BLEConnection(localName: vehicleID, restorationIdentifier: restorationID)
+        passiveConnection = link
+        do {
+            try await link.connect(timeout: 30)
+            let client = LegacyVCSECClient(connection: link, privateKey: key)
+            try await client.startSession()
+            passiveKeyClient = client
+            passiveKeyOnline = true
+        } catch {
+            link.close()
+            passiveConnection = nil
+            throw error
+        }
+    }
+
+    private func restoreDedicatedPhoneKeyConnection(on link: BLEConnection) async {
+        guard passiveEntryEnabled, passiveConnection === link else { return }
+        passiveKeyClient = nil
+        passiveKeyOnline = false
+        do {
+            try await link.connect(timeout: 45)
+            let key = try keyStore.load(for: vehicleID)
+            let client = LegacyVCSECClient(connection: link, privateKey: key)
+            try await client.startSession()
+            guard passiveConnection === link else { client.close(); return }
+            passiveKeyClient = client
+            passiveKeyOnline = true
+        } catch {
+            // CoreBluetooth owns restoration attempts while the app remains
+            // eligible for bluetooth-central background execution.
+            link.close()
+            if passiveConnection === link { passiveConnection = nil }
+            schedulePassiveKeyReconnect()
+        }
+    }
+
+    private func schedulePassiveKeyReconnect() {
+        guard passiveEntryEnabled, isPaired, !passiveKeyOnline, passiveReconnectTask == nil else { return }
+        passiveReconnectTask = Task { [weak self] in
+            defer { self?.passiveReconnectTask = nil }
+            try? await Task.sleep(for: .seconds(5))
+            guard let self, !Task.isCancelled else { return }
+            while self.passiveEntryEnabled, self.isPaired, !self.passiveKeyOnline, !Task.isCancelled {
+                do {
+                    let key = try self.keyStore.load(for: self.vehicleID)
+                    try await self.startDedicatedPhoneKeyConnection(key: key)
+                    return
+                } catch {
+                    try? await Task.sleep(for: .seconds(15))
+                }
+            }
         }
     }
 
@@ -1248,7 +1335,6 @@ final class VehicleController {
             try? await Task.sleep(for: .milliseconds(500))
             try await vehicle.wakeVehicle()
         }
-        lastPassiveKeyHeartbeat = .now
     }
 
     private func presentError(_ message: String) {
