@@ -18,4 +18,15 @@ final class VehicleDiscoveryTests: XCTestCase {
         XCTAssertEqual(far.signalLabel, "较远")
         XCTAssertEqual(close.shortIdentifier, "F858")
     }
+
+    func testLegacyVCSECWireVectors() {
+        let keyID = Data([1, 2, 3, 4])
+        let request = LegacyVCSECClient.enumField(1, 4)
+            + LegacyVCSECClient.messageField(2, LegacyVCSECClient.bytesField(1, keyID))
+        let encoded = LegacyVCSECClient.toVCSECUnsigned(LegacyVCSECClient.messageField(1, request))
+
+        XCTAssertEqual(encoded.map { String(format: "%02x", $0) }.joined(), "120c0a0a080412060a0401020304")
+        XCTAssertEqual(LegacyVCSECClient.messageField(3, Data()), Data([0x1a, 0x00]))
+        XCTAssertEqual(LegacyVCSECClient.enumField(2, 1), Data([0x10, 0x01]))
+    }
 }

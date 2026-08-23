@@ -33,6 +33,7 @@ final class VehicleController {
     private let keyStore = LocalTeslaKeyStore(service: "com.local.teslablekey.keys")
     private var connection: BLEConnection?
     private var tesla: TeslaVehicle?
+    private var legacyClient: LegacyVCSECClient?
     private var pendingPairing: (vehicle: NearbyTesla, connection: BLEConnection)?
 
     var vehicleID: String
@@ -50,7 +51,7 @@ final class VehicleController {
     init() {
         let defaults = UserDefaults.standard
         vehicleID = defaults.string(forKey: AppStorageKeys.pairedVehicleID) ?? ""
-        let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 2
+        let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
         if !pairingWasVerified {
             defaults.set(false, forKey: AppStorageKeys.paired)
@@ -65,6 +66,18 @@ final class VehicleController {
             let link = try BLEConnection(localName: nearby.peripheralName)
             connection = link
             try await link.connect(timeout: 30)
+
+            let legacyProbe = LegacyVCSECClient(connection: link, privateKey: key)
+            if try await legacyProbe.isKeyWhitelisted() {
+                link.close()
+                connection = nil
+                vehicleID = nearby.peripheralName
+                UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
+                try? await Task.sleep(for: .milliseconds(500))
+                try await connect()
+                markPairingVerified()
+                return
+            }
 
             phase = .pairingAwaitingCard
             let pairing = TeslaPairing(connector: link)
@@ -103,9 +116,7 @@ final class VehicleController {
         try? await Task.sleep(for: .milliseconds(800))
         do {
             try await connect()
-            UserDefaults.standard.set(true, forKey: AppStorageKeys.paired)
-            UserDefaults.standard.set(2, forKey: AppStorageKeys.pairingSchemaVersion)
-            isPaired = true
+            markPairingVerified()
         } catch {
             disconnect()
             presentError(Self.describe(error))
@@ -117,15 +128,8 @@ final class VehicleController {
         phase = .connecting
         let key = try keyStore.load(for: vehicleID)
         let link = try BLEConnection(localName: vehicleID)
-        let client = try TeslaVehicle(
-            connector: link,
-            privateKey: key,
-            configuration: .fourByteNonceBLE
-        )
         connection = link
-        tesla = client
         try await link.connect(timeout: 30)
-        try await client.connect()
         phase = .handshaking
         handshakeDidTimeOut = false
         handshakeTimeoutTask?.cancel()
@@ -136,7 +140,24 @@ final class VehicleController {
             link?.close()
             self.presentError("安全连接超时。请唤醒车辆、靠近驾驶位后重试。")
         }
-        try await client.startVCSECSession()
+        let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
+        do {
+            let discoveredVIN = try await bootstrap.vehicleVIN()
+            link.vin = discoveredVIN
+            let client = try TeslaVehicle(
+                connector: link,
+                privateKey: key,
+                configuration: .standard
+            )
+            try await client.connect()
+            try await client.startVCSECSession()
+            tesla = client
+        } catch LegacyVCSECClient.ClientError.timeout {
+            // Older VCSEC versions may not expose VehicleInfo. Keep the
+            // original VIN-free phone-key session as a compatibility path.
+            try await bootstrap.startSession()
+            legacyClient = bootstrap
+        }
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
         guard !handshakeDidTimeOut else { throw LocalError.handshakeTimedOut }
@@ -147,23 +168,25 @@ final class VehicleController {
         do { try await connect() } catch { presentError(Self.describe(error)) }
     }
 
-    func lock() async { await execute(.lock, name: "上锁") { try await $0.lock() } }
-    func unlock() async { await execute(.unlock, name: "解锁") { try await $0.unlock() } }
-    func openTrunk() async { await execute(.trunk, name: "开启后备箱") { try await $0.openTrunk() } }
-    func openFrunk() async { await execute(.frunk, name: "开启前备箱") { try await $0.openFrunk() } }
-    func flashLights() async { await execute(.flash, name: "闪灯") { try await $0.flashLights() } }
-    func honk() async { await execute(.horn, name: "鸣笛") { try await $0.honkHorn() } }
-    func authorizeDrive() async { await execute(.drive, name: "启动车辆") { try await $0.remoteDrive() } }
+    func lock() async { await execute(.lock, name: "上锁") { try await self.perform(modern: { try await $0.lock() }, legacy: { try await $0.rke(1) }) } }
+    func unlock() async { await execute(.unlock, name: "解锁") { try await self.perform(modern: { try await $0.unlock() }, legacy: { try await $0.rke(0) }) } }
+    func openTrunk() async { await execute(.trunk, name: "开启后备箱") { try await self.perform(modern: { try await $0.openTrunk() }, legacy: { try await $0.rke(2) }) } }
+    func openFrunk() async { await execute(.frunk, name: "开启前备箱") { try await self.perform(modern: { try await $0.openFrunk() }, legacy: { try await $0.rke(3) }) } }
+    func flashLights() async { await execute(.flash, name: "闪灯") { try await self.performModern { try await $0.flashLights() } } }
+    func honk() async { await execute(.horn, name: "鸣笛") { try await self.performModern { try await $0.honkHorn() } } }
+    func authorizeDrive() async { await execute(.drive, name: "启动车辆") { try await self.perform(modern: { try await $0.remoteDrive() }, legacy: { try await $0.rke(20) }) } }
 
     func disconnect() {
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
         tesla?.disconnect()
+        legacyClient?.close()
         pendingPairing?.connection.close()
         connection?.close()
         pendingPairing = nil
         canConfirmPairing = false
         tesla = nil
+        legacyClient = nil
         connection = nil
         phase = .idle
     }
@@ -178,8 +201,8 @@ final class VehicleController {
         isPaired = false
     }
 
-    private func execute(_ action: VehicleAction, name: String, operation: (TeslaVehicle) async throws -> Void) async {
-        guard let tesla else { presentError("请先连接车辆。"); return }
+    private func execute(_ action: VehicleAction, name: String, operation: () async throws -> Void) async {
+        guard tesla != nil || legacyClient != nil else { presentError("请先连接车辆。"); return }
         // Tesla vehicle commands share one authenticated BLE session. Serialize them
         // so a second command cannot replace the first command's presentation state.
         guard executingAction == nil else { return }
@@ -188,7 +211,7 @@ final class VehicleController {
         executingAction = action
         phase = .executing(name)
         do {
-            try await operation(tesla)
+            try await operation()
             executingAction = nil
             lastSuccessAction = action
             phase = .connected
@@ -203,10 +226,30 @@ final class VehicleController {
         }
     }
 
+    private func perform(
+        modern: (TeslaVehicle) async throws -> Void,
+        legacy: (LegacyVCSECClient) async throws -> Void
+    ) async throws {
+        if let tesla { try await modern(tesla); return }
+        if let legacyClient { try await legacy(legacyClient); return }
+        throw LocalError.noVehicle
+    }
+
+    private func performModern(_ operation: (TeslaVehicle) async throws -> Void) async throws {
+        guard let tesla else { throw LegacyVCSECClient.ClientError.unsupportedAction }
+        try await operation(tesla)
+    }
+
     private func presentError(_ message: String) {
         errorMessage = message
         phase = .failed(message)
         showingError = true
+    }
+
+    private func markPairingVerified() {
+        UserDefaults.standard.set(true, forKey: AppStorageKeys.paired)
+        UserDefaults.standard.set(3, forKey: AppStorageKeys.pairingSchemaVersion)
+        isPaired = true
     }
 
     private static func describe(_ error: Error) -> String {
