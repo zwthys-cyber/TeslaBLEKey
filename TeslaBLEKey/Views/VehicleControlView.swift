@@ -68,11 +68,6 @@ struct VehicleControlView: View {
             }
             Spacer()
             Menu {
-                NavigationLink {
-                    VehicleDetailView()
-                } label: {
-                    Label("车辆详情", systemImage: "info.circle")
-                }
                 Button {
                     if connected { vehicle.disconnect() }
                     else { Task { await vehicle.connectFromUI() } }
@@ -101,22 +96,32 @@ struct VehicleControlView: View {
 
     private var vehicleSummary: some View {
         VStack(spacing: 13) {
-            HStack(spacing: 14) {
-                Image(systemName: "car.side.fill")
-                    .font(.system(size: 28, weight: .light))
-                    .frame(width: 42)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(connected ? Color.green : AppTheme.muted)
-                            .frame(width: 7, height: 7)
-                        Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
+            NavigationLink {
+                VehicleDetailView()
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "car.side.fill")
+                        .font(.system(size: 28, weight: .light))
+                        .frame(width: 42)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(connected ? Color.green : AppTheme.muted)
+                                .frame(width: 7, height: 7)
+                            Text(vehicle.phase.title).font(.subheadline.weight(.semibold))
+                        }
+                        Text(statusSummary).font(.caption).foregroundStyle(AppTheme.muted)
                     }
-                    Text(statusSummary).font(.caption).foregroundStyle(AppTheme.muted)
+                    Spacer()
+                    if busy { ProgressView().controlSize(.small).tint(.white) }
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AppTheme.muted)
                 }
-                Spacer()
-                if busy { ProgressView().controlSize(.small).tint(.white) }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(UtilityPressStyle())
+            .accessibilityHint("查看车辆详情")
             Divider().overlay(AppTheme.hairline)
             HStack(spacing: 20) {
                 if let battery = vehicle.batteryLevel {
