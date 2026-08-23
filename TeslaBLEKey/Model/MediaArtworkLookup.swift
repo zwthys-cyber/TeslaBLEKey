@@ -1,4 +1,5 @@
 import Foundation
+import NeteaseCloudMusicAPI
 
 enum MediaArtworkLookup {
     private struct SearchResponse: Decodable {
@@ -12,6 +13,39 @@ enum MediaArtworkLookup {
     }
 
     static func artworkURL(title: String, artist: String?) async -> URL? {
+        if let neteaseURL = await neteaseArtworkURL(title: title, artist: artist) {
+            return neteaseURL
+        }
+        return await appleArtworkURL(title: title, artist: artist)
+    }
+
+    private static func neteaseArtworkURL(title: String, artist: String?) async -> URL? {
+        do {
+            let keywords = [title, artist].compactMap { $0 }.joined(separator: " ")
+            let response = try await NCMClient().cloudsearch(keywords: keywords, type: .single, limit: 5)
+            guard let result = response.body["result"] as? [String: Any],
+                  let songs = result["songs"] as? [[String: Any]] else { return nil }
+            let normalizedTitle = normalize(title)
+            let normalizedArtist = artist.map(normalize)
+            let match = songs.first { song in
+                guard let name = song["name"] as? String, normalize(name) == normalizedTitle else { return false }
+                guard let normalizedArtist else { return true }
+                let artists = (song["ar"] as? [[String: Any]] ?? song["artists"] as? [[String: Any]]) ?? []
+                return artists.compactMap { $0["name"] as? String }
+                    .map(normalize)
+                    .contains { $0.contains(normalizedArtist) || normalizedArtist.contains($0) }
+            }
+            guard let match else { return nil }
+            let album = match["al"] as? [String: Any] ?? match["album"] as? [String: Any]
+            guard let rawURL = album?["picUrl"] as? String, var components = URLComponents(string: rawURL) else { return nil }
+            components.queryItems = [URLQueryItem(name: "param", value: "300y300")]
+            return components.url
+        } catch {
+            return nil
+        }
+    }
+
+    private static func appleArtworkURL(title: String, artist: String?) async -> URL? {
         var components = URLComponents(string: "https://itunes.apple.com/search")
         components?.queryItems = [
             URLQueryItem(name: "term", value: [title, artist].compactMap { $0 }.joined(separator: " ")),

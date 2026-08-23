@@ -7,6 +7,9 @@ packages:
   TeslaBLEKeyKit:
     url: https://github.com/zwthys-cyber/TeslaBLEKeyKit.git
     revision: fb51e10ef6b092148909f09bacc3b19343b9fc75
+  NeteaseCloudMusicAPI:
+    url: https://github.com/Lincb522/NeteaseCloudMusicApi-Swift.git
+    revision: 8626b8fe628144e051dd9e07180850d253c808f2
 targets:
   TeslaBLEKey:
     type: application
@@ -37,6 +40,8 @@ targets:
     dependencies:
       - package: TeslaBLEKeyKit
         product: TeslaBLEKeyKit
+      - package: NeteaseCloudMusicAPI
+        product: NeteaseCloudMusicAPI
   TeslaBLEKeyTests:
     type: bundle.unit-test
     platform: iOS
