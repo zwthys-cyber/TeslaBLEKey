@@ -37,9 +37,12 @@ final class VehicleController {
     private var tesla: TeslaVehicle?
     private var legacyClient: LegacyVCSECClient?
     private var pendingPairing: (vehicle: NearbyTesla, connection: BLEConnection)?
+    private var passiveDisconnectObserver: NSObjectProtocol?
+    private var intentionalDisconnect = false
 
     var vehicleID: String
     var isPaired: Bool
+    var passiveEntryEnabled: Bool
     var vehicleModelName: String?
     var phase: Phase = .idle
     var showingError = false
@@ -104,8 +107,26 @@ final class VehicleController {
         vehicleModelName = defaults.string(forKey: AppStorageKeys.vehicleModelPrefix + storedVehicleID)
         let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
+        passiveEntryEnabled = defaults.bool(forKey: AppStorageKeys.passiveEntryEnabled)
         if !pairingWasVerified {
             defaults.set(false, forKey: AppStorageKeys.paired)
+        }
+        passiveDisconnectObserver = NotificationCenter.default.addObserver(
+            forName: BLEConnection.didDisconnectNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      let disconnected = notification.object as? BLEConnection,
+                      disconnected === self.connection else { return }
+                if self.intentionalDisconnect {
+                    self.intentionalDisconnect = false
+                    return
+                }
+                guard self.passiveEntryEnabled else { return }
+                await self.restorePassiveConnection(on: disconnected)
+            }
         }
     }
 
@@ -176,9 +197,11 @@ final class VehicleController {
 
     func connect() async throws {
         guard !vehicleID.isEmpty else { throw LocalError.noVehicle }
+        intentionalDisconnect = false
         phase = .connecting
         let key = try keyStore.load(for: vehicleID)
-        let link = try BLEConnection(localName: vehicleID)
+        let restorationID = passiveEntryEnabled ? "com.local.teslablekey.passive.\(vehicleID)" : nil
+        let link = try BLEConnection(localName: vehicleID, restorationIdentifier: restorationID)
         connection = link
         try await link.connect(timeout: 30)
         phase = .handshaking
@@ -216,6 +239,14 @@ final class VehicleController {
     }
 
     func presentUserError(_ message: String) { presentError(message) }
+
+    func setPassiveEntryEnabled(_ enabled: Bool) async {
+        guard passiveEntryEnabled != enabled else { return }
+        passiveEntryEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: AppStorageKeys.passiveEntryEnabled)
+        disconnect()
+        await connectFromUI()
+    }
 
     func saveVehicleVIN(_ input: String) async -> String? {
         let vin = input.uppercased().filter { $0.isLetter || $0.isNumber }
@@ -532,6 +563,7 @@ final class VehicleController {
     }
 
     func disconnect() {
+        intentionalDisconnect = true
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
         tesla?.disconnect()
@@ -544,6 +576,31 @@ final class VehicleController {
         legacyClient = nil
         connection = nil
         phase = .idle
+    }
+
+    private func restorePassiveConnection(on link: BLEConnection) async {
+        guard passiveEntryEnabled, connection === link else { return }
+        tesla = nil
+        legacyClient = nil
+        phase = .connecting
+        do {
+            try await link.connect(timeout: 45)
+            let key = try keyStore.load(for: vehicleID)
+            phase = .handshaking
+            if let vin = cachedVIN(), vin.count == 17 {
+                try await startModernSession(on: link, key: key, vin: vin)
+            } else {
+                let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
+                try await bootstrap.startSession()
+                legacyClient = bootstrap
+            }
+            phase = .connected
+            await refreshVehicleState()
+        } catch {
+            // A pending CoreBluetooth reconnect is preserved by iOS. Keep the
+            // UI neutral here; the physical key card remains the safe fallback.
+            phase = .idle
+        }
     }
 
     func forgetVehicle() {

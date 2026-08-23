@@ -5,8 +5,8 @@ options:
     iOS: "17.0"
 packages:
   TeslaBLEKeyKit:
-    url: https://github.com/misakatao/TeslaBLEKeyKit.git
-    revision: e186c5a2ade352b719cb53b92599619f2556b841
+    url: https://github.com/zwthys-cyber/TeslaBLEKeyKit.git
+    revision: fb51e10ef6b092148909f09bacc3b19343b9fc75
 targets:
   TeslaBLEKey:
     type: application
@@ -32,7 +32,7 @@ targets:
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
         CURRENT_PROJECT_VERSION: 1
-        MARKETING_VERSION: 1.8.1
+        MARKETING_VERSION: 1.9.0
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: TeslaBLEKeyKit

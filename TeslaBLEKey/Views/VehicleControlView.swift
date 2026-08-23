@@ -70,6 +70,12 @@ struct VehicleControlView: View {
                 } label: {
                     Label(connected ? "断开连接" : "重新连接", systemImage: connected ? "bolt.slash" : "arrow.clockwise")
                 }
+                Toggle(isOn: Binding(
+                    get: { vehicle.passiveEntryEnabled },
+                    set: { enabled in Task { await vehicle.setPassiveEntryEnabled(enabled) } }
+                )) {
+                    Label("被动钥匙", systemImage: "figure.walk.arrival")
+                }
                 Button("移除车辆", systemImage: "trash", role: .destructive) { confirmForget = true }
             } label: {
                 Image(systemName: "ellipsis")
@@ -260,7 +266,9 @@ struct VehicleControlView: View {
     }
 
     private var safetyNote: some View {
-        Text("离车前确认车辆已上锁，并随身携带实体钥匙卡。")
+        Text(vehicle.passiveEntryEnabled
+             ? "被动钥匙已开启。请在车机启用「离车后自动上锁」，并随身携带实体钥匙卡。"
+             : "离车前确认车辆已上锁，并随身携带实体钥匙卡。")
             .font(.caption).foregroundStyle(AppTheme.muted).multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
     }
