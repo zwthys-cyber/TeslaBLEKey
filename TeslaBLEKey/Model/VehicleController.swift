@@ -136,7 +136,10 @@ final class VehicleController {
         handshakeDidTimeOut = false
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = Task { [weak self, weak link] in
-            try? await Task.sleep(for: .seconds(20))
+            // VehicleInfo discovery may consume up to ten seconds before the
+            // legacy-session fallback starts, so the whole bootstrap needs a
+            // wider deadline than either individual operation.
+            try? await Task.sleep(for: .seconds(35))
             guard !Task.isCancelled, let self, self.phase == .handshaking else { return }
             self.handshakeDidTimeOut = true
             link?.close()

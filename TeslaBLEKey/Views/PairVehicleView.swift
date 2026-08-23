@@ -185,7 +185,7 @@ struct PairVehicleView: View {
         case .awaitingCard: return "刷钥匙卡并在车机点确认；看到新钥匙后再继续"
         case .connecting:
             if vehicle.phase == .connecting { return "正在连接所选车辆，最长等待 30 秒" }
-            return "正在验证本机密钥，最长等待 20 秒"
+            return "正在验证本机密钥，最长等待 35 秒"
         default: return ""
         }
     }
