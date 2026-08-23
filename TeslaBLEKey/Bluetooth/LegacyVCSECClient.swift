@@ -83,24 +83,6 @@ final class LegacyVCSECClient: @unchecked Sendable {
         _ = try? await nextMessage(seconds: 3)
     }
 
-    func vehicleVIN() async throws -> String {
-        // Ask only after the phone-key session is authenticated. Some vehicle
-        // firmware silently drops an unsigned VehicleInfo request even though
-        // it accepts the same information request from an enrolled key.
-        let request = Self.messageField(1, Self.enumField(1, 7))
-        try await sendSigned(unsignedMessage: request)
-        for _ in 0 ..< 5 {
-            let response = try await nextMessage(seconds: 2)
-            guard let vehicleInfo = Self.firstLengthDelimitedField(18, in: response),
-                  let vinData = Self.firstLengthDelimitedField(1, in: vehicleInfo),
-                  let vin = String(data: vinData, encoding: .utf8),
-                  vin.count == 17,
-                  vin.allSatisfy({ $0.isLetter || $0.isNumber }) else { continue }
-            return vin.uppercased()
-        }
-        throw ClientError.timeout
-    }
-
     func rke(_ rawAction: UInt64) async throws {
         try await sendSigned(unsignedMessage: Self.enumField(2, rawAction))
         try await awaitCommandResult()

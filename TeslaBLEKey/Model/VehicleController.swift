@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import Security
+import CryptoKit
 @preconcurrency import TeslaBLEKeyKit
 
 @MainActor
@@ -42,6 +43,7 @@ final class VehicleController {
     var phase: Phase = .idle
     var showingError = false
     var errorMessage = ""
+    var showingVehicleIdentity = false
     var canConfirmPairing = false
     var executingAction: VehicleAction?
     var lastSuccessAction: VehicleAction?
@@ -181,17 +183,11 @@ final class VehicleController {
             try await startModernSession(on: link, key: key, vin: cachedVIN)
         } else {
             let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
-            // Establish the native phone-key session first. VehicleInfo is
-            // available on vehicles that expose the full local command stack
-            // only after the enrolled key has proved possession.
+            // Establish the VIN-free phone-key session. Tesla's published
+            // VCSEC schema does not expose the VIN; infotainment is upgraded
+            // later after the user supplies and locally verifies it once.
             try await bootstrap.startSession()
             legacyClient = bootstrap
-
-            if let discoveredVIN = try? await bootstrap.vehicleVIN() {
-                cacheVehicleIdentity(vin: discoveredVIN)
-                try await startModernSession(on: link, key: key, vin: discoveredVIN)
-                legacyClient = nil
-            }
         }
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
@@ -205,6 +201,27 @@ final class VehicleController {
     }
 
     func presentUserError(_ message: String) { presentError(message) }
+
+    func saveVehicleVIN(_ input: String) async -> String? {
+        let vin = input.uppercased().filter { $0.isLetter || $0.isNumber }
+        guard vin.count == 17, !vin.contains(where: { "IOQ".contains($0) }) else {
+            return "请输入车机「控制 > 软件」中显示的 17 位 VIN。"
+        }
+        guard Self.beaconName(forVIN: vin).caseInsensitiveCompare(vehicleID) == .orderedSame else {
+            return "此 VIN 与当前连接的车辆不匹配，请确认后重试。"
+        }
+
+        cacheVehicleIdentity(vin: vin)
+        showingVehicleIdentity = false
+        disconnect()
+        do {
+            try await connect()
+            return nil
+        } catch {
+            presentError(Self.describe(error))
+            return "车辆身份已保存，请靠近车辆后重新连接。"
+        }
+    }
 
     func lock() async {
         if await execute(.lock, name: "上锁", operation: { try await self.perform(modern: { try await $0.lock() }, legacy: { try await $0.rke(1) }) }) { isLocked = true }
@@ -450,6 +467,11 @@ final class VehicleController {
             return true
         } catch {
             executingAction = nil
+            if case LocalError.vehicleIdentityUnavailable = error {
+                phase = .connected
+                showingVehicleIdentity = true
+                return false
+            }
             presentError(Self.describe(error))
             return false
         }
@@ -493,23 +515,12 @@ final class VehicleController {
         if let tesla { return tesla }
         guard let legacyClient, let connection else { throw LocalError.noVehicle }
 
-        // Climate, windows, charge-port, horn and lights terminate in the
-        // Infotainment domain. A vehicle may omit VehicleInfo while waking and
-        // leave the initial connection in the VCSEC-only phone-key session.
-        // Wake it through that authenticated session and retry identity
-        // discovery before declaring the command unavailable.
-        try? await legacyClient.rke(30)
-        try? await Task.sleep(for: .milliseconds(700))
-        guard let vin = try? await legacyClient.vehicleVIN() else {
-            throw LocalError.vehicleIdentityUnavailable
-        }
-
-        let key = try keyStore.load(for: vehicleID)
-        cacheVehicleIdentity(vin: vin)
-        try await startModernSession(on: connection, key: key, vin: vin)
-        self.legacyClient = nil
-        guard let tesla else { throw LocalError.vehicleIdentityUnavailable }
-        return tesla
+        // VIN participates in modern domain authentication and cannot be
+        // reversed from the SHA-1 identifier in the BLE advertisement.
+        // Request the one-time, locally verified identity setup immediately.
+        _ = legacyClient
+        _ = connection
+        throw LocalError.vehicleIdentityUnavailable
     }
 
     private func cachedVIN() -> String? {
@@ -563,6 +574,11 @@ final class VehicleController {
         }
     }
 
+    static func beaconName(forVIN vin: String) -> String {
+        let digest = Insecure.SHA1.hash(data: Data(vin.uppercased().utf8))
+        return "S" + digest.prefix(8).map { String(format: "%02x", $0) }.joined() + "C"
+    }
+
     private enum LocalError: LocalizedError {
         case noVehicle, keyMissing, handshakeTimedOut, vehicleIdentityUnavailable
         var errorDescription: String? {
@@ -570,7 +586,7 @@ final class VehicleController {
             case .noVehicle: "没有已配对车辆"
             case .keyMissing: "本机车辆密钥已丢失，请重新配对"
             case .handshakeTimedOut: "安全连接超时。请唤醒车辆、靠近驾驶位后重试。"
-            case .vehicleIdentityUnavailable: "车辆已连接，但暂未返回完整控制身份。请打开车门或轻踩刹车唤醒车辆，然后重试。"
+            case .vehicleIdentityUnavailable: "需要先补全车辆身份以启用完整控制。"
             }
         }
     }
