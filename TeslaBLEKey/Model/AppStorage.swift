@@ -5,4 +5,5 @@ enum AppStorageKeys {
     static let paired = "paired"
     static let pairingSchemaVersion = "pairingSchemaVersion"
     static let vehicleModelPrefix = "vehicleModel."
+    static let vehicleVINPrefix = "vehicleVIN."
 }

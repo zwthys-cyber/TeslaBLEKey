@@ -146,13 +146,22 @@ final class VehicleController {
             link?.close()
             self.presentError("安全连接超时。请唤醒车辆、靠近驾驶位后重试。")
         }
-        let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
-        // A phone key does not need VIN personalization. Enter its native
-        // VCSEC session directly; probing VehicleInfo first can consume the
-        // one receive stream and prevent the vehicle's authentication request
-        // from being handled.
-        try await bootstrap.startSession()
-        legacyClient = bootstrap
+        if let cachedVIN = cachedVIN(), cachedVIN.count == 17 {
+            try await startModernSession(on: link, key: key, vin: cachedVIN)
+        } else {
+            let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
+            // Establish the native phone-key session first. VehicleInfo is
+            // available on vehicles that expose the full local command stack
+            // only after the enrolled key has proved possession.
+            try await bootstrap.startSession()
+            legacyClient = bootstrap
+
+            if let discoveredVIN = try? await bootstrap.vehicleVIN() {
+                cacheVehicleIdentity(vin: discoveredVIN)
+                try await startModernSession(on: link, key: key, vin: discoveredVIN)
+                legacyClient = nil
+            }
+        }
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
         guard !handshakeDidTimeOut else { throw LocalError.handshakeTimedOut }
@@ -167,8 +176,8 @@ final class VehicleController {
     func unlock() async { await execute(.unlock, name: "解锁") { try await self.perform(modern: { try await $0.unlock() }, legacy: { try await $0.rke(0) }) } }
     func openTrunk() async { await execute(.trunk, name: "开启后备箱") { try await self.perform(modern: { try await $0.openTrunk() }, legacy: { try await $0.rke(2) }) } }
     func openFrunk() async { await execute(.frunk, name: "开启前备箱") { try await self.perform(modern: { try await $0.openFrunk() }, legacy: { try await $0.rke(3) }) } }
-    func flashLights() async { await execute(.flash, name: "闪灯") { try await self.performModern { try await $0.flashLights() } } }
-    func honk() async { await execute(.horn, name: "鸣笛") { try await self.performModern { try await $0.honkHorn() } } }
+    func flashLights() async { await execute(.flash, name: "闪灯") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.flashLights() } } }
+    func honk() async { await execute(.horn, name: "鸣笛") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.honkHorn() } } }
     func authorizeDrive() async { await execute(.drive, name: "启动车辆") { try await self.perform(modern: { try await $0.remoteDrive() }, legacy: { try await $0.rke(20) }) } }
 
     func disconnect() {
@@ -187,6 +196,8 @@ final class VehicleController {
     }
 
     func forgetVehicle() {
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.vehicleVINPrefix + vehicleID)
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
         disconnect()
         try? keyStore.delete(for: vehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.pairedVehicleID)
@@ -234,6 +245,30 @@ final class VehicleController {
     private func performModern(_ operation: (TeslaVehicle) async throws -> Void) async throws {
         guard let tesla else { throw LegacyVCSECClient.ClientError.unsupportedAction }
         try await operation(tesla)
+    }
+
+    private func cachedVIN() -> String? {
+        UserDefaults.standard.string(forKey: AppStorageKeys.vehicleVINPrefix + vehicleID)
+    }
+
+    private func cacheVehicleIdentity(vin: String) {
+        UserDefaults.standard.set(vin, forKey: AppStorageKeys.vehicleVINPrefix + vehicleID)
+        if let model = Self.modelName(fromVIN: vin) {
+            vehicleModelName = model
+            UserDefaults.standard.set(model, forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
+        }
+    }
+
+    private func startModernSession(on link: BLEConnection, key: TeslaPrivateKey, vin: String) async throws {
+        link.vin = vin
+        let client = try TeslaVehicle(
+            connector: link,
+            privateKey: key,
+            configuration: .standard
+        )
+        try await client.connect()
+        try await client.startVCSECSession()
+        tesla = client
     }
 
     private func presentError(_ message: String) {
