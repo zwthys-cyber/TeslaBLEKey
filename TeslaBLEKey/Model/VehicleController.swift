@@ -528,13 +528,6 @@ final class VehicleController {
             case .vehicleSleepStatusAsleep: "休眠"
             default: "状态未知"
             }
-            if status.optionalSentryModeAvailable != nil {
-                isSentryAvailable = status.sentryModeAvailable
-            }
-            isSentryOn = switch status.sentryModeState.type {
-            case .off?, nil: false
-            default: true
-            }
         }
         try? await tesla.startInfotainmentSession()
         if let data = await requestVehicleData(from: tesla, configure: { $0.getChargeState = CarServer_GetChargeState() }), data.hasChargeState {
@@ -624,7 +617,10 @@ final class VehicleController {
             case .calibrating?: "正在校准"
             default: "状态未知"
             }
-            isCharging = state.chargingState.type == .charging || state.chargingState.type == .starting
+            isCharging = switch state.chargingState.type {
+            case .charging?, .starting?: true
+            default: false
+            }
         }
     }
 
@@ -636,6 +632,13 @@ final class VehicleController {
     }
 
     private func apply(_ state: CarServer_ClosuresState) {
+        if state.optionalSentryModeAvailable != nil {
+            isSentryAvailable = state.sentryModeAvailable
+        }
+        isSentryOn = switch state.sentryModeState.type {
+        case .off?, nil: false
+        default: true
+        }
         let doorValues: [(Bool, Bool)] = [
             (state.optionalDoorOpenDriverFront != nil, state.doorOpenDriverFront),
             (state.optionalDoorOpenDriverRear != nil, state.doorOpenDriverRear),
