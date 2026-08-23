@@ -171,9 +171,12 @@ struct VehicleDiagnosticsView: View {
                         Text($0).font(.caption.monospaced()).textSelection(.enabled)
                     }
                 }
-                if AppDiagnostics.shared.latestMetricKitDiagnostic != nil {
+                if let diagnostic = AppDiagnostics.shared.latestMetricKitDiagnostic {
                     Text("已收到系统 MetricKit 诊断，可用于定位崩溃、卡死或资源终止。")
                         .font(.caption).foregroundStyle(.orange)
+                    ShareLink(item: diagnostic) {
+                        Label("导出系统诊断", systemImage: "square.and.arrow.up")
+                    }
                 }
             }
             Section { Text("操作记录和运行诊断仅保存在本机，不包含 VIN、位置、媒体或车辆命令内容。") }

@@ -164,6 +164,7 @@ final class VehicleController {
     private var mediaArtworkLookupTask: Task<Void, Never>?
     private var lastArtworkLookupKey: String?
     private var isRefreshingVehicleState = false
+    private var isRefreshingMediaState = false
     private var successClearTask: Task<Void, Never>?
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
@@ -820,7 +821,10 @@ final class VehicleController {
     /// Media changes made on the center display are not pushed over the BLE
     /// protocol. Poll only the two small media payloads while the app is active.
     func refreshMediaState() async {
-        guard !isRefreshingVehicleState, phase == .connected, executingAction == nil, let tesla else { return }
+        guard !isRefreshingVehicleState, !isRefreshingMediaState,
+              phase == .connected, executingAction == nil, let tesla else { return }
+        isRefreshingMediaState = true
+        defer { isRefreshingMediaState = false }
         if let data = await requestVehicleData(from: tesla, configure: { $0.getMediaState = CarServer_GetMediaState() }),
            data.hasMediaState { apply(data.mediaState) }
         if let details = await requestVehicleData(from: tesla, configure: { $0.getMediaDetailState = CarServer_GetMediaDetailState() }),
@@ -831,7 +835,7 @@ final class VehicleController {
         // The BLE dispatcher is request/response based. Do not let the
         // two-second media poll or a second pull-to-refresh interleave with a
         // full state refresh, otherwise receivers can wait on each other.
-        guard !isRefreshingVehicleState, executingAction == nil,
+        guard !isRefreshingVehicleState, !isRefreshingMediaState, executingAction == nil,
               phase == .connected else { return }
         isRefreshingVehicleState = true
         defer { isRefreshingVehicleState = false }
@@ -1236,7 +1240,7 @@ final class VehicleController {
         guard tesla != nil || legacyClient != nil else { presentError("请先连接车辆。"); return false }
         // Tesla vehicle commands share one authenticated BLE session. Serialize them
         // so a second command cannot replace the first command's presentation state.
-        guard executingAction == nil, !isRefreshingVehicleState,
+        guard executingAction == nil, !isRefreshingVehicleState, !isRefreshingMediaState,
               phase == .connected else { return false }
         let sensitive = action == .unlock || action == .frunk || action == .drive
         if !authorizedCommandBatchActive && (faceIDProtection == .all || (faceIDProtection == .sensitive && sensitive)) {
