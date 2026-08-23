@@ -82,7 +82,9 @@ final class VehicleController {
     var tirePressureRL: Double?
     var tirePressureRR: Double?
     var hasTirePressureWarning = false
-    var softwareVersion: String?
+    /// Version offered by a pending software update. Tesla's local BLE
+    /// VehicleData schema does not expose the currently installed firmware.
+    var availableSoftwareVersion: String?
     var softwareUpdateStatus: String?
     var mediaTitle: String?
     var mediaArtist: String?
@@ -379,6 +381,8 @@ final class VehicleController {
 
     func refreshVehicleState() async {
         guard let tesla = try? await ensureModernSession() else { return }
+        availableSoftwareVersion = nil
+        softwareUpdateStatus = nil
         if let status = try? await tesla.vehicleStatus() {
             if let value = Self.isOpen(status.closureStatuses.rearTrunk) { isTrunkOpen = value }
             if let value = Self.isOpen(status.closureStatuses.frontTrunk) { isFrunkOpen = value }
@@ -530,7 +534,9 @@ final class VehicleController {
     }
 
     private func apply(_ state: CarServer_SoftwareUpdateState) {
-        if state.optionalVersion != nil, !state.version.isEmpty { softwareVersion = state.version }
+        if state.optionalVersion != nil, !state.version.isEmpty {
+            availableSoftwareVersion = state.version
+        }
         if state.hasStatus {
             softwareUpdateStatus = switch state.status.type {
             case .available?: "有可用更新"
@@ -538,7 +544,7 @@ final class VehicleController {
             case .installing?: "正在安装"
             case .downloading?: "正在下载"
             case .downloadingWifiWait?: "等待 Wi-Fi"
-            default: "已是当前状态"
+            default: nil
             }
         }
     }
