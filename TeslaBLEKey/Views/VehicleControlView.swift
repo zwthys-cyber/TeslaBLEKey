@@ -17,11 +17,12 @@ struct VehicleControlView: View {
                 topBar
                 VehicleStage(state: stage)
                     .frame(maxWidth: 440)
-                    .padding(.top, 26)
-                connectionButton.padding(.top, 12)
-                primaryControl.padding(.top, 30)
-                utilityRail.padding(.top, 28)
-                safetyNote.padding(.top, 28)
+                    .padding(.top, 18)
+                connectionButton.padding(.top, 6)
+                primaryControl.padding(.top, 24)
+                utilityGrid.padding(.top, 26)
+                driveControl.padding(.top, 12)
+                safetyNote.padding(.top, 24)
             }
             .padding(.horizontal, 22)
             .padding(.bottom, 36)
@@ -94,9 +95,7 @@ struct VehicleControlView: View {
             }
             .foregroundStyle(connected ? .white : AppTheme.muted)
             .frame(minHeight: 44)
-            .padding(.horizontal, 14)
-            .background(AppTheme.surface, in: Capsule())
-            .overlay(Capsule().stroke(AppTheme.hairline, lineWidth: 0.5))
+            .padding(.horizontal, 16)
         }
         .buttonStyle(UtilityPressStyle())
         .accessibilityHint(connected ? "车辆连接正常" : "轻点重新连接")
@@ -117,34 +116,36 @@ struct VehicleControlView: View {
         }
     }
 
-    private var utilityRail: some View {
+    private var utilityGrid: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("车辆控制").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    utility("前备箱", "car.side.front.open", .frunk, index: 0) { await vehicle.openFrunk() }
-                    utility(
-                        vehicle.isTrunkOpen ? "关闭后备箱" : "打开后备箱",
-                        vehicle.isTrunkOpen ? "door.garage.closed" : "car.side.rear.open",
-                        .trunk,
-                        index: 1
-                    ) {
-                        if vehicle.isTrunkOpen { await vehicle.closeTrunk() }
-                        else { await vehicle.openTrunk() }
-                    }
-                    utility("闪灯", "light.beacon.max", .flash, index: 2) { await vehicle.flashLights() }
-                    utility("鸣笛", "speaker.wave.2", .horn, index: 3) { await vehicle.honk() }
-                    ActionButton(title: "启动", icon: "power", actionID: .drive, appearance: .safety,
-                                 enabled: connected, executing: vehicle.executingAction,
-                                 success: vehicle.lastSuccessAction) {
-                        pressFeedback += 1
-                        confirmDrive = true
-                    }
-                    .reveal(index: 4, active: revealRail, skip: !animateRailEntrance)
+            Text("快捷控制")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.muted)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                utility("前备箱", "car.side.front.open", .frunk, index: 0) { await vehicle.openFrunk() }
+                utility(
+                    vehicle.isTrunkOpen ? "关闭后备箱" : "打开后备箱",
+                    vehicle.isTrunkOpen ? "door.garage.closed" : "car.side.rear.open",
+                    .trunk,
+                    index: 1
+                ) {
+                    if vehicle.isTrunkOpen { await vehicle.closeTrunk() }
+                    else { await vehicle.openTrunk() }
                 }
+                utility("闪灯", "light.beacon.max", .flash, index: 2) { await vehicle.flashLights() }
+                utility("鸣笛", "speaker.wave.2", .horn, index: 3) { await vehicle.honk() }
             }
-            .contentMargins(.horizontal, 1, for: .scrollContent)
         }
+    }
+
+    private var driveControl: some View {
+        ActionButton(title: "授权启动车辆", icon: "power", actionID: .drive, appearance: .safety,
+                     enabled: connected, executing: vehicle.executingAction,
+                     success: vehicle.lastSuccessAction) {
+            pressFeedback += 1
+            confirmDrive = true
+        }
+        .reveal(index: 4, active: revealRail, skip: !animateRailEntrance)
     }
 
     private func utility(_ title: String, _ icon: String, _ id: VehicleController.VehicleAction, index: Int,
@@ -213,11 +214,13 @@ private struct ActionButton: View {
                     }
                     .frame(maxWidth: .infinity).frame(height: 60)
                 } else {
-                    VStack(spacing: 10) {
+                    HStack(spacing: 12) {
                         ActionGlyph(icon: icon, state: glyphState)
-                        Text(title).font(.caption.weight(.medium)).lineLimit(1)
+                        Text(title).font(.subheadline.weight(.medium)).lineLimit(1)
+                        Spacer(minLength: 0)
                     }
-                    .frame(width: 76, height: 76)
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity, minHeight: 68)
                 }
             }
             .foregroundStyle(appearance == .primary ? Color.black : Color.white)
