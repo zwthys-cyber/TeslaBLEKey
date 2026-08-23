@@ -13,9 +13,15 @@ struct PairVehicleView: View {
             VehicleStage(state: stage)
                 .frame(maxWidth: 430)
             stageCopy.padding(.top, 22)
-            Spacer(minLength: 30)
-            status
-            pairButton.padding(.top, 14)
+            if let bluetoothMessage = scanner.bluetoothMessage {
+                Label(bluetoothMessage, systemImage: "exclamationmark.circle")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.white)
+                    .padding(.top, 20)
+                    .transition(.opacity)
+            }
+            Spacer(minLength: 34)
+            pairButton
             privacy.padding(.top, 18)
         }
         .padding(.horizontal, 24)
@@ -53,22 +59,6 @@ struct PairVehicleView: View {
         }
         .id(stage)
         .transition(.opacity)
-        .animation(AppMotion.state, value: stage)
-    }
-
-    private var status: some View {
-        HairlinePanel {
-            HStack(spacing: 13) {
-                Image(systemName: statusIcon).font(.system(size: 17, weight: .medium)).frame(width: 24)
-                    .contentTransition(.opacity)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(statusTitle).font(.subheadline.weight(.semibold))
-                    Text(statusSubtitle).font(.caption).foregroundStyle(AppTheme.muted)
-                }
-                Spacer()
-                if stage == .searching { ProgressView().controlSize(.small).tint(.white) }
-            }
-        }
         .animation(AppMotion.state, value: stage)
     }
 
@@ -136,21 +126,4 @@ struct PairVehicleView: View {
         }
     }
 
-    private var statusIcon: String {
-        if scanner.bluetoothMessage != nil { return "exclamationmark.circle" }
-        switch stage {
-        case .searching: return "antenna.radiowaves.left.and.right"
-        case .awaitingCard: return "creditcard"
-        case .connecting: return "lock"
-        default: return "checkmark.circle.fill"
-        }
-    }
-
-    private var statusTitle: String {
-        scanner.bluetoothMessage ?? stageTitle
-    }
-
-    private var statusSubtitle: String {
-        stageSubtitle
-    }
 }

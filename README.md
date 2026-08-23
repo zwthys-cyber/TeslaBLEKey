@@ -3,7 +3,7 @@
 [![Build iOS 17 IPA](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/ac54u-mobile/TeslaBLEKey)](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
-纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。当前版本：**1.3.0**。
+纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。当前版本：**1.3.1**。
 
 > [下载最新 TrollStore IPA](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
@@ -14,7 +14,7 @@
 - 发送 Tesla VCSEC `addKey` 请求，通过已有 NFC 钥匙卡在车内授权
 - 建立 VIN-free VCSEC 本地加密会话
 - 上锁、解锁、驾驶授权、开启前后备箱、闪灯和鸣笛
-- 原创黑白 App 图标与连续车辆舞台：搜索、配对、连接和执行始终呈现为同一辆车
+- 原创黑白 App 图标与简洁车辆舞台：搜索、配对、连接和执行始终呈现为同一辆车
 - 单一门锁主操作、紧凑车辆控制带，以及控件内的执行进度和成功反馈
 - 统一的无弹跳动效语言，并完整支持“减弱动态效果”
 - GitHub Actions 编译无签名 IPA，供 TrollStore 安装
