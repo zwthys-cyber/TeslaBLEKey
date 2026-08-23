@@ -106,7 +106,10 @@ struct PairVehicleView: View {
 
     private var stageSubtitle: String {
         switch stage {
-        case .searching: "自动识别并选择信号最强的兼容车辆"
+        case .searching:
+            if scanner.scanTimedOut { return "打开车门或轻踩刹车唤醒车辆，然后保持在驾驶位附近" }
+            if scanner.nearbyDeviceCount > 0 { return "正在识别附近车辆 · 已收到 \(scanner.nearbyDeviceCount) 个蓝牙信号" }
+            return "正在扫描附近兼容车辆"
         case .found: "无需 VIN，准备添加本机钥匙"
         case .awaitingCard: "将现有钥匙卡放在中控台感应区"
         case .connecting: "密钥仅保存在这台 iPhone"

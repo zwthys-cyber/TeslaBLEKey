@@ -3,13 +3,14 @@
 [![Build iOS 17 IPA](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/ac54u-mobile/TeslaBLEKey/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/ac54u-mobile/TeslaBLEKey)](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
-纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。当前版本：**1.3.1**。
+纯本地 Tesla 蓝牙钥匙客户端。不使用 Tesla 账号、OAuth、Fleet API、VIN 输入或后端服务器。当前版本：**1.3.2**。
 
 > [下载最新 TrollStore IPA](https://github.com/ac54u-mobile/TeslaBLEKey/releases/latest)
 
 ## 当前功能
 
 - 自动扫描附近 Tesla，并优先选择信号最强的车辆
+- 前台扫描全部 BLE 广播后仅保留符合 Tesla 官方本地名称格式的车辆，避免服务 UUID 广播缺失造成漏检
 - 在设备 Keychain 中生成并保存每辆车独立的 P-256 密钥
 - 发送 Tesla VCSEC `addKey` 请求，通过已有 NFC 钥匙卡在车内授权
 - 建立 VIN-free VCSEC 本地加密会话

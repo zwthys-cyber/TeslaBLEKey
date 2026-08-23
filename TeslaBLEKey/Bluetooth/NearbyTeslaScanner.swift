@@ -24,9 +24,13 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
 
     private var central: CBCentralManager?
     private var vehiclesByID: [UUID: NearbyTesla] = [:]
+    private var nearbyPeripheralIDs: Set<UUID> = []
+    private var timeoutTask: Task<Void, Never>?
 
     var vehicles: [NearbyTesla] = []
     var isScanning = false
+    var nearbyDeviceCount = 0
+    var scanTimedOut = false
     var bluetoothMessage: String?
 
     func start() {
@@ -38,6 +42,8 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
     }
 
     func stop() {
+        timeoutTask?.cancel()
+        timeoutTask = nil
         central?.stopScan()
         isScanning = false
     }
@@ -69,6 +75,9 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         rssi RSSI: NSNumber
     ) {
         guard RSSI.intValue != 127 else { return }
+        nearbyPeripheralIDs.insert(peripheral.identifier)
+        nearbyDeviceCount = nearbyPeripheralIDs.count
+
         let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
         let name = advertisedName ?? peripheral.name ?? "Tesla"
 
@@ -83,6 +92,8 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
             rssi: RSSI.intValue,
             lastSeen: .now
         )
+        scanTimedOut = false
+        timeoutTask?.cancel()
         vehicles = vehiclesByID.values.sorted { $0.rssi > $1.rssi }
     }
 
@@ -92,12 +103,25 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
     }
 
     private func beginScan() {
+        timeoutTask?.cancel()
         vehiclesByID.removeAll()
+        nearbyPeripheralIDs.removeAll()
         vehicles.removeAll()
+        nearbyDeviceCount = 0
+        scanTimedOut = false
+
+        // Tesla's local name is reliable, but the service UUID is not present in
+        // every advertisement frame seen by iOS. Scan broadly in the foreground
+        // and apply the strict S + 16 hex + C validation in didDiscover.
         central?.scanForPeripherals(
-            withServices: [Self.vehicleService],
+            withServices: nil,
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
         )
         isScanning = true
+        timeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(15))
+            guard !Task.isCancelled, let self, self.vehicles.isEmpty, self.isScanning else { return }
+            self.scanTimedOut = true
+        }
     }
 }
