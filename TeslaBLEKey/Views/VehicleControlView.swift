@@ -9,6 +9,7 @@ struct VehicleControlView: View {
     @State private var confirmDrive = false
     @State private var showingAddVehicle = false
     @State private var showingRenameVehicle = false
+    @State private var showingSecuritySettings = false
     @State private var pressFeedback = 0
     @SceneStorage("controlRailHasAppeared") private var railHasAppeared = false
     @State private var revealRail = false
@@ -79,6 +80,9 @@ struct VehicleControlView: View {
         .sheet(isPresented: $showingRenameVehicle) {
             RenameVehicleView().environment(vehicle).presentationDetents([.height(250)])
         }
+        .sheet(isPresented: $showingSecuritySettings) {
+            SecuritySettingsView().environment(vehicle).presentationDetents([.height(310)])
+        }
     }
 
     private var fixedHeader: some View {
@@ -120,6 +124,9 @@ struct VehicleControlView: View {
                 }
                 Button { showingRenameVehicle = true } label: {
                     Label("自定义车辆名称", systemImage: "pencil")
+                }
+                Button { showingSecuritySettings = true } label: {
+                    Label("Face ID 保护", systemImage: "faceid")
                 }
                 Button {
                     if connected { vehicle.disconnect() }
@@ -202,7 +209,7 @@ struct VehicleControlView: View {
         let action: VehicleController.VehicleAction = vehicle.isLocked == true ? .unlock : .lock
         let label = vehicle.isLocked == true ? "解锁车辆" : "锁定车辆"
         return Button {
-            if action == .unlock { submit(.unlock) { await vehicle.unlock() } }
+            if action == .unlock { submit(.unlock) { await secureUnlock() } }
             else { submit(.lock) { await vehicle.lock() } }
         } label: {
             Group {
@@ -426,7 +433,11 @@ struct VehicleControlView: View {
                         operation: @escaping () async -> Void) {
         guard vehicle.executingAction == nil else { return }
         if haptic { pressFeedback += 1 }
-        Task { await operation() }
+        Task {
+            if vehicle.faceIDProtection == .all,
+               !await authenticate(reason: "确认执行车辆控制") { return }
+            await operation()
+        }
     }
 
     private func temperatureButton(_ symbol: String, value: @escaping () -> Double) -> some View {
@@ -442,12 +453,17 @@ struct VehicleControlView: View {
     }
 
     private func secureFrunk() async {
-        guard await authenticate(reason: "确认打开车辆前备箱") else { return }
+        guard vehicle.faceIDProtection == .off || vehicle.faceIDProtection == .all || await authenticate(reason: "确认打开车辆前备箱") else { return }
         await vehicle.openFrunk()
     }
 
+    private func secureUnlock() async {
+        guard vehicle.faceIDProtection == .off || vehicle.faceIDProtection == .all || await authenticate(reason: "确认解锁车辆") else { return }
+        await vehicle.unlock()
+    }
+
     private func secureDrive() async {
-        guard await authenticate(reason: "确认授权车辆启动") else { return }
+        guard vehicle.faceIDProtection == .off || vehicle.faceIDProtection == .all || await authenticate(reason: "确认授权车辆启动") else { return }
         await vehicle.authorizeDrive()
     }
 
@@ -524,6 +540,24 @@ private struct RenameVehicleView: View {
                 }
             }
             .onAppear { name = vehicle.customVehicleName ?? "" }
+        }
+    }
+}
+
+private struct SecuritySettingsView: View {
+    @Environment(VehicleController.self) private var vehicle
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            Form {
+                Picker("操作保护", selection: Binding(get: { vehicle.faceIDProtection }, set: { vehicle.setFaceIDProtection($0) })) {
+                    ForEach(VehicleController.FaceIDProtection.allCases) { Text($0.title).tag($0) }
+                }
+                Section { Text("“仅敏感操作”保护解锁、前备箱和驾驶授权；“全部控制”会在每次发送车辆命令前验证。") }
+            }
+            .scrollContentBackground(.hidden)
+            .navigationTitle("Face ID 保护").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
         }
     }
 }

@@ -7,6 +7,11 @@ import CryptoKit
 @MainActor
 @Observable
 final class VehicleController {
+    enum FaceIDProtection: String, CaseIterable, Identifiable {
+        case off, sensitive, all
+        var id: String { rawValue }
+        var title: String { switch self { case .off: "关闭"; case .sensitive: "仅敏感操作"; case .all: "全部控制" } }
+    }
     enum VehicleAction: String, CaseIterable, Hashable, Identifiable, Sendable {
         case lock, unlock, frunk, trunk, drive, flash, horn, chargePort, climate, windows
         case mediaPrevious, mediaPlayPause, mediaNext
@@ -54,6 +59,7 @@ final class VehicleController {
     var passiveEntryEnabled: Bool
     var vehicleModelName: String?
     var customVehicleName: String?
+    var faceIDProtection: FaceIDProtection
     var phase: Phase = .idle
     var showingError = false
     var errorMessage = ""
@@ -140,6 +146,7 @@ final class VehicleController {
         pairedVehicleIDs = storedIDs
         vehicleModelName = defaults.string(forKey: AppStorageKeys.vehicleModelPrefix + storedVehicleID)
         customVehicleName = defaults.string(forKey: AppStorageKeys.customVehicleNamePrefix + storedVehicleID)
+        faceIDProtection = FaceIDProtection(rawValue: defaults.string(forKey: AppStorageKeys.faceIDProtectionPrefix + storedVehicleID) ?? "") ?? .sensitive
         let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
         passiveEntryEnabled = (defaults.object(forKey: AppStorageKeys.passiveEntryEnabled) as? Bool) ?? true
@@ -185,6 +192,7 @@ final class VehicleController {
                 vehicleID = nearby.peripheralName
                 vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
                 customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
+                faceIDProtection = Self.storedFaceIDProtection(for: vehicleID)
                 UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
                 try? await Task.sleep(for: .milliseconds(500))
                 try await connect()
@@ -217,6 +225,7 @@ final class VehicleController {
         vehicleID = identifier
         vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + identifier)
         customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + identifier)
+        faceIDProtection = Self.storedFaceIDProtection(for: identifier)
         UserDefaults.standard.set(identifier, forKey: AppStorageKeys.pairedVehicleID)
         isPaired = true
         await connectFromUI()
@@ -228,6 +237,11 @@ final class VehicleController {
         let key = AppStorageKeys.customVehicleNamePrefix + vehicleID
         if value.isEmpty { UserDefaults.standard.removeObject(forKey: key) }
         else { UserDefaults.standard.set(value, forKey: key) }
+    }
+
+    func setFaceIDProtection(_ value: FaceIDProtection) {
+        faceIDProtection = value
+        UserDefaults.standard.set(value.rawValue, forKey: AppStorageKeys.faceIDProtectionPrefix + vehicleID)
     }
 
     func vehicleDisplayName(for identifier: String) -> String {
@@ -250,6 +264,7 @@ final class VehicleController {
         vehicleID = selectedVehicle.peripheralName
         vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
         customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
+        faceIDProtection = Self.storedFaceIDProtection(for: vehicleID)
         UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
 
         // Give VCSEC a brief moment to commit the approved key before reconnecting.
@@ -845,6 +860,7 @@ final class VehicleController {
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.vehicleVINPrefix + vehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.faceIDProtectionPrefix + vehicleID)
         let removedID = vehicleID
         disconnect()
         try? keyStore.delete(for: removedID)
@@ -854,6 +870,7 @@ final class VehicleController {
             vehicleID = next
             vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + next)
             customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + next)
+            faceIDProtection = Self.storedFaceIDProtection(for: next)
             UserDefaults.standard.set(next, forKey: AppStorageKeys.pairedVehicleID)
             isPaired = true
             Task { await connectFromUI() }
@@ -864,6 +881,7 @@ final class VehicleController {
             vehicleID = ""
             vehicleModelName = nil
             customVehicleName = nil
+            faceIDProtection = .sensitive
             isPaired = false
         }
     }
@@ -1013,6 +1031,10 @@ final class VehicleController {
     static func beaconName(forVIN vin: String) -> String {
         let digest = Insecure.SHA1.hash(data: Data(vin.uppercased().utf8))
         return "S" + digest.prefix(8).map { String(format: "%02x", $0) }.joined() + "C"
+    }
+
+    private static func storedFaceIDProtection(for identifier: String) -> FaceIDProtection {
+        FaceIDProtection(rawValue: UserDefaults.standard.string(forKey: AppStorageKeys.faceIDProtectionPrefix + identifier) ?? "") ?? .sensitive
     }
 
     private static func isOpen(_ state: VCSEC_ClosureState_E) -> Bool? {
