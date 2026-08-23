@@ -39,7 +39,8 @@ final class LegacyVCSECClient: @unchecked Sendable {
 
     func isKeyWhitelisted() async throws -> Bool {
         // InformationRequest(GET_WHITELIST_INFO=5)
-        try await sendVCSEC(Self.toVCSECUnsigned(Self.messageField(1, Self.enumField(1, 5))))
+        let unsigned = Self.messageField(1, Self.enumField(1, 5))
+        try await connection.send(Self.universalVCSECMessage(unsigned))
         for _ in 0 ..< 5 {
             let response = try await nextMessage(seconds: 2)
             if let whitelist = Self.firstLengthDelimitedField(16, in: response) {
@@ -55,7 +56,7 @@ final class LegacyVCSECClient: @unchecked Sendable {
         // InformationRequest(GET_SESSION_DATA=4, keyId)
         let keyIdentifier = Self.bytesField(1, keyID)
         let request = Self.enumField(1, 4) + Self.messageField(2, keyIdentifier)
-        try await sendVCSEC(Self.toVCSECUnsigned(Self.messageField(1, request)))
+        try await connection.send(Self.toVCSECUnsigned(Self.messageField(1, request)))
 
         var sessionBytes: Data?
         for _ in 0 ..< 5 {
@@ -82,7 +83,7 @@ final class LegacyVCSECClient: @unchecked Sendable {
         // InformationRequest(GET_VEHICLE_INFO=7). The legacy local VCSEC
         // endpoint returns VehicleInfo.VIN after key enrollment; no account or
         // user-entered VIN is involved.
-        try await sendVCSEC(Self.toVCSECUnsigned(Self.messageField(1, Self.enumField(1, 7))))
+        try await connection.send(Self.toVCSECUnsigned(Self.messageField(1, Self.enumField(1, 7))))
         for _ in 0 ..< 5 {
             let response = try await nextMessage(seconds: 2)
             guard let vehicleInfo = Self.firstLengthDelimitedField(18, in: response),
@@ -125,7 +126,7 @@ final class LegacyVCSECClient: @unchecked Sendable {
             + Self.bytesField(5, keyID)
             + Self.enumField(6, UInt64(counter))
         counter &+= 1
-        try await sendVCSEC(Self.messageField(1, signed))
+        try await connection.send(Self.messageField(1, signed))
     }
 
     private func awaitCommandResult() async throws {
@@ -154,19 +155,15 @@ final class LegacyVCSECClient: @unchecked Sendable {
         }
     }
 
-    /// The current BLE endpoint transports VCSEC payloads inside a Universal
-    /// Message RoutableMessage. Older phone-key captures show the inner VCSEC
-    /// protobuf only; accepting both response shapes keeps the fallback useful
-    /// across vehicle firmware generations.
-    private func sendVCSEC(_ payload: Data) async throws {
-        try await connection.send(Self.universalVCSECMessage(payload))
-    }
-
-    static func universalVCSECMessage(_ payload: Data) -> Data {
+    /// Modern unauthenticated VCSEC requests use a Universal Message carrier.
+    /// Its payload is VCSEC.UnsignedMessage directly (not ToVCSECMessage).
+    /// The enrolled Phone Key session below remains the legacy raw
+    /// ToVCSECMessage protocol and therefore does not use this carrier.
+    static func universalVCSECMessage(_ unsignedMessage: Data) -> Data {
         // UniversalMessage.RoutableMessage:
         //   to_destination (field 6) { domain (field 1) = VEHICLE_SECURITY (2) }
-        //   protobuf_message_as_bytes (field 10) = VCSEC.ToVCSECMessage
-        messageField(6, enumField(1, 2)) + bytesField(10, payload)
+        //   protobuf_message_as_bytes (field 10) = VCSEC.UnsignedMessage
+        messageField(6, enumField(1, 2)) + bytesField(10, unsignedMessage)
     }
 
     static func vcsecPayload(from message: Data) -> Data {

@@ -147,27 +147,12 @@ final class VehicleController {
             self.presentError("安全连接超时。请唤醒车辆、靠近驾驶位后重试。")
         }
         let bootstrap = LegacyVCSECClient(connection: link, privateKey: key)
-        do {
-            let discoveredVIN = try await bootstrap.vehicleVIN()
-            if let model = Self.modelName(fromVIN: discoveredVIN) {
-                vehicleModelName = model
-                UserDefaults.standard.set(model, forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
-            }
-            link.vin = discoveredVIN
-            let client = try TeslaVehicle(
-                connector: link,
-                privateKey: key,
-                configuration: .standard
-            )
-            try await client.connect()
-            try await client.startVCSECSession()
-            tesla = client
-        } catch LegacyVCSECClient.ClientError.timeout {
-            // Older VCSEC versions may not expose VehicleInfo. Keep the
-            // original VIN-free phone-key session as a compatibility path.
-            try await bootstrap.startSession()
-            legacyClient = bootstrap
-        }
+        // A phone key does not need VIN personalization. Enter its native
+        // VCSEC session directly; probing VehicleInfo first can consume the
+        // one receive stream and prevent the vehicle's authentication request
+        // from being handled.
+        try await bootstrap.startSession()
+        legacyClient = bootstrap
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
         guard !handshakeDidTimeOut else { throw LocalError.handshakeTimedOut }

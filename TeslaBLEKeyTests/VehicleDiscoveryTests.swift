@@ -33,12 +33,10 @@ final class VehicleDiscoveryTests: XCTestCase {
         XCTAssertEqual(LegacyVCSECClient.messageField(3, Data()), Data([0x1a, 0x00]))
         XCTAssertEqual(LegacyVCSECClient.enumField(2, 1), Data([0x10, 0x01]))
 
-        let vehicleInfo = LegacyVCSECClient.toVCSECUnsigned(
-            LegacyVCSECClient.messageField(1, LegacyVCSECClient.enumField(1, 7))
-        )
-        let universal = LegacyVCSECClient.universalVCSECMessage(vehicleInfo)
-        XCTAssertEqual(universal.map { String(format: "%02x", $0) }.joined(), "32020802520612040a020807")
-        XCTAssertEqual(LegacyVCSECClient.vcsecPayload(from: universal), vehicleInfo)
-        XCTAssertEqual(LegacyVCSECClient.vcsecPayload(from: vehicleInfo), vehicleInfo)
+        let vehicleInfoUnsigned = LegacyVCSECClient.messageField(1, LegacyVCSECClient.enumField(1, 7))
+        let universal = LegacyVCSECClient.universalVCSECMessage(vehicleInfoUnsigned)
+        XCTAssertEqual(universal.map { String(format: "%02x", $0) }.joined(), "3202080252040a020807")
+        XCTAssertEqual(LegacyVCSECClient.vcsecPayload(from: universal), vehicleInfoUnsigned)
+        XCTAssertEqual(LegacyVCSECClient.vcsecPayload(from: encoded), encoded)
     }
 }
