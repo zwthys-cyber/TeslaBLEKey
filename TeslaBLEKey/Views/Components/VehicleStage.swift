@@ -23,20 +23,10 @@ struct VehicleStage: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            ZStack(alignment: .bottom) {
-                Capsule()
-                    .fill(.white.opacity(isActive ? 0.16 : 0.07))
-                    .frame(width: 220, height: 1)
-                    .offset(y: 9)
-
-                Image(systemName: "car.side.fill")
-                    .font(.system(size: 126, weight: .ultraLight))
-                    .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(.white)
-                    .opacity(state == .searching ? 0.42 : 1)
-                    .scaleEffect(reduceMotion ? 1 : scale)
-            }
-            .frame(height: 112)
+            Capsule()
+                .fill(.white.opacity(isActive ? 0.16 : 0.07))
+                .frame(width: 220, height: 1)
+                .frame(height: 30, alignment: .bottom)
 
             stateMark
                 .frame(height: 22)
@@ -79,11 +69,4 @@ struct VehicleStage: View {
         state == .ready || state == .success
     }
 
-    private var scale: CGFloat {
-        switch state {
-        case .searching: 0.98
-        case .success: 1.01
-        default: 1
-        }
-    }
 }
