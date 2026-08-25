@@ -213,7 +213,6 @@ final class VehicleController {
         let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
         passiveEntryEnabled = (defaults.object(forKey: AppStorageKeys.passiveEntryEnabled) as? Bool) ?? true
-        passiveLifecycle = PassiveKeyLifecycle(enabled: managesPassiveKey && passiveEntryEnabled)
         if let data = defaults.data(forKey: AppStorageKeys.commandHistoryPrefix + storedVehicleID)
             ?? defaults.data(forKey: AppStorageKeys.commandHistory),
            let records = try? JSONDecoder().decode([CommandRecord].self, from: data) {
@@ -221,6 +220,7 @@ final class VehicleController {
         }
         automationScenes = Self.loadScenes(for: storedVehicleID)
         alertPreferences = Self.loadAlertPreferences(for: storedVehicleID)
+        passiveLifecycle = PassiveKeyLifecycle(enabled: managesPassiveKey && passiveEntryEnabled)
         if !pairingWasVerified {
             defaults.set(false, forKey: AppStorageKeys.paired)
         }
