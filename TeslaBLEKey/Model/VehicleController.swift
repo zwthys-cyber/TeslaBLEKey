@@ -1007,8 +1007,8 @@ final class VehicleController {
             }
         } else if let legacyClient, let status = try? await legacyClient.vehicleStatus() {
             if let rearTrunk = status.rearTrunk { applyRearTrunkState(rawValue: rearTrunk) }
-            if let frontTrunk = status.frontTrunk { isFrunkOpen = Self.isOpen(rawValue: frontTrunk) }
-            if let chargePort = status.chargePort { isChargePortOpen = Self.isOpen(rawValue: chargePort) }
+            if let frontTrunk = status.frontTrunk, let value = Self.isOpen(rawValue: frontTrunk) { isFrunkOpen = value }
+            if let chargePort = status.chargePort, let value = Self.isOpen(rawValue: chargePort) { isChargePortOpen = value }
             if let lockState = status.lockState { isLocked = lockState == 1 || lockState == 2 }
             if let sleepState = status.sleepState {
                 vehicleSleepStatus = sleepState == 1 ? "已唤醒" : (sleepState == 2 ? "休眠" : "状态未知")
@@ -1686,6 +1686,14 @@ final class VehicleController {
         case .closurestateClosed: false
         case .closurestateOpen, .closurestateAjar, .closurestateOpening, .closurestateClosing: true
         case .closurestateUnknown, .closurestateFailedUnlatch, .UNRECOGNIZED: nil
+        }
+    }
+
+    private static func isOpen(rawValue: UInt64) -> Bool? {
+        switch rawValue {
+        case 0: false
+        case 1, 2, 5, 6: true
+        default: nil
         }
     }
 
