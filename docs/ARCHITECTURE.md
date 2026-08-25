@@ -1,6 +1,6 @@
 # 架构与协议
 
-本文对应 App `2.2.9` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
+本文对应 App `2.3.0` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
 
 1. `NearbyTeslaScanner` 使用 CoreBluetooth 扫描附近广播，并校验 Tesla 本地名称格式。
 2. App 为每辆车在 Keychain 生成独立 P-256 私钥。
@@ -15,7 +15,7 @@
 - `Bluetooth/NearbyTeslaScanner.swift`：扫描、RSSI 平滑、距离估算和候选车过滤。
 - `Bluetooth/LegacyVCSECClient.swift`：VIN-free 配对及会话引导。
 - `Model/VehicleController.swift`：连接生命周期、车辆状态、命令调度、媒体同步和错误呈现。
-- 多车辆索引保存在本机偏好中，每辆车继续使用独立 Keychain 密钥、VIN、车型和自定义名称；旧版单车辆记录会自动迁移。
+- 多车辆索引保存在本机偏好中，每辆车使用独立 Keychain 密钥、VIN、车型、自定义名称、安全设置、场景、主页布局和操作记录；旧版单车辆记录会自动迁移。添加失败或取消会原子回滚到原车辆，切换前会清空瞬时车辆快照。
 - `Views/VehicleControlView.swift`：固定主页导航头、车辆卡、媒体卡和控制区。
 - `Views/VehicleDetailView.swift`：按类别分批读取并展示车辆详情。
 - `Model/MediaArtworkLookup.swift`：网易云封面精确匹配与 Apple 目录回退。
@@ -25,6 +25,8 @@
 - `App/WatchBridge.swift`：Apple Watch 与 iPhone 命令中继和状态快照。
 
 ## 后台与被动钥匙
+
+多车模式下后台 Phone Key 只跟随当前选中的车辆，切换时关闭上一辆车的连接并为新车辆重建会话；应用不承诺多辆车同时在线。
 
 被动钥匙默认开启。命令会话和原生 Phone Key 始终各自拥有 BLE 连接及接收流（包括 VIN-free 模式）：前者承载主动命令，后者使用无周期超时的连续事件流监听车辆在拉动门把手时发送的 `AuthenticationRequest`。监听器校验目标密钥、20 字节会话令牌及 UNLOCK/DRIVE 等级，再以令牌作为 AES-GCM 附加认证数据返回 `AES_GCM_TOKEN` 响应，并将不含车辆身份的响应耗时写入本地诊断。Phone Key 连接单独配置固定 CoreBluetooth restoration identifier，在 App 进程启动时立即创建；首次发现车辆后还会保存该车辆的 CoreBluetooth 外设 UUID，后续后台直接提交由系统托管的已知外设连接，避免依赖后台名称扫描。车辆回到范围并恢复特征通知后，连接层通知 App 自动重建 Phone Key 会话与挑战监听器。普通命令连接只在 scene phase 为 active 时建立，重复的前台恢复请求会被合并；系统因 BLE 事件在后台拉起 App 时不会误建控制通道。App 进入后台时释放普通命令连接，即使 Phone Key 尚处于恢复中也不与其争抢车辆 BLE 会话；Siri/快捷指令控制器明确禁止创建第二条 Phone Key 会话。最终的距离判定、解锁、离车上锁和钥匙丢失提示由车辆执行；iOS 仍可根据系统资源暂停或延迟后台 BLE 工作，因此实体钥匙卡始终是安全后备。
 

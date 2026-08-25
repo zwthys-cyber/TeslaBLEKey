@@ -88,6 +88,7 @@ final class VehicleController {
     private var passiveConnection: BLEConnection?
     private var passiveKeyClient: LegacyVCSECClient?
     private var pendingPairing: (vehicle: NearbyTesla, connection: BLEConnection)?
+    private var vehicleBeforeAdding: String?
     private var passiveDisconnectObserver: NSObjectProtocol?
     private var passiveReadyObserver: NSObjectProtocol?
     private var intentionalDisconnect = false
@@ -212,7 +213,8 @@ final class VehicleController {
         let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
         passiveEntryEnabled = (defaults.object(forKey: AppStorageKeys.passiveEntryEnabled) as? Bool) ?? true
-        if let data = defaults.data(forKey: AppStorageKeys.commandHistory),
+        if let data = defaults.data(forKey: AppStorageKeys.commandHistoryPrefix + storedVehicleID)
+            ?? defaults.data(forKey: AppStorageKeys.commandHistory),
            let records = try? JSONDecoder().decode([CommandRecord].self, from: data) {
             commandHistory = records
         }
@@ -279,13 +281,7 @@ final class VehicleController {
             if try await legacyProbe.isKeyWhitelisted() {
                 link.close()
                 connection = nil
-                vehicleID = nearby.peripheralName
-                vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
-                customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
-                faceIDProtection = Self.storedFaceIDProtection(for: vehicleID)
-                automationScenes = Self.loadScenes(for: vehicleID)
-                alertPreferences = Self.loadAlertPreferences(for: vehicleID)
-                UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
+                selectVehicle(nearby.peripheralName)
                 try? await Task.sleep(for: .milliseconds(500))
                 try await connect()
                 markPairingVerified()
@@ -306,22 +302,28 @@ final class VehicleController {
             phase = .pairingAwaitingCard
             canConfirmPairing = true
         } catch {
-            disconnect()
-            presentError(Self.describe(error))
+            let message = Self.describe(error)
+            let restoresExistingVehicle = vehicleBeforeAdding != nil
+            await restoreVehicleAfterFailedAddition()
+            if restoresExistingVehicle { presentNonfatalError(message) }
+            else { presentError(message) }
         }
+    }
+
+    func prepareForVehicleAddition() {
+        vehicleBeforeAdding = pairedVehicleIDs.contains(vehicleID) ? vehicleID : nil
+        disconnect()
+    }
+
+    func finishVehicleAdditionSheet() async {
+        guard vehicleBeforeAdding != nil else { return }
+        await restoreVehicleAfterFailedAddition()
     }
 
     func switchVehicle(to identifier: String) async {
         guard identifier != vehicleID, pairedVehicleIDs.contains(identifier) else { return }
         disconnect()
-        vehicleID = identifier
-        vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + identifier)
-        customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + identifier)
-        faceIDProtection = Self.storedFaceIDProtection(for: identifier)
-        automationScenes = Self.loadScenes(for: identifier)
-        alertPreferences = Self.loadAlertPreferences(for: identifier)
-        vehicleSchedules = []; nearbyChargingSites = []; scheduleLocationName = nil; scheduleLatitude = nil; scheduleLongitude = nil
-        UserDefaults.standard.set(identifier, forKey: AppStorageKeys.pairedVehicleID)
+        selectVehicle(identifier)
         isPaired = true
         await connectFromUI()
     }
@@ -511,13 +513,7 @@ final class VehicleController {
         pendingPairing.connection.close()
         self.pendingPairing = nil
         connection = nil
-        vehicleID = selectedVehicle.peripheralName
-        vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + vehicleID)
-        customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
-        faceIDProtection = Self.storedFaceIDProtection(for: vehicleID)
-        automationScenes = Self.loadScenes(for: vehicleID)
-        alertPreferences = Self.loadAlertPreferences(for: vehicleID)
-        UserDefaults.standard.set(vehicleID, forKey: AppStorageKeys.pairedVehicleID)
+        selectVehicle(selectedVehicle.peripheralName)
 
         // Give VCSEC a brief moment to commit the approved key before reconnecting.
         try? await Task.sleep(for: .milliseconds(800))
@@ -525,8 +521,11 @@ final class VehicleController {
             try await connect()
             markPairingVerified()
         } catch {
-            disconnect()
-            presentError(Self.describe(error))
+            let message = Self.describe(error)
+            let restoresExistingVehicle = vehicleBeforeAdding != nil
+            await restoreVehicleAfterFailedAddition()
+            if restoresExistingVehicle { presentNonfatalError(message) }
+            else { presentError(message) }
         }
     }
 
@@ -1490,19 +1489,17 @@ final class VehicleController {
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.customVehicleNamePrefix + vehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.faceIDProtectionPrefix + vehicleID)
         UserDefaults.standard.removeObject(forKey: AppStorageKeys.alertPreferencesPrefix + vehicleID)
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.automationScenesPrefix + vehicleID)
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.homeCardOrderPrefix + vehicleID)
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.hiddenHomeCardsPrefix + vehicleID)
+        UserDefaults.standard.removeObject(forKey: AppStorageKeys.commandHistoryPrefix + vehicleID)
         let removedID = vehicleID
         disconnect()
         try? keyStore.delete(for: removedID)
         pairedVehicleIDs.removeAll { $0 == removedID }
         UserDefaults.standard.set(pairedVehicleIDs, forKey: AppStorageKeys.pairedVehicleIDs)
         if let next = pairedVehicleIDs.first {
-            vehicleID = next
-            vehicleModelName = UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + next)
-            customVehicleName = UserDefaults.standard.string(forKey: AppStorageKeys.customVehicleNamePrefix + next)
-            faceIDProtection = Self.storedFaceIDProtection(for: next)
-            automationScenes = Self.loadScenes(for: next)
-            alertPreferences = Self.loadAlertPreferences(for: next)
-            UserDefaults.standard.set(next, forKey: AppStorageKeys.pairedVehicleID)
+            selectVehicle(next)
             isPaired = true
             Task { await connectFromUI() }
         } else {
@@ -1577,7 +1574,7 @@ final class VehicleController {
         commandHistory.insert(CommandRecord(id: UUID(), name: name, date: .now, succeeded: succeeded), at: 0)
         commandHistory = Array(commandHistory.prefix(20))
         if let data = try? JSONEncoder().encode(commandHistory) {
-            UserDefaults.standard.set(data, forKey: AppStorageKeys.commandHistory)
+            UserDefaults.standard.set(data, forKey: AppStorageKeys.commandHistoryPrefix + vehicleID)
         }
     }
 
@@ -1666,6 +1663,11 @@ final class VehicleController {
         showingError = true
     }
 
+    private func presentNonfatalError(_ message: String) {
+        errorMessage = message
+        showingError = true
+    }
+
     private static func isVCSECAlreadyOn(_ error: Error) -> Bool {
         let diagnostic = "\(String(describing: error)) \(error.localizedDescription)"
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
@@ -1679,6 +1681,65 @@ final class VehicleController {
         isPaired = true
         if !pairedVehicleIDs.contains(vehicleID) { pairedVehicleIDs.append(vehicleID) }
         UserDefaults.standard.set(pairedVehicleIDs, forKey: AppStorageKeys.pairedVehicleIDs)
+        vehicleBeforeAdding = nil
+    }
+
+    private func restoreVehicleAfterFailedAddition() async {
+        guard let previous = vehicleBeforeAdding, pairedVehicleIDs.contains(previous) else {
+            vehicleBeforeAdding = nil
+            disconnect()
+            return
+        }
+        disconnect()
+        selectVehicle(previous)
+        isPaired = true
+        vehicleBeforeAdding = nil
+        try? await connect()
+    }
+
+    private func selectVehicle(_ identifier: String) {
+        resetTransientVehicleState()
+        vehicleID = identifier
+        let defaults = UserDefaults.standard
+        vehicleModelName = defaults.string(forKey: AppStorageKeys.vehicleModelPrefix + identifier)
+        customVehicleName = defaults.string(forKey: AppStorageKeys.customVehicleNamePrefix + identifier)
+        faceIDProtection = Self.storedFaceIDProtection(for: identifier)
+        automationScenes = Self.loadScenes(for: identifier)
+        alertPreferences = Self.loadAlertPreferences(for: identifier)
+        if let data = defaults.data(forKey: AppStorageKeys.commandHistoryPrefix + identifier),
+           let records = try? JSONDecoder().decode([CommandRecord].self, from: data) {
+            commandHistory = records
+        } else {
+            commandHistory = []
+        }
+        defaults.set(identifier, forKey: AppStorageKeys.pairedVehicleID)
+    }
+
+    private func resetTransientVehicleState() {
+        mediaArtworkLookupTask?.cancel()
+        lastArtworkLookupKey = nil
+        isTrunkOpen = false; isTrunkMoving = false; trunkOperationStatus = nil
+        isLocked = nil; isChargePortOpen = false; isClimateOn = false
+        cabinTemperature = nil; outsideTemperature = nil; targetTemperature = 22
+        minimumCabinTemperature = 15; maximumCabinTemperature = 28; areWindowsVented = false
+        batteryLevel = nil; estimatedRangeKilometers = nil; chargeLimit = nil
+        minimumChargeLimit = 50; maximumChargeLimit = 100
+        chargerPowerKilowatts = nil; chargerVoltage = nil; chargerCurrentAmps = nil
+        maxChargingCurrentAmps = nil; minutesToChargeLimit = nil; chargingStatus = nil
+        isCharging = false; chargeCableStatus = nil; chargePortLatchStatus = nil
+        openDoorCount = nil; openWindowCount = nil; doorStates = [:]; windowStates = [:]
+        isFrunkOpen = nil; vehicleSleepStatus = nil; currentGear = nil; odometerKilometers = nil
+        tirePressureFL = nil; tirePressureFR = nil; tirePressureRL = nil; tirePressureRR = nil
+        hasTirePressureWarning = false; availableSoftwareVersion = nil; softwareUpdateStatus = nil
+        mediaTitle = nil; mediaArtist = nil; mediaAlbum = nil; mediaSource = nil
+        mediaPlaybackStatus = nil; mediaArtworkURL = nil
+        isSentryAvailable = false; isSentryOn = false; isDefrostOn = false
+        isSteeringWheelHeaterOn = false; climateKeeperMode = "关闭"
+        isBioweaponModeOn = false; isCabinOverheatProtectionOn = false
+        vehicleSchedules = []; nearbyChargingSites = []; isLoadingNearbyChargingSites = false
+        nearbyChargingSitesMessage = nil; nearbyChargingSitesUpdatedAt = nil
+        scheduleLocationName = nil; scheduleLatitude = nil; scheduleLongitude = nil
+        lastStateUpdate = nil; executingAction = nil; lastSuccessAction = nil
     }
 
     private static func describe(_ error: Error) -> String {

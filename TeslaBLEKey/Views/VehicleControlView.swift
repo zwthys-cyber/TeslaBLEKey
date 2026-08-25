@@ -74,7 +74,9 @@ struct VehicleControlView: View {
         .sensoryFeedback(.success, trigger: vehicle.lastSuccessAction)
         .sensoryFeedback(.error, trigger: vehicle.showingError)
         .animation(reduceMotion ? AppMotion.reduced : AppMotion.state, value: vehicle.mediaPlaybackStatus)
-        .sheet(isPresented: $showingAddVehicle) {
+        .sheet(isPresented: $showingAddVehicle, onDismiss: {
+            Task { await vehicle.finishVehicleAdditionSheet() }
+        }) {
             NavigationStack { AddVehicleView() }
                 .environment(vehicle)
                 .preferredColorScheme(.dark)
@@ -118,7 +120,7 @@ struct VehicleControlView: View {
             Spacer()
             Menu {
                 if vehicle.pairedVehicleIDs.count > 1 {
-                    Section("切换车辆") {
+                    Section {
                         ForEach(vehicle.pairedVehicleIDs, id: \.self) { identifier in
                             Button {
                                 Task { await vehicle.switchVehicle(to: identifier) }
@@ -127,9 +129,13 @@ struct VehicleControlView: View {
                                       systemImage: identifier == vehicle.vehicleID ? "checkmark.circle.fill" : "car.side")
                             }
                         }
+                    } header: {
+                        Text("切换车辆")
+                    } footer: {
+                        Text("后台无感钥匙跟随当前车辆")
                     }
                 }
-                Button { vehicle.disconnect(); showingAddVehicle = true } label: {
+                Button { vehicle.prepareForVehicleAddition(); showingAddVehicle = true } label: {
                     Label("添加车辆", systemImage: "plus.circle")
                 }
                 Button { showingRenameVehicle = true } label: {
@@ -537,7 +543,6 @@ private struct AddVehicleView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("取消") {
                         dismiss()
-                        Task { await vehicle.connectFromUI() }
                     }
                 }
             }
