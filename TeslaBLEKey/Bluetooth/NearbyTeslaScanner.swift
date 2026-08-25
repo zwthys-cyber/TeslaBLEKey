@@ -38,9 +38,10 @@ struct NearbyTesla: Identifiable, Equatable {
 
     var distanceLabel: String {
         switch estimatedDistance {
-        case ..<1: String(format: "约 %.2f 米", estimatedDistance)
-        case ..<10: String(format: "约 %.1f 米", estimatedDistance)
-        default: String(format: "约 %.0f 米", estimatedDistance)
+        case ..<1: "1 米内"
+        case ..<10: "约 \(max(Int(estimatedDistance.rounded()), 1)) 米"
+        case ..<30: "约 \(Int((estimatedDistance / 5).rounded()) * 5) 米"
+        default: "约 \(Int((estimatedDistance / 10).rounded()) * 10) 米"
         }
     }
 
@@ -63,6 +64,7 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
     private var central: CBCentralManager?
     private var vehiclesByID: [UUID: NearbyTesla] = [:]
     private var nearbyPeripheralLastSeen: [UUID: Date] = [:]
+    private var recentRSSISamples: [UUID: [Int]] = [:]
     private var maintenanceTask: Task<Void, Never>?
     private var scanStartedAt: Date?
     private static let advertisementExpiry: TimeInterval = 6
@@ -127,16 +129,17 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         // name validation prevents presenting unrelated peripherals as vehicles.
         guard Self.isTeslaAdvertisementName(name) else { return }
 
-        let previousRSSI = vehiclesByID[peripheral.identifier]?.rssi
-        // BLE RSSI moves several dBm even when neither phone nor car moves. A
-        // light moving average keeps the ordering and signal UI from flickering.
-        let smoothedRSSI = previousRSSI.map { Int((Double($0) * 0.7) + (Double(RSSI.intValue) * 0.3)) }
-            ?? RSSI.intValue
+        let previous = vehiclesByID[peripheral.identifier]
+        var samples = recentRSSISamples[peripheral.identifier] ?? []
+        samples.append(RSSI.intValue)
+        samples = Array(samples.suffix(7))
+        recentRSSISamples[peripheral.identifier] = samples
+        let smoothedRSSI = Self.stabilizedRSSI(samples: samples, previous: previous?.rssi)
         vehiclesByID[peripheral.identifier] = NearbyTesla(
             id: peripheral.identifier,
             peripheralName: name,
             rssi: smoothedRSSI,
-            txPower: advertisedTxPower,
+            txPower: advertisedTxPower ?? previous?.txPower,
             lastSeen: .now,
             modelName: UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + name)
         )
@@ -157,10 +160,21 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         vehicles.filter { now.timeIntervalSince($0.value.lastSeen) <= maximumAge }
     }
 
+    static func stabilizedRSSI(samples: [Int], previous: Int?) -> Int {
+        guard !samples.isEmpty else { return previous ?? -100 }
+        let sorted = samples.sorted()
+        let median = sorted[sorted.count / 2]
+        guard let previous else { return median }
+        let blended = Int((Double(previous) * 0.82 + Double(median) * 0.18).rounded())
+        if abs(blended - previous) <= 1 { return previous }
+        return min(max(blended, previous - 3), previous + 3)
+    }
+
     private func beginScan() {
         maintenanceTask?.cancel()
         vehiclesByID.removeAll()
         nearbyPeripheralLastSeen.removeAll()
+        recentRSSISamples.removeAll()
         vehicles.removeAll()
         nearbyDeviceCount = 0
         scanTimedOut = false
@@ -181,6 +195,7 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
                 guard let self, self.isScanning else { return }
                 let now = Date()
                 self.vehiclesByID = Self.freshVehicles(from: self.vehiclesByID, now: now)
+                self.recentRSSISamples = self.recentRSSISamples.filter { self.vehiclesByID[$0.key] != nil }
                 self.nearbyPeripheralLastSeen = self.nearbyPeripheralLastSeen.filter {
                     now.timeIntervalSince($0.value) <= Self.advertisementExpiry
                 }

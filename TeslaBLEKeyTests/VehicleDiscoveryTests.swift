@@ -44,6 +44,25 @@ final class VehicleDiscoveryTests: XCTestCase {
         XCTAssertEqual(Set(result.keys), [fresh.id])
     }
 
+    func testRSSIFilterRejectsSingleSampleSpike() {
+        XCTAssertEqual(
+            NearbyTeslaScanner.stabilizedRSSI(samples: [-61, -60, -59, -28, -60], previous: -60),
+            -60
+        )
+        XCTAssertEqual(
+            NearbyTeslaScanner.stabilizedRSSI(samples: [-49, -48, -47, -48, -49], previous: -70),
+            -67
+        )
+    }
+
+    func testDistancePresentationAvoidsFalsePrecision() {
+        let veryClose = NearbyTesla(id: UUID(), peripheralName: "S0000000000000001C", rssi: -48, txPower: -59, lastSeen: .now, modelName: nil)
+        let nearby = NearbyTesla(id: UUID(), peripheralName: "S0000000000000002C", rssi: -66, txPower: -59, lastSeen: .now, modelName: nil)
+
+        XCTAssertEqual(veryClose.distanceLabel, "1 米内")
+        XCTAssertFalse(nearby.distanceLabel.contains("."))
+    }
+
     func testLegacyVCSECWireVectors() {
         let keyID = Data([1, 2, 3, 4])
         let request = LegacyVCSECClient.enumField(1, 3)
