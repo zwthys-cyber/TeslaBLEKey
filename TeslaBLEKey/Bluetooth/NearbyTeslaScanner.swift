@@ -59,15 +59,22 @@ struct NearbyTesla: Identifiable, Equatable {
 @MainActor
 @Observable
 final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelegate {
+    struct RSSISample: Equatable {
+        let value: Int
+        let date: Date
+    }
+
     static let vehicleService = CBUUID(string: "00000211-B2D1-43F0-9B88-960CEBF8B91E")
 
     private var central: CBCentralManager?
     private var vehiclesByID: [UUID: NearbyTesla] = [:]
     private var nearbyPeripheralLastSeen: [UUID: Date] = [:]
-    private var recentRSSISamples: [UUID: [Int]] = [:]
+    private var recentRSSISamples: [UUID: [RSSISample]] = [:]
+    private var primaryVehicleID: UUID?
     private var maintenanceTask: Task<Void, Never>?
     private var scanStartedAt: Date?
     private static let advertisementExpiry: TimeInterval = 6
+    private static let sampleMaximumAge: TimeInterval = 4
 
     var vehicles: [NearbyTesla] = []
     var isScanning = false
@@ -117,7 +124,8 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         rssi RSSI: NSNumber
     ) {
         guard RSSI.intValue != 127 else { return }
-        nearbyPeripheralLastSeen[peripheral.identifier] = .now
+        let now = Date()
+        nearbyPeripheralLastSeen[peripheral.identifier] = now
         nearbyDeviceCount = nearbyPeripheralLastSeen.count
 
         let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
@@ -131,20 +139,20 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
 
         let previous = vehiclesByID[peripheral.identifier]
         var samples = recentRSSISamples[peripheral.identifier] ?? []
-        samples.append(RSSI.intValue)
-        samples = Array(samples.suffix(7))
+        samples.append(RSSISample(value: RSSI.intValue, date: now))
+        samples = Self.freshSamples(from: samples, now: now)
         recentRSSISamples[peripheral.identifier] = samples
-        let smoothedRSSI = Self.stabilizedRSSI(samples: samples, previous: previous?.rssi)
+        let smoothedRSSI = Self.stabilizedRSSI(samples: samples.map(\.value), previous: previous?.rssi)
         vehiclesByID[peripheral.identifier] = NearbyTesla(
             id: peripheral.identifier,
             peripheralName: name,
             rssi: smoothedRSSI,
             txPower: advertisedTxPower ?? previous?.txPower,
-            lastSeen: .now,
+            lastSeen: now,
             modelName: UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + name)
         )
         scanTimedOut = false
-        vehicles = vehiclesByID.values.sorted { NearbyTesla.isNearer($0, than: $1) }
+        publishVehicles()
     }
 
     static func isTeslaAdvertisementName(_ value: String) -> Bool {
@@ -164,10 +172,48 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         guard !samples.isEmpty else { return previous ?? -100 }
         let sorted = samples.sorted()
         let median = sorted[sorted.count / 2]
-        guard let previous else { return median }
-        let blended = Int((Double(previous) * 0.82 + Double(median) * 0.18).rounded())
-        if abs(blended - previous) <= 1 { return previous }
-        return min(max(blended, previous - 3), previous + 3)
+        guard let previous, samples.count >= 5 else { return median }
+        let difference = median - previous
+        if abs(difference) <= 1 { return previous }
+
+        let alpha: Double
+        if difference > 5 { alpha = 0.38 }
+        else if difference < -5 { alpha = 0.14 }
+        else { alpha = 0.18 }
+
+        let blended = Int(
+            (Double(previous) * (1 - alpha) + Double(median) * alpha).rounded()
+        )
+        return min(max(blended, previous - 3), previous + 6)
+    }
+
+    static func freshSamples(
+        from samples: [RSSISample],
+        now: Date,
+        maximumAge: TimeInterval = sampleMaximumAge
+    ) -> [RSSISample] {
+        Array(samples.filter { now.timeIntervalSince($0.date) <= maximumAge }.suffix(7))
+    }
+
+    static func shouldReplacePrimary(current: NearbyTesla, challenger: NearbyTesla) -> Bool {
+        let requiredGap = max(current.estimatedDistance * 0.20, 0.8)
+        return challenger.estimatedDistance + requiredGap < current.estimatedDistance
+    }
+
+    static func stableOrder(
+        vehicles: [NearbyTesla],
+        primaryVehicleID: UUID?
+    ) -> (vehicles: [NearbyTesla], primaryVehicleID: UUID?) {
+        let distanceOrder = vehicles.sorted { NearbyTesla.isNearer($0, than: $1) }
+        guard let nearest = distanceOrder.first else { return ([], nil) }
+        guard let primaryVehicleID,
+              let current = distanceOrder.first(where: { $0.id == primaryVehicleID }) else {
+            return (distanceOrder, nearest.id)
+        }
+
+        let primary = nearest.id != current.id && shouldReplacePrimary(current: current, challenger: nearest)
+            ? nearest : current
+        return ([primary] + distanceOrder.filter { $0.id != primary.id }, primary.id)
     }
 
     private func beginScan() {
@@ -175,6 +221,7 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         vehiclesByID.removeAll()
         nearbyPeripheralLastSeen.removeAll()
         recentRSSISamples.removeAll()
+        primaryVehicleID = nil
         vehicles.removeAll()
         nearbyDeviceCount = 0
         scanTimedOut = false
@@ -195,15 +242,28 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
                 guard let self, self.isScanning else { return }
                 let now = Date()
                 self.vehiclesByID = Self.freshVehicles(from: self.vehiclesByID, now: now)
-                self.recentRSSISamples = self.recentRSSISamples.filter { self.vehiclesByID[$0.key] != nil }
+                self.recentRSSISamples = self.recentRSSISamples.reduce(into: [:]) { result, entry in
+                    guard self.vehiclesByID[entry.key] != nil else { return }
+                    let fresh = Self.freshSamples(from: entry.value, now: now)
+                    if !fresh.isEmpty { result[entry.key] = fresh }
+                }
                 self.nearbyPeripheralLastSeen = self.nearbyPeripheralLastSeen.filter {
                     now.timeIntervalSince($0.value) <= Self.advertisementExpiry
                 }
-                self.vehicles = self.vehiclesByID.values.sorted { NearbyTesla.isNearer($0, than: $1) }
+                self.publishVehicles()
                 self.nearbyDeviceCount = self.nearbyPeripheralLastSeen.count
                 self.scanTimedOut = self.vehicles.isEmpty
                     && now.timeIntervalSince(self.scanStartedAt ?? now) >= 15
             }
         }
+    }
+
+    private func publishVehicles() {
+        let result = Self.stableOrder(
+            vehicles: Array(vehiclesByID.values),
+            primaryVehicleID: primaryVehicleID
+        )
+        vehicles = result.vehicles
+        primaryVehicleID = result.primaryVehicleID
     }
 }

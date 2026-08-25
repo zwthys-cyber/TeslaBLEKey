@@ -51,8 +51,37 @@ final class VehicleDiscoveryTests: XCTestCase {
         )
         XCTAssertEqual(
             NearbyTeslaScanner.stabilizedRSSI(samples: [-49, -48, -47, -48, -49], previous: -70),
-            -67
+            -64
         )
+    }
+
+    func testRSSIFilterUsesFastColdStartAndDropsOldSamples() {
+        XCTAssertEqual(
+            NearbyTeslaScanner.stabilizedRSSI(samples: [-72, -51, -50], previous: -72),
+            -51
+        )
+        let now = Date()
+        let samples = [
+            NearbyTeslaScanner.RSSISample(value: -80, date: now.addingTimeInterval(-5)),
+            NearbyTeslaScanner.RSSISample(value: -60, date: now.addingTimeInterval(-1))
+        ]
+        XCTAssertEqual(NearbyTeslaScanner.freshSamples(from: samples, now: now).map(\.value), [-60])
+    }
+
+    func testPrimaryVehicleUsesDistanceHysteresis() {
+        let current = NearbyTesla(id: UUID(), peripheralName: "S0000000000000001C", rssi: -70, txPower: -59, lastSeen: .now, modelName: nil)
+        let slightlyNearer = NearbyTesla(id: UUID(), peripheralName: "S0000000000000002C", rssi: -68, txPower: -59, lastSeen: .now, modelName: nil)
+        let clearlyNearer = NearbyTesla(id: UUID(), peripheralName: "S0000000000000003C", rssi: -60, txPower: -59, lastSeen: .now, modelName: nil)
+
+        var result = NearbyTeslaScanner.stableOrder(
+            vehicles: [current, slightlyNearer], primaryVehicleID: current.id
+        )
+        XCTAssertEqual(result.primaryVehicleID, current.id)
+
+        result = NearbyTeslaScanner.stableOrder(
+            vehicles: [current, clearlyNearer], primaryVehicleID: current.id
+        )
+        XCTAssertEqual(result.primaryVehicleID, clearlyNearer.id)
     }
 
     func testDistancePresentationAvoidsFalsePrecision() {

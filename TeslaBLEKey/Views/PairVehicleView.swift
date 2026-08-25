@@ -54,7 +54,7 @@ struct PairVehicleView: View {
             }
 
             selectionWasManual = false
-            let nearestVehicle = vehicles.min { NearbyTesla.isNearer($0, than: $1) }
+            let nearestVehicle = vehicles.first
             guard selectedVehicle?.id != nearestVehicle?.id else {
                 selectedVehicle = nearestVehicle
                 return
