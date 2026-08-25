@@ -6,6 +6,7 @@ struct VehicleIdentityView: View {
     @State private var vin = ""
     @State private var validationMessage: String?
     @State private var isSaving = false
+    @State private var showingScanner = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -47,6 +48,19 @@ struct VehicleIdentityView: View {
                 }
                 .padding(.top, 28)
 
+                Button {
+                    showingScanner = true
+                } label: {
+                    Label("扫描车机上的 VIN", systemImage: "viewfinder")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity).frame(height: 50)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
+                .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.7))
+                .padding(.top, 14)
+
                 Spacer()
 
                 Button {
@@ -78,6 +92,18 @@ struct VehicleIdentityView: View {
                 }
             }
             .onAppear { isFocused = true }
+            .sheet(isPresented: $showingScanner) {
+                NavigationStack {
+                    VINScannerView { value in
+                        vin = value
+                        showingScanner = false
+                    }
+                    .ignoresSafeArea()
+                    .navigationTitle("扫描 VIN")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("取消") { showingScanner = false } } }
+                }
+            }
         }
         .preferredColorScheme(.dark)
     }

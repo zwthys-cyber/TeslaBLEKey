@@ -25,6 +25,7 @@ targets:
         UILaunchScreen: {}
         NSBluetoothAlwaysUsageDescription: 用于在本地连接您的 Tesla 并执行钥匙操作。
         NSFaceIDUsageDescription: 用于按您选择的保护级别确认车辆控制操作。
+        NSCameraUsageDescription: 用于识别车机屏幕或车门铭牌上的 VIN。
         UIBackgroundModes: [bluetooth-central]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
     settings:
@@ -35,8 +36,8 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
-        CURRENT_PROJECT_VERSION: 224
-        MARKETING_VERSION: 2.2.4
+        CURRENT_PROJECT_VERSION: 225
+        MARKETING_VERSION: 2.2.5
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: TeslaBLEKeyKit
@@ -65,8 +66,8 @@ targets:
         TARGETED_DEVICE_FAMILY: "4"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
-        CURRENT_PROJECT_VERSION: 224
-        MARKETING_VERSION: 2.2.4
+        CURRENT_PROJECT_VERSION: 225
+        MARKETING_VERSION: 2.2.5
     dependencies:
       - target: TeslaBLEKeyWatchExtension
   TeslaBLEKeyWatchExtension:
@@ -94,8 +95,8 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
-        CURRENT_PROJECT_VERSION: 224
-        MARKETING_VERSION: 2.2.4
+        CURRENT_PROJECT_VERSION: 225
+        MARKETING_VERSION: 2.2.5
   TeslaBLEKeyTests:
     type: bundle.unit-test
     platform: iOS

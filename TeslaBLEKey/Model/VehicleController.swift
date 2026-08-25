@@ -172,6 +172,7 @@ final class VehicleController {
     private var passiveRecoveryInProgress = false
     private var sessionNeedsForegroundValidation = false
     private var appIsBackgrounded = false
+    private var commandConnectionPausedForBackground = false
     private var authorizedCommandBatchActive = false
 
     var displayVehicleName: String {
@@ -219,7 +220,8 @@ final class VehicleController {
                 } else if disconnected === self.connection {
                     AppDiagnostics.shared.record("ble.command.disconnected")
                     if self.passiveConnection == nil { self.passiveKeyOnline = false }
-                    guard !self.intentionalDisconnect, self.passiveEntryEnabled else { return }
+                    guard !self.intentionalDisconnect, self.passiveEntryEnabled,
+                          !self.appIsBackgrounded else { return }
                     await self.restoreCommandConnection(on: disconnected)
                 }
             }
@@ -541,6 +543,14 @@ final class VehicleController {
     func refreshAfterReturningToForeground() async {
         appIsBackgrounded = false
         guard isPaired else { return }
+        if commandConnectionPausedForBackground, let link = connection {
+            commandConnectionPausedForBackground = false
+            await restoreCommandConnection(on: link)
+            if passiveEntryEnabled, !passiveKeyOnline {
+                try? await recoverDedicatedPhoneKey()
+            }
+            return
+        }
         switch phase {
         case .connected:
             guard sessionNeedsForegroundValidation else { await refreshVehicleState(); return }
@@ -590,6 +600,18 @@ final class VehicleController {
         // out continuations and lead to watchdog/jetsam termination.
         passiveReconnectTask?.cancel()
         passiveReconnectTask = nil
+        // The VCSEC command channel is not required for a door-handle
+        // challenge. Releasing it leaves the vehicle's limited BLE capacity
+        // to the restorable native Phone Key link, which is the only session
+        // that must survive in the background.
+        guard passiveEntryEnabled, passiveKeyOnline, connection != nil else { return }
+        commandConnectionPausedForBackground = true
+        tesla?.disconnect()
+        legacyClient?.close()
+        tesla = nil
+        legacyClient = nil
+        phase = .idle
+        AppDiagnostics.shared.record("ble.command.paused.background")
     }
 
     func presentUserError(_ message: String) { presentError(message) }
