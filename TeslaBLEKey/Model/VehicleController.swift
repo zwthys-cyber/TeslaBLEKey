@@ -92,6 +92,7 @@ final class VehicleController {
     private var passiveDisconnectObserver: NSObjectProtocol?
     private var passiveReadyObserver: NSObjectProtocol?
     private var intentionalDisconnect = false
+    private var passiveLifecycle = PassiveKeyLifecycle(enabled: false)
 
     var vehicleID: String
     var pairedVehicleIDs: [String]
@@ -185,7 +186,6 @@ final class VehicleController {
     private var handshakeTimeoutTask: Task<Void, Never>?
     private var handshakeDidTimeOut = false
     private var passiveReconnectTask: Task<Void, Never>?
-    private var passiveRecoveryInProgress = false
     private var foregroundConnectionInProgress = false
     private var sessionNeedsForegroundValidation = false
     private var appIsBackgrounded = false
@@ -213,6 +213,7 @@ final class VehicleController {
         let pairingWasVerified = defaults.integer(forKey: AppStorageKeys.pairingSchemaVersion) >= 3
         isPaired = defaults.bool(forKey: AppStorageKeys.paired) && pairingWasVerified
         passiveEntryEnabled = (defaults.object(forKey: AppStorageKeys.passiveEntryEnabled) as? Bool) ?? true
+        passiveLifecycle = PassiveKeyLifecycle(enabled: managesPassiveKey && passiveEntryEnabled)
         if let data = defaults.data(forKey: AppStorageKeys.commandHistoryPrefix + storedVehicleID)
             ?? defaults.data(forKey: AppStorageKeys.commandHistory),
            let records = try? JSONDecoder().decode([CommandRecord].self, from: data) {
@@ -234,8 +235,13 @@ final class VehicleController {
                 if disconnected === self.passiveConnection {
                     AppDiagnostics.shared.record("ble.passive.disconnected")
                     self.passiveKeyOnline = false
-                    guard !self.intentionalDisconnect, self.passiveEntryEnabled else { return }
-                    await self.restoreDedicatedPhoneKeyConnection(on: disconnected)
+                    guard !self.intentionalDisconnect, self.passiveEntryEnabled else {
+                        AppDiagnostics.shared.record("ble.passive.disconnected.ignored")
+                        return
+                    }
+                    let generation = self.passiveLifecycle.interrupt()
+                    AppDiagnostics.shared.record("ble.passive.lifecycle.interrupted.g\(generation)")
+                    await self.restoreDedicatedPhoneKeyConnection(on: disconnected, generation: generation)
                 } else if disconnected === self.connection {
                     AppDiagnostics.shared.record("ble.command.disconnected")
                     if self.passiveConnection == nil { self.passiveKeyOnline = false }
@@ -257,7 +263,10 @@ final class VehicleController {
                       self.passiveEntryEnabled,
                       !self.passiveKeyOnline else { return }
                 AppDiagnostics.shared.record("ble.passive.proximity.ready")
-                await self.restoreDedicatedPhoneKeyConnection(on: ready)
+                await self.restoreDedicatedPhoneKeyConnection(
+                    on: ready,
+                    generation: self.passiveLifecycle.generation
+                )
             }
         }
         // Construct the restorable central at process launch, before SwiftUI
@@ -699,6 +708,7 @@ final class VehicleController {
         guard managesPassiveKey else { return }
         guard passiveEntryEnabled != enabled else { return }
         passiveEntryEnabled = enabled
+        passiveLifecycle.setEnabled(enabled)
         UserDefaults.standard.set(enabled, forKey: AppStorageKeys.passiveEntryEnabled)
         disconnect()
         await connectFromUI()
@@ -1334,6 +1344,8 @@ final class VehicleController {
 
     func disconnect() {
         intentionalDisconnect = true
+        passiveLifecycle.invalidate(nextState: passiveEntryEnabled ? .idle : .disabled)
+        AppDiagnostics.shared.record("ble.passive.lifecycle.invalidated.g\(passiveLifecycle.generation)")
         passiveReconnectTask?.cancel()
         passiveReconnectTask = nil
         handshakeTimeoutTask?.cancel()
@@ -1384,7 +1396,7 @@ final class VehicleController {
 
     private func startDedicatedPhoneKeyConnection(key: TeslaPrivateKey) async throws {
         guard managesPassiveKey else { return }
-        if passiveKeyOnline { return }
+        guard !passiveKeyOnline, passiveLifecycle.activeOperation == nil else { return }
         passiveKeyClient?.close()
         passiveConnection?.close()
         passiveKeyClient = nil
@@ -1394,16 +1406,39 @@ final class VehicleController {
         let restorationID = "com.local.teslablekey.phonekey.\(vehicleID)"
         let link = try BLEConnection(localName: vehicleID, restorationIdentifier: restorationID)
         passiveConnection = link
+        let selectedVehicleID = vehicleID
+        let generation = passiveLifecycle.beginConnection()
+        let startedAt = Date()
+        AppDiagnostics.shared.record("ble.passive.lifecycle.connecting.g\(generation)")
         do {
             try await link.connect(timeout: 30)
+            guard isCurrentPassiveOperation(generation, link: link, vehicleID: selectedVehicleID),
+                  passiveLifecycle.markEstablishingSession(for: generation) else {
+                throw CancellationError()
+            }
+            let connectionMilliseconds = Int(Date().timeIntervalSince(startedAt) * 1_000)
+            AppDiagnostics.shared.record("ble.passive.lifecycle.connected.\(connectionMilliseconds)ms")
+            AppDiagnostics.shared.record("ble.passive.lifecycle.session.g\(generation)")
             let client = LegacyVCSECClient(connection: link, privateKey: key)
             try await client.startSession()
+            guard isCurrentPassiveOperation(generation, link: link, vehicleID: selectedVehicleID),
+                  passiveLifecycle.markListening(for: generation) else {
+                client.close()
+                throw CancellationError()
+            }
             client.startPassiveAuthenticationResponder()
             passiveKeyClient = client
             passiveKeyOnline = true
+            let totalMilliseconds = Int(Date().timeIntervalSince(startedAt) * 1_000)
+            AppDiagnostics.shared.record("ble.passive.lifecycle.ready.\(totalMilliseconds)ms")
+            AppDiagnostics.shared.record("ble.passive.lifecycle.listening.g\(generation)")
         } catch {
             // Keep the restorable central alive: iOS can complete its pending
             // connection and wake the app when the owner returns to the car.
+            if passiveLifecycle.owns(generation) {
+                _ = passiveLifecycle.markWaiting(for: generation)
+                AppDiagnostics.shared.record("ble.passive.lifecycle.waiting.g\(generation)")
+            }
             throw error
         }
     }
@@ -1420,27 +1455,49 @@ final class VehicleController {
         }
     }
 
-    private func restoreDedicatedPhoneKeyConnection(on link: BLEConnection) async {
+    private func restoreDedicatedPhoneKeyConnection(
+        on link: BLEConnection,
+        generation: UInt64? = nil
+    ) async {
+        let expectedGeneration = generation ?? passiveLifecycle.generation
         guard managesPassiveKey, passiveEntryEnabled, passiveConnection === link,
-              !passiveRecoveryInProgress else { return }
-        passiveRecoveryInProgress = true
-        AppDiagnostics.shared.record("ble.passive.restore.begin")
-        defer { passiveRecoveryInProgress = false }
+              passiveLifecycle.beginRecovery(for: expectedGeneration) else { return }
+        let selectedVehicleID = vehicleID
+        let startedAt = Date()
+        AppDiagnostics.shared.record("ble.passive.restore.begin.g\(expectedGeneration)")
         passiveKeyClient?.stopPassiveAuthenticationResponder()
         passiveKeyClient = nil
         passiveKeyOnline = false
         do {
             try await link.connect(timeout: 45)
+            guard isCurrentPassiveOperation(expectedGeneration, link: link, vehicleID: selectedVehicleID),
+                  passiveLifecycle.markEstablishingSession(for: expectedGeneration) else {
+                throw CancellationError()
+            }
+            let connectionMilliseconds = Int(Date().timeIntervalSince(startedAt) * 1_000)
+            AppDiagnostics.shared.record("ble.passive.restore.connected.\(connectionMilliseconds)ms")
+            AppDiagnostics.shared.record("ble.passive.lifecycle.session.g\(expectedGeneration)")
             let key = try keyStore.load(for: vehicleID)
             let client = LegacyVCSECClient(connection: link, privateKey: key)
             try await client.startSession()
-            guard passiveConnection === link else { client.close(); return }
+            guard isCurrentPassiveOperation(expectedGeneration, link: link, vehicleID: selectedVehicleID),
+                  passiveLifecycle.markListening(for: expectedGeneration) else {
+                client.close()
+                return
+            }
             client.startPassiveAuthenticationResponder()
             passiveKeyClient = client
             passiveKeyOnline = true
-            AppDiagnostics.shared.record("ble.passive.restore.ready")
+            let totalMilliseconds = Int(Date().timeIntervalSince(startedAt) * 1_000)
+            AppDiagnostics.shared.record("ble.passive.restore.total.\(totalMilliseconds)ms")
+            AppDiagnostics.shared.record("ble.passive.restore.ready.g\(expectedGeneration)")
         } catch {
-            AppDiagnostics.shared.record("ble.passive.restore.failed")
+            guard passiveLifecycle.owns(expectedGeneration) else {
+                AppDiagnostics.shared.record("ble.passive.restore.stale.g\(expectedGeneration)")
+                return
+            }
+            _ = passiveLifecycle.markWaiting(for: expectedGeneration)
+            AppDiagnostics.shared.record("ble.passive.restore.pending.g\(expectedGeneration)")
             // Keep this CBCentralManager alive. Replacing it with another
             // manager using the same restoration identifier can strand iOS
             // in a permanent "restoring" state until the app is terminated.
@@ -1451,7 +1508,10 @@ final class VehicleController {
     private func recoverDedicatedPhoneKey() async throws {
         guard managesPassiveKey else { return }
         if let existingLink = passiveConnection {
-            await restoreDedicatedPhoneKeyConnection(on: existingLink)
+            await restoreDedicatedPhoneKeyConnection(
+                on: existingLink,
+                generation: passiveLifecycle.generation
+            )
             guard passiveKeyOnline else { throw LocalError.handshakeTimedOut }
         } else {
             let key = try keyStore.load(for: vehicleID)
@@ -1469,7 +1529,10 @@ final class VehicleController {
             while self.passiveEntryEnabled, self.isPaired, !self.passiveKeyOnline,
                   !self.appIsBackgrounded, !Task.isCancelled {
                 if let existingLink = self.passiveConnection {
-                    await self.restoreDedicatedPhoneKeyConnection(on: existingLink)
+                    await self.restoreDedicatedPhoneKeyConnection(
+                        on: existingLink,
+                        generation: self.passiveLifecycle.generation
+                    )
                     if self.passiveKeyOnline { return }
                 } else {
                     do {
@@ -1481,6 +1544,18 @@ final class VehicleController {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
+    }
+
+    private func isCurrentPassiveOperation(
+        _ generation: UInt64,
+        link: BLEConnection,
+        vehicleID selectedVehicleID: String
+    ) -> Bool {
+        passiveLifecycle.owns(generation)
+            && passiveConnection === link
+            && vehicleID == selectedVehicleID
+            && passiveEntryEnabled
+            && !intentionalDisconnect
     }
 
     func forgetVehicle() {

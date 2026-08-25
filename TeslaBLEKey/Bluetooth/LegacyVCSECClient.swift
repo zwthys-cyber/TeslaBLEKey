@@ -122,8 +122,10 @@ final class LegacyVCSECClient: @unchecked Sendable {
     /// AES-GCM-TOKEN response at its requested authentication level.
     func startPassiveAuthenticationResponder() {
         guard passiveAuthenticationTask == nil else { return }
+        AppDiagnostics.shared.record("ble.passive.responder.started")
         passiveAuthenticationTask = Task { [weak self] in
             guard let self else { return }
+            defer { AppDiagnostics.shared.record("ble.passive.responder.stopped") }
             while !Task.isCancelled, let message = await self.iterator.next() {
                 do {
                     let response = Self.vcsecPayload(from: message)
@@ -203,7 +205,13 @@ final class LegacyVCSECClient: @unchecked Sendable {
         if let vehicleCounter = Self.firstVarintField(2, in: session) {
             let receivedCounter = UInt32(clamping: vehicleCounter)
             if receivedCounter < UInt32.max {
-                counter = max(counter, receivedCounter + 1)
+                let advancedCounter = max(counter, receivedCounter + 1)
+                if advancedCounter > counter {
+                    AppDiagnostics.shared.record(
+                        "ble.passive.counter.advanced.+\(advancedCounter - counter)"
+                    )
+                    counter = advancedCounter
+                }
             }
         }
 
