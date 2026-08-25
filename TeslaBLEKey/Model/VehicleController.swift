@@ -226,6 +226,12 @@ final class VehicleController {
                 }
             }
         }
+        // Construct the restorable central at process launch, before SwiftUI
+        // has to render a foreground scene. CoreBluetooth may relaunch us only
+        // to deliver a door-handle characteristic notification.
+        if isPaired, passiveEntryEnabled, !vehicleID.isEmpty {
+            Task { [weak self] in await self?.bootstrapPassivePhoneKey() }
+        }
     }
 
     func pair(with nearby: NearbyTesla) async {
@@ -503,8 +509,8 @@ final class VehicleController {
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
         guard !handshakeDidTimeOut else { throw LocalError.handshakeTimedOut }
-        if passiveEntryEnabled {
-            do { try await startDedicatedPhoneKeyConnection(key: key) }
+        if passiveEntryEnabled, !passiveKeyOnline {
+            do { try await recoverDedicatedPhoneKey() }
             catch {
                 passiveKeyOnline = false
                 schedulePassiveKeyReconnect()
@@ -1137,6 +1143,7 @@ final class VehicleController {
     }
 
     private func startDedicatedPhoneKeyConnection(key: TeslaPrivateKey) async throws {
+        if passiveKeyOnline { return }
         passiveKeyClient?.close()
         passiveConnection?.close()
         passiveKeyClient = nil
@@ -1154,9 +1161,21 @@ final class VehicleController {
             passiveKeyClient = client
             passiveKeyOnline = true
         } catch {
-            link.close()
-            passiveConnection = nil
+            // Keep the restorable central alive: iOS can complete its pending
+            // connection and wake the app when the owner returns to the car.
             throw error
+        }
+    }
+
+    private func bootstrapPassivePhoneKey() async {
+        guard passiveEntryEnabled, isPaired, !vehicleID.isEmpty,
+              passiveConnection == nil, !passiveKeyOnline else { return }
+        do {
+            let key = try keyStore.load(for: vehicleID)
+            try await startDedicatedPhoneKeyConnection(key: key)
+            AppDiagnostics.shared.record("ble.passive.bootstrap.ready")
+        } catch {
+            AppDiagnostics.shared.record("ble.passive.bootstrap.pending")
         }
     }
 
