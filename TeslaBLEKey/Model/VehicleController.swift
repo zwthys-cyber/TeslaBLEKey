@@ -89,6 +89,7 @@ final class VehicleController {
     private var passiveKeyClient: LegacyVCSECClient?
     private var pendingPairing: (vehicle: NearbyTesla, connection: BLEConnection)?
     private var passiveDisconnectObserver: NSObjectProtocol?
+    private var passiveReadyObserver: NSObjectProtocol?
     private var intentionalDisconnect = false
 
     var vehicleID: String
@@ -240,6 +241,21 @@ final class VehicleController {
                           !self.appIsBackgrounded else { return }
                     await self.restoreCommandConnection(on: disconnected)
                 }
+            }
+        }
+        passiveReadyObserver = NotificationCenter.default.addObserver(
+            forName: BLEConnection.didBecomeReadyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      let ready = notification.object as? BLEConnection,
+                      ready === self.passiveConnection,
+                      self.passiveEntryEnabled,
+                      !self.passiveKeyOnline else { return }
+                AppDiagnostics.shared.record("ble.passive.proximity.ready")
+                await self.restoreDedicatedPhoneKeyConnection(on: ready)
             }
         }
         // Construct the restorable central at process launch, before SwiftUI

@@ -56,7 +56,7 @@
 - 统一的无弹跳动效语言，并完整支持“减弱动态效果”
 - GitHub Actions 编译无签名 IPA，供 TrollStore 安装
 
-协议层使用固定到提交 `1cfc8ee366d59320ae813e6e1f9f4ddf7bf3ead1` 的
+协议层使用固定到提交 `d5da62c003ac6e2e0d8695f910957dd5708c82d7` 的
 [`zwthys-cyber/TeslaBLEKeyKit`](https://github.com/zwthys-cyber/TeslaBLEKeyKit)。该分支基于上游 TeslaBLEKeyKit，增加 CoreBluetooth 状态恢复和被动钥匙连接处理；消息定义来源于 Tesla 官方
 [`vehicle-command`](https://github.com/teslamotors/vehicle-command)。依赖固定提交是为了确保 App 构建与 CI 测试使用同一份已审查代码。
 

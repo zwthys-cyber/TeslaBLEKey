@@ -26,7 +26,7 @@
 
 ## 后台与被动钥匙
 
-被动钥匙默认开启。命令会话和原生 Phone Key 始终各自拥有 BLE 连接及接收流（包括 VIN-free 模式）：前者承载主动命令，后者使用无周期超时的连续事件流监听车辆在拉动门把手时发送的 `AuthenticationRequest`。监听器校验目标密钥、20 字节会话令牌及 UNLOCK/DRIVE 等级，再以令牌作为 AES-GCM 附加认证数据返回 `AES_GCM_TOKEN` 响应，并将不含车辆身份的响应耗时写入本地诊断。Phone Key 连接单独配置固定 CoreBluetooth restoration identifier，在 App 进程启动时立即创建，连接恢复后重启监听器。普通命令连接只在 scene phase 为 active 时建立，重复的前台恢复请求会被合并；系统因 BLE 事件在后台拉起 App 时不会误建控制通道。App 进入后台时释放普通命令连接，即使 Phone Key 尚处于恢复中也不与其争抢车辆 BLE 会话；Siri/快捷指令控制器明确禁止创建第二条 Phone Key 会话。最终的距离判定、解锁、离车上锁和钥匙丢失提示由车辆执行；iOS 仍可根据系统资源暂停或延迟后台 BLE 工作，因此实体钥匙卡始终是安全后备。
+被动钥匙默认开启。命令会话和原生 Phone Key 始终各自拥有 BLE 连接及接收流（包括 VIN-free 模式）：前者承载主动命令，后者使用无周期超时的连续事件流监听车辆在拉动门把手时发送的 `AuthenticationRequest`。监听器校验目标密钥、20 字节会话令牌及 UNLOCK/DRIVE 等级，再以令牌作为 AES-GCM 附加认证数据返回 `AES_GCM_TOKEN` 响应，并将不含车辆身份的响应耗时写入本地诊断。Phone Key 连接单独配置固定 CoreBluetooth restoration identifier，在 App 进程启动时立即创建；首次发现车辆后还会保存该车辆的 CoreBluetooth 外设 UUID，后续后台直接提交由系统托管的已知外设连接，避免依赖后台名称扫描。车辆回到范围并恢复特征通知后，连接层通知 App 自动重建 Phone Key 会话与挑战监听器。普通命令连接只在 scene phase 为 active 时建立，重复的前台恢复请求会被合并；系统因 BLE 事件在后台拉起 App 时不会误建控制通道。App 进入后台时释放普通命令连接，即使 Phone Key 尚处于恢复中也不与其争抢车辆 BLE 会话；Siri/快捷指令控制器明确禁止创建第二条 Phone Key 会话。最终的距离判定、解锁、离车上锁和钥匙丢失提示由车辆执行；iOS 仍可根据系统资源暂停或延迟后台 BLE 工作，因此实体钥匙卡始终是安全后备。
 
 Apple Watch 不持有 P-256 车辆私钥。手表通过 WatchConnectivity 将命令交给附近 iPhone，再由手机现有认证 BLE 会话执行；手机不可达时不会排队执行车辆安全命令。
 
@@ -42,7 +42,7 @@ Tesla 不会把中控屏切歌主动推送给本 App。主页在前台连接期�
 
 ## 固定依赖
 
-- `zwthys-cyber/TeslaBLEKeyKit`：`1cfc8ee366d59320ae813e6e1f9f4ddf7bf3ead1`
+- `zwthys-cyber/TeslaBLEKeyKit`：`d5da62c003ac6e2e0d8695f910957dd5708c82d7`
 - `Lincb522/NeteaseCloudMusicApi-Swift`：`8626b8fe628144e051dd9e07180850d253c808f2`
 
 具体固定值以仓库根目录的 `project.yml` 为唯一事实来源；CI 必须测试同一 TeslaBLEKeyKit 提交。

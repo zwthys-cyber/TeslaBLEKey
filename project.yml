@@ -7,7 +7,7 @@ options:
 packages:
   TeslaBLEKeyKit:
     url: https://github.com/zwthys-cyber/TeslaBLEKeyKit.git
-    revision: 1cfc8ee366d59320ae813e6e1f9f4ddf7bf3ead1
+    revision: d5da62c003ac6e2e0d8695f910957dd5708c82d7
   NeteaseCloudMusicAPI:
     url: https://github.com/Lincb522/NeteaseCloudMusicApi-Swift.git
     revision: 8626b8fe628144e051dd9e07180850d253c808f2
