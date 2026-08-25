@@ -1,6 +1,7 @@
 import XCTest
 @testable import TeslaBLEKey
 
+@MainActor
 final class VehicleDiscoveryTests: XCTestCase {
     func testTeslaAdvertisementNameValidation() {
         XCTAssertTrue(NearbyTeslaScanner.isTeslaAdvertisementName("S1a87a5a75f3df858C"))
