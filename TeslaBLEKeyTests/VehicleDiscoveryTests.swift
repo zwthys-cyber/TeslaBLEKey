@@ -34,6 +34,16 @@ final class VehicleDiscoveryTests: XCTestCase {
         XCTAssertEqual(sorted.first?.id, closer.id)
     }
 
+    func testScannerDropsVehiclesWhoseAdvertisementsExpired() {
+        let now = Date()
+        let fresh = NearbyTesla(id: UUID(), peripheralName: "S0000000000000001C", rssi: -50, txPower: nil, lastSeen: now.addingTimeInterval(-2), modelName: nil)
+        let stale = NearbyTesla(id: UUID(), peripheralName: "S0000000000000002C", rssi: -50, txPower: nil, lastSeen: now.addingTimeInterval(-7), modelName: nil)
+
+        let result = NearbyTeslaScanner.freshVehicles(from: [fresh.id: fresh, stale.id: stale], now: now)
+
+        XCTAssertEqual(Set(result.keys), [fresh.id])
+    }
+
     func testLegacyVCSECWireVectors() {
         let keyID = Data([1, 2, 3, 4])
         let request = LegacyVCSECClient.enumField(1, 3)

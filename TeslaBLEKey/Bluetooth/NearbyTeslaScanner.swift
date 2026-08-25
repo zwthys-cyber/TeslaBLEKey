@@ -62,8 +62,10 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
 
     private var central: CBCentralManager?
     private var vehiclesByID: [UUID: NearbyTesla] = [:]
-    private var nearbyPeripheralIDs: Set<UUID> = []
-    private var timeoutTask: Task<Void, Never>?
+    private var nearbyPeripheralLastSeen: [UUID: Date] = [:]
+    private var maintenanceTask: Task<Void, Never>?
+    private var scanStartedAt: Date?
+    private static let advertisementExpiry: TimeInterval = 6
 
     var vehicles: [NearbyTesla] = []
     var isScanning = false
@@ -80,8 +82,8 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
     }
 
     func stop() {
-        timeoutTask?.cancel()
-        timeoutTask = nil
+        maintenanceTask?.cancel()
+        maintenanceTask = nil
         central?.stopScan()
         isScanning = false
     }
@@ -113,8 +115,8 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         rssi RSSI: NSNumber
     ) {
         guard RSSI.intValue != 127 else { return }
-        nearbyPeripheralIDs.insert(peripheral.identifier)
-        nearbyDeviceCount = nearbyPeripheralIDs.count
+        nearbyPeripheralLastSeen[peripheral.identifier] = .now
+        nearbyDeviceCount = nearbyPeripheralLastSeen.count
 
         let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
         let advertisedTxPower = (advertisementData[CBAdvertisementDataTxPowerLevelKey] as? NSNumber)?.intValue
@@ -139,7 +141,6 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
             modelName: UserDefaults.standard.string(forKey: AppStorageKeys.vehicleModelPrefix + name)
         )
         scanTimedOut = false
-        timeoutTask?.cancel()
         vehicles = vehiclesByID.values.sorted { NearbyTesla.isNearer($0, than: $1) }
     }
 
@@ -148,13 +149,22 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
         return value.dropFirst().dropLast().allSatisfy { $0.isHexDigit }
     }
 
+    static func freshVehicles(
+        from vehicles: [UUID: NearbyTesla],
+        now: Date,
+        maximumAge: TimeInterval = advertisementExpiry
+    ) -> [UUID: NearbyTesla] {
+        vehicles.filter { now.timeIntervalSince($0.value.lastSeen) <= maximumAge }
+    }
+
     private func beginScan() {
-        timeoutTask?.cancel()
+        maintenanceTask?.cancel()
         vehiclesByID.removeAll()
-        nearbyPeripheralIDs.removeAll()
+        nearbyPeripheralLastSeen.removeAll()
         vehicles.removeAll()
         nearbyDeviceCount = 0
         scanTimedOut = false
+        scanStartedAt = .now
 
         // Tesla's local name is reliable, but the service UUID is not present in
         // every advertisement frame seen by iOS. Scan broadly in the foreground
@@ -164,10 +174,21 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
             options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
         )
         isScanning = true
-        timeoutTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(15))
-            guard !Task.isCancelled, let self, self.vehicles.isEmpty, self.isScanning else { return }
-            self.scanTimedOut = true
+        maintenanceTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(1)) }
+                catch { return }
+                guard let self, self.isScanning else { return }
+                let now = Date()
+                self.vehiclesByID = Self.freshVehicles(from: self.vehiclesByID, now: now)
+                self.nearbyPeripheralLastSeen = self.nearbyPeripheralLastSeen.filter {
+                    now.timeIntervalSince($0.value) <= Self.advertisementExpiry
+                }
+                self.vehicles = self.vehiclesByID.values.sorted { NearbyTesla.isNearer($0, than: $1) }
+                self.nearbyDeviceCount = self.nearbyPeripheralLastSeen.count
+                self.scanTimedOut = self.vehicles.isEmpty
+                    && now.timeIntervalSince(self.scanStartedAt ?? now) >= 15
+            }
         }
     }
 }
