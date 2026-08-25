@@ -105,18 +105,25 @@ final class VehicleController {
     var executingAction: VehicleAction?
     var lastSuccessAction: VehicleAction?
     var isTrunkOpen = false
+    var isTrunkMoving = false
+    var trunkOperationStatus: String?
     var isLocked: Bool?
     var isChargePortOpen = false
     var isClimateOn = false
     var cabinTemperature: Double?
     var targetTemperature = 22.0
+    var minimumCabinTemperature = 15.0
+    var maximumCabinTemperature = 28.0
     var areWindowsVented = false
     var batteryLevel: Int?
     var estimatedRangeKilometers: Double?
     var chargeLimit: Int?
+    var minimumChargeLimit = 50
+    var maximumChargeLimit = 100
     var chargerPowerKilowatts: Int?
     var chargerVoltage: Int?
     var chargerCurrentAmps: Int?
+    var maxChargingCurrentAmps: Int?
     var minutesToChargeLimit: Int?
     var chargingStatus: String?
     var isCharging = false
@@ -163,6 +170,7 @@ final class VehicleController {
     private var scheduleLongitude: Float?
     var lastStateUpdate: Date?
     private var mediaArtworkLookupTask: Task<Void, Never>?
+    private var trunkStateRefreshTask: Task<Void, Never>?
     private var lastArtworkLookupKey: String?
     private var isRefreshingVehicleState = false
     private var isRefreshingMediaState = false
@@ -348,7 +356,10 @@ final class VehicleController {
     }
 
     func refreshSchedules() async {
-        guard !isRefreshingVehicleState, let tesla = try? await ensureModernSession() else { return }
+        guard !isRefreshingVehicleState, !isRefreshingMediaState,
+              let tesla = try? await ensureModernSession() else { return }
+        isRefreshingVehicleState = true
+        defer { isRefreshingVehicleState = false }
         if let location = await requestVehicleData(from: tesla, configure: { $0.getLocationState = CarServer_GetLocationState() }), location.hasLocationState {
             let state = location.locationState
             if state.optionalLatitude != nil { scheduleLatitude = state.latitude }
@@ -413,11 +424,14 @@ final class VehicleController {
                 try await self.send(action, to: vehicle)
             }
         }
-        if succeeded { vehicleSchedules.removeAll { $0.id == schedule.id && $0.kind == schedule.kind } }
+        if succeeded { await refreshSchedules() }
     }
 
     func refreshNearbyChargingSites() async {
-        guard let tesla = try? await ensureModernSession() else { return }
+        guard !isRefreshingVehicleState, !isRefreshingMediaState,
+              let tesla = try? await ensureModernSession() else { return }
+        isRefreshingVehicleState = true
+        defer { isRefreshingVehicleState = false }
         do {
             try? await tesla.wakeVehicle(); try await tesla.startInfotainmentSession()
             let response = try await tesla.getNearbyChargingSites(radius: 200, count: 20)
@@ -663,29 +677,50 @@ final class VehicleController {
     }
 
     func lock() async {
-        if await execute(.lock, name: "上锁", operation: { try await self.perform(modern: { try await $0.lock() }, legacy: { try await $0.rke(1) }) }) { isLocked = true }
+        if await execute(.lock, name: "上锁", operation: { try await self.perform(modern: { try await $0.lock() }, legacy: { try await $0.rke(1) }) }) {
+            isLocked = true
+            await refreshBasicVehicleState()
+        }
     }
     func unlock() async {
-        if await execute(.unlock, name: "解锁", operation: { try await self.perform(modern: { try await $0.unlock() }, legacy: { try await $0.rke(0) }) }) { isLocked = false }
+        if await execute(.unlock, name: "解锁", operation: { try await self.perform(modern: { try await $0.unlock() }, legacy: { try await $0.rke(0) }) }) {
+            isLocked = false
+            await refreshBasicVehicleState()
+        }
     }
     func openTrunk() async {
+        guard !isTrunkMoving else { return }
         if await execute(.trunk, name: "开启后备箱", operation: {
-            try await self.perform(modern: { try await self.moveRearTrunk($0, action: .closureMoveTypeMove) }, legacy: { try await $0.rke(2) })
-        }) { isTrunkOpen = true }
+            try await self.perform(modern: { try await $0.openTrunk() }, legacy: { try await $0.rke(2) })
+        }) {
+            isTrunkOpen = true
+            isTrunkMoving = true
+            trunkOperationStatus = "正在打开"
+            scheduleTrunkStateRefresh()
+        }
     }
     func closeTrunk() async {
+        guard !isTrunkMoving else { return }
         if await execute(.trunk, name: "关闭后备箱", operation: {
-            try await self.perform(modern: { try await self.moveRearTrunk($0, action: .closureMoveTypeClose) }, legacy: { try await $0.rke(2) })
-        }) { isTrunkOpen = false }
+            try await self.perform(modern: { try await $0.closeTrunk() }, legacy: { try await $0.closure(field: 5, action: 4) })
+        }) {
+            isTrunkMoving = true
+            trunkOperationStatus = "正在关闭"
+            scheduleTrunkStateRefresh()
+        }
     }
-    func openFrunk() async { await execute(.frunk, name: "开启前备箱") { try await self.perform(modern: { try await $0.openFrunk() }, legacy: { try await $0.rke(3) }) } }
-    func flashLights() async { await execute(.flash, name: "闪灯") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.flashLights() } } }
-    func honk() async { await execute(.horn, name: "鸣笛") { try await self.performModern { try? await $0.wakeVehicle(); try await $0.startInfotainmentSession(); try await $0.honkHorn() } } }
+    func openFrunk() async {
+        if await execute(.frunk, name: "开启前备箱", operation: { try await self.perform(modern: { try await $0.openFrunk() }, legacy: { try await $0.rke(3) }) }) {
+            await refreshBasicVehicleState()
+        }
+    }
+    func flashLights() async { await execute(.flash, name: "闪灯") { try await self.performInfotainment { try await $0.flashLights() } } }
+    func honk() async { await execute(.horn, name: "鸣笛") { try await self.performInfotainment { try await $0.honkHorn() } } }
     func authorizeDrive() async {
         await execute(.drive, name: "启动车辆") {
             try await self.performModern { vehicle in
                 do {
-                    try await self.sendRawRKE(.rkeActionRemoteDrive, to: vehicle)
+                    try await vehicle.remoteDrive()
                 } catch where Self.isVCSECAlreadyOn(error) {
                     // Remote-drive authorization is idempotent. Tesla returns
                     // genericerrorAlreadyOn when the grant is already active;
@@ -698,81 +733,88 @@ final class VehicleController {
     func toggleChargePort() async {
         let opening = !isChargePortOpen
         if await execute(.chargePort, name: opening ? "打开充电口" : "关闭充电口", operation: {
-            try await self.performModern { vehicle in
-                var action = CarServer_VehicleAction()
-                if opening { action.chargePortDoorOpen = CarServer_ChargePortDoorOpen() }
-                else { action.chargePortDoorClose = CarServer_ChargePortDoorClose() }
-                try await self.send(action, to: vehicle)
+            try await self.performInfotainment { vehicle in
+                if opening { try await vehicle.openChargePort() }
+                else { try await vehicle.closeChargePort() }
             }
-        }) { isChargePortOpen = opening }
+        }) {
+            isChargePortOpen = opening
+            await refreshChargeState()
+        }
     }
 
     func toggleCharging() async {
         let starting = !isCharging
         if await execute(.charging, name: starting ? "开始充电" : "停止充电", operation: {
-            try await self.performModern { vehicle in
+            try await self.performInfotainment { vehicle in
                 if starting { try await vehicle.startCharging() }
                 else { try await vehicle.stopCharging() }
             }
         }) {
             isCharging = starting
             chargingStatus = starting ? "正在开始充电" : "充电已停止"
+            await refreshChargeState(after: .milliseconds(500))
         }
     }
 
     func setChargeLimit(_ percent: Int) async {
-        let value = min(max(percent, 50), 100)
+        let value = min(max(percent, minimumChargeLimit), maximumChargeLimit)
         if await execute(.chargeLimit, name: "设置充电上限", operation: {
-            try await self.performModern { try await $0.setChargeLimit(percent: Int32(value)) }
-        }) { chargeLimit = value }
+            try await self.performInfotainment { try await $0.setChargeLimit(percent: Int32(value)) }
+        }) {
+            chargeLimit = value
+            await refreshChargeState()
+        }
     }
 
     func setChargingCurrent(_ amps: Int) async {
-        let value = min(max(amps, 5), 48)
+        let value = min(max(amps, 1), maxChargingCurrentAmps ?? 48)
         if await execute(.chargeCurrent, name: "设置充电电流", operation: {
-            try await self.performModern { try await $0.setChargingAmps(Int32(value)) }
-        }) { chargerCurrentAmps = value }
+            try await self.performInfotainment { try await $0.setChargingAmps(Int32(value)) }
+        }) {
+            chargerCurrentAmps = value
+            await refreshChargeState()
+        }
     }
 
     func toggleClimate() async {
         let turningOn = !isClimateOn
         if await execute(.climate, name: turningOn ? "打开空调" : "关闭空调", operation: {
-            try await self.performModern { vehicle in
-                var hvac = CarServer_HvacAutoAction()
-                hvac.powerOn = turningOn
-                var action = CarServer_VehicleAction()
-                action.hvacAutoAction = hvac
-                try await self.send(action, to: vehicle)
-            }
-        }) { isClimateOn = turningOn }
+            try await self.performInfotainment { try await $0.setClimateAuto(enabled: turningOn) }
+        }) {
+            isClimateOn = turningOn
+            await refreshClimateState(after: .milliseconds(500))
+        }
     }
 
     func setCabinTemperature(_ celsius: Double) async {
-        let target = min(max(celsius, 15), 28)
+        let target = min(max(celsius, minimumCabinTemperature), maximumCabinTemperature)
         if await execute(.climate, name: "设置温度", operation: {
-            try await self.performModern { vehicle in
-                var temperature = CarServer_HvacTemperatureAdjustmentAction()
-                temperature.driverTempCelsius = Float(target)
-                temperature.passengerTempCelsius = Float(target)
-                var action = CarServer_VehicleAction()
-                action.hvacTemperatureAdjustmentAction = temperature
-                try await self.send(action, to: vehicle)
-            }
-        }) { targetTemperature = target }
+            try await self.performInfotainment { try await $0.setTemperature(driverCelsius: Float(target), passengerCelsius: Float(target)) }
+        }) {
+            targetTemperature = target
+            await refreshClimateState()
+        }
     }
 
     func toggleDefrost() async {
         let enabled = !isDefrostOn
         if await execute(.defrost, name: enabled ? "开启最大除霜" : "关闭最大除霜", operation: {
-            try await self.performModern { try await $0.setPreconditioningMax(enabled: enabled) }
-        }) { isDefrostOn = enabled }
+            try await self.performInfotainment { try await $0.setPreconditioningMax(enabled: enabled) }
+        }) {
+            isDefrostOn = enabled
+            await refreshClimateState()
+        }
     }
 
     func toggleSteeringWheelHeater() async {
         let enabled = !isSteeringWheelHeaterOn
         if await execute(.steeringHeater, name: enabled ? "开启方向盘加热" : "关闭方向盘加热", operation: {
-            try await self.performModern { try await $0.setSteeringWheelHeater(enabled: enabled) }
-        }) { isSteeringWheelHeaterOn = enabled }
+            try await self.performInfotainment { try await $0.setSteeringWheelHeater(enabled: enabled) }
+        }) {
+            isSteeringWheelHeaterOn = enabled
+            await refreshClimateState()
+        }
     }
 
     func setClimateKeeper(_ mode: String) async {
@@ -782,23 +824,32 @@ final class VehicleController {
         case "露营": .climateKeeperActionCamp
         default: .climateKeeperActionOff
         }
-        if await execute(.climateMode, name: "设置(mode)模式", operation: {
-            try await self.performModern { try await $0.setClimateKeeper(mode: protocolMode) }
-        }) { climateKeeperMode = mode }
+        if await execute(.climateMode, name: "设置\(mode)模式", operation: {
+            try await self.performInfotainment { try await $0.setClimateKeeper(mode: protocolMode) }
+        }) {
+            climateKeeperMode = mode
+            await refreshClimateState()
+        }
     }
 
     func toggleBioweaponMode() async {
         let enabled = !isBioweaponModeOn
         if await execute(.bioweapon, name: enabled ? "开启生化防御" : "关闭生化防御", operation: {
-            try await self.performModern { try await $0.setBioweaponMode(enabled: enabled) }
-        }) { isBioweaponModeOn = enabled }
+            try await self.performInfotainment { try await $0.setBioweaponMode(enabled: enabled) }
+        }) {
+            isBioweaponModeOn = enabled
+            await refreshClimateState()
+        }
     }
 
     func toggleCabinOverheatProtection() async {
         let enabled = !isCabinOverheatProtectionOn
         if await execute(.overheat, name: enabled ? "开启座舱过热保护" : "关闭座舱过热保护", operation: {
-            try await self.performModern { try await $0.setCabinOverheatProtection(enabled: enabled) }
-        }) { isCabinOverheatProtectionOn = enabled }
+            try await self.performInfotainment { try await $0.setCabinOverheatProtection(enabled: enabled) }
+        }) {
+            isCabinOverheatProtectionOn = enabled
+            await refreshClimateState()
+        }
     }
 
     func toggleSentryMode() async {
@@ -808,47 +859,43 @@ final class VehicleController {
         }
         let enabled = !isSentryOn
         if await execute(.sentry, name: enabled ? "开启哨兵模式" : "关闭哨兵模式", operation: {
-            try await self.performModern { vehicle in
-                var sentry = CarServer_VehicleControlSetSentryModeAction()
-                sentry.on = enabled
-                var action = CarServer_VehicleAction()
-                action.vehicleControlSetSentryModeAction = sentry
-                try await self.send(action, to: vehicle)
-            }
-        }) { isSentryOn = enabled }
+            try await self.performInfotainment { try await $0.setSentryMode(enabled: enabled) }
+        }) {
+            isSentryOn = enabled
+            await refreshClosuresState()
+        }
     }
 
     func toggleWindows() async {
         let venting = !areWindowsVented
         if await execute(.windows, name: venting ? "车窗通风" : "关闭车窗", operation: {
-            try await self.performModern { vehicle in
-                var windows = CarServer_VehicleControlWindowAction()
-                if venting { windows.vent = CarServer_Void() }
-                else { windows.close = CarServer_Void() }
-                var action = CarServer_VehicleAction()
-                action.vehicleControlWindowAction = windows
-                try await self.send(action, to: vehicle)
+            try await self.performInfotainment { vehicle in
+                try await vehicle.controlWindows(venting ? .vent : .close)
             }
-        }) { areWindowsVented = venting }
+        }) {
+            areWindowsVented = venting
+            await refreshClosuresState(after: .milliseconds(500))
+        }
     }
 
     func previousMediaTrack() async {
         if await execute(.mediaPrevious, name: "切换上一首", operation: {
-            try await self.performModern { try await $0.mediaPreviousTrack() }
+            try await self.performInfotainment { try await $0.mediaPreviousTrack() }
         }) { await refreshMediaAfterTrackChange() }
     }
 
     func toggleMediaPlayback() async {
         if await execute(.mediaPlayPause, name: mediaPlaybackStatus == "播放中" ? "暂停播放" : "继续播放", operation: {
-            try await self.performModern { try await $0.mediaTogglePlayback() }
+            try await self.performInfotainment { try await $0.mediaTogglePlayback() }
         }) {
             mediaPlaybackStatus = mediaPlaybackStatus == "播放中" ? "已暂停" : "播放中"
+            await refreshMediaAfterTrackChange()
         }
     }
 
     func nextMediaTrack() async {
         if await execute(.mediaNext, name: "切换下一首", operation: {
-            try await self.performModern { try await $0.mediaNextTrack() }
+            try await self.performInfotainment { try await $0.mediaNextTrack() }
         }) { await refreshMediaAfterTrackChange() }
     }
 
@@ -878,20 +925,14 @@ final class VehicleController {
               phase == .connected else { return }
         isRefreshingVehicleState = true
         defer { isRefreshingVehicleState = false }
-        guard let tesla = try? await ensureModernSession() else { return }
+        await refreshBasicVehicleState()
+        guard let tesla else {
+            lastStateUpdate = .now
+            WatchBridge.shared.publish(name: displayVehicleName, battery: batteryLevel, range: estimatedRangeKilometers, locked: isLocked)
+            return
+        }
         availableSoftwareVersion = nil
         softwareUpdateStatus = nil
-        if let status = try? await tesla.vehicleStatus() {
-            if let value = Self.isOpen(status.closureStatuses.rearTrunk) { isTrunkOpen = value }
-            if let value = Self.isOpen(status.closureStatuses.frontTrunk) { isFrunkOpen = value }
-            if let value = Self.isOpen(status.closureStatuses.chargePort) { isChargePortOpen = value }
-            isLocked = status.vehicleLockState == .vehiclelockstateLocked || status.vehicleLockState == .vehiclelockstateInternalLocked
-            vehicleSleepStatus = switch status.vehicleSleepStatus {
-            case .vehicleSleepStatusAwake: "已唤醒"
-            case .vehicleSleepStatusAsleep: "休眠"
-            default: "状态未知"
-            }
-        }
         try? await tesla.startInfotainmentSession()
         if let data = await requestVehicleData(from: tesla, configure: { $0.getChargeState = CarServer_GetChargeState() }), data.hasChargeState {
             apply(data.chargeState)
@@ -946,13 +987,117 @@ final class VehicleController {
         return data
     }
 
+    private func refreshBasicVehicleState() async {
+        let ownsRefreshLock = !isRefreshingVehicleState
+        if ownsRefreshLock {
+            guard !isRefreshingMediaState else { return }
+            isRefreshingVehicleState = true
+        }
+        defer { if ownsRefreshLock { isRefreshingVehicleState = false } }
+        if let tesla, let status = try? await tesla.vehicleStatus() {
+            applyRearTrunkState(status.closureStatuses.rearTrunk)
+            if let value = Self.isOpen(status.closureStatuses.frontTrunk) { isFrunkOpen = value }
+            if let value = Self.isOpen(status.closureStatuses.chargePort) { isChargePortOpen = value }
+            isLocked = status.vehicleLockState == .vehiclelockstateLocked
+                || status.vehicleLockState == .vehiclelockstateInternalLocked
+            vehicleSleepStatus = switch status.vehicleSleepStatus {
+            case .vehicleSleepStatusAwake: "已唤醒"
+            case .vehicleSleepStatusAsleep: "休眠"
+            default: "状态未知"
+            }
+        } else if let legacyClient, let status = try? await legacyClient.vehicleStatus() {
+            if let rearTrunk = status.rearTrunk { applyRearTrunkState(rawValue: rearTrunk) }
+            if let frontTrunk = status.frontTrunk { isFrunkOpen = Self.isOpen(rawValue: frontTrunk) }
+            if let chargePort = status.chargePort { isChargePortOpen = Self.isOpen(rawValue: chargePort) }
+            if let lockState = status.lockState { isLocked = lockState == 1 || lockState == 2 }
+            if let sleepState = status.sleepState {
+                vehicleSleepStatus = sleepState == 1 ? "已唤醒" : (sleepState == 2 ? "休眠" : "状态未知")
+            }
+        }
+    }
+
+    private func refreshChargeState(after delay: Duration = .zero) async {
+        guard !isRefreshingVehicleState, !isRefreshingMediaState, let tesla else { return }
+        isRefreshingVehicleState = true
+        defer { isRefreshingVehicleState = false }
+        if delay > .zero { try? await Task.sleep(for: delay) }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getChargeState = CarServer_GetChargeState() }),
+           data.hasChargeState { apply(data.chargeState) }
+        lastStateUpdate = .now
+    }
+
+    private func refreshClimateState(after delay: Duration = .zero) async {
+        guard !isRefreshingVehicleState, !isRefreshingMediaState, let tesla else { return }
+        isRefreshingVehicleState = true
+        defer { isRefreshingVehicleState = false }
+        if delay > .zero { try? await Task.sleep(for: delay) }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getClimateState = CarServer_GetClimateState() }),
+           data.hasClimateState { apply(data.climateState) }
+        lastStateUpdate = .now
+    }
+
+    private func refreshClosuresState(after delay: Duration = .zero) async {
+        guard !isRefreshingVehicleState, !isRefreshingMediaState, let tesla else { return }
+        isRefreshingVehicleState = true
+        defer { isRefreshingVehicleState = false }
+        if delay > .zero { try? await Task.sleep(for: delay) }
+        if let data = await requestVehicleData(from: tesla, configure: { $0.getClosuresState = CarServer_GetClosuresState() }),
+           data.hasClosuresState { apply(data.closuresState) }
+        lastStateUpdate = .now
+    }
+
+    private func scheduleTrunkStateRefresh() {
+        trunkStateRefreshTask?.cancel()
+        trunkStateRefreshTask = Task { [weak self] in
+            for delay in [500, 1_500, 3_000, 5_000] {
+                try? await Task.sleep(for: .milliseconds(delay))
+                guard let self, !Task.isCancelled else { return }
+                await self.refreshBasicVehicleState()
+                if !self.isTrunkMoving { return }
+            }
+            let wasClosing = self?.trunkOperationStatus == "正在关闭"
+            self?.isTrunkMoving = false
+            self?.trunkOperationStatus = wasClosing ? "车辆未确认关闭" : "状态待确认"
+        }
+    }
+
+    private func applyRearTrunkState(_ state: VCSEC_ClosureState_E) {
+        applyRearTrunkState(rawValue: UInt64(clamping: state.rawValue))
+    }
+
+    private func applyRearTrunkState(rawValue: UInt64) {
+        switch rawValue {
+        case 0:
+            isTrunkOpen = false; isTrunkMoving = false; trunkOperationStatus = nil
+        case 1:
+            isTrunkOpen = true; isTrunkMoving = false; trunkOperationStatus = nil
+        case 2:
+            isTrunkOpen = true; isTrunkMoving = false; trunkOperationStatus = "后备箱半开"
+        case 4:
+            isTrunkOpen = false; isTrunkMoving = false; trunkOperationStatus = "无法解锁"
+        case 5:
+            isTrunkOpen = true; isTrunkMoving = true; trunkOperationStatus = "正在打开"
+        case 6:
+            isTrunkOpen = true; isTrunkMoving = true; trunkOperationStatus = "正在关闭"
+        default:
+            isTrunkMoving = false; trunkOperationStatus = "状态未知"
+        }
+    }
+
     private func apply(_ state: CarServer_ChargeState) {
         if state.optionalBatteryLevel != nil { batteryLevel = Int(state.batteryLevel) }
         if state.optionalBatteryRange != nil { estimatedRangeKilometers = Double(state.batteryRange) * 1.609344 }
         if state.optionalChargeLimitSoc != nil { chargeLimit = Int(state.chargeLimitSoc) }
+        if state.optionalChargeLimitSocMin != nil { minimumChargeLimit = Int(state.chargeLimitSocMin) }
+        if state.optionalChargeLimitSocMax != nil { maximumChargeLimit = Int(state.chargeLimitSocMax) }
+        if maximumChargeLimit < minimumChargeLimit {
+            minimumChargeLimit = 50
+            maximumChargeLimit = 100
+        }
         if state.optionalChargerPower != nil { chargerPowerKilowatts = Int(state.chargerPower) }
         if state.optionalChargerVoltage != nil { chargerVoltage = Int(state.chargerVoltage) }
         if state.optionalChargerActualCurrent != nil { chargerCurrentAmps = Int(state.chargerActualCurrent) }
+        if state.optionalChargeCurrentRequestMax != nil { maxChargingCurrentAmps = Int(state.chargeCurrentRequestMax) }
         if state.optionalMinutesToChargeLimit != nil { minutesToChargeLimit = Int(state.minutesToChargeLimit) }
         if state.optionalChargePortDoorOpen != nil { isChargePortOpen = state.chargePortDoorOpen }
         if state.hasConnChargeCable {
@@ -988,6 +1133,11 @@ final class VehicleController {
             case .charging?, .starting?: true
             default: false
             }
+            if !isCharging {
+                if state.optionalChargerPower == nil { chargerPowerKilowatts = 0 }
+                if state.optionalChargerActualCurrent == nil { chargerCurrentAmps = 0 }
+                if state.optionalMinutesToChargeLimit == nil { minutesToChargeLimit = nil }
+            }
         }
     }
 
@@ -996,15 +1146,42 @@ final class VehicleController {
         if state.optionalInsideTempCelsius != nil { cabinTemperature = Double(state.insideTempCelsius) }
         if state.optionalOutsideTempCelsius != nil { outsideTemperature = Double(state.outsideTempCelsius) }
         if state.optionalDriverTempSetting != nil { targetTemperature = Double(state.driverTempSetting) }
+        if state.optionalMinAvailTempCelsius != nil { minimumCabinTemperature = Double(state.minAvailTempCelsius) }
+        if state.optionalMaxAvailTempCelsius != nil { maximumCabinTemperature = Double(state.maxAvailTempCelsius) }
+        if maximumCabinTemperature < minimumCabinTemperature {
+            minimumCabinTemperature = 15
+            maximumCabinTemperature = 28
+        }
+        if state.hasDefrostMode {
+            isDefrostOn = switch state.defrostMode.type {
+            case .max?: true
+            default: false
+            }
+        }
+        if state.optionalSteeringWheelHeater != nil { isSteeringWheelHeaterOn = state.steeringWheelHeater }
+        if state.optionalBioweaponModeOn != nil { isBioweaponModeOn = state.bioweaponModeOn }
+        if state.optionalCabinOverheatProtection != nil {
+            isCabinOverheatProtectionOn = state.cabinOverheatProtection != .cabinOverheatProtectionOff
+        }
+        if state.hasClimateKeeperMode {
+            climateKeeperMode = switch state.climateKeeperMode.type {
+            case .on?: "保持"
+            case .dog?: "爱犬"
+            case .party?: "露营"
+            default: "关闭"
+            }
+        }
     }
 
     private func apply(_ state: CarServer_ClosuresState) {
         if state.optionalSentryModeAvailable != nil {
             isSentryAvailable = state.sentryModeAvailable
         }
-        isSentryOn = switch state.sentryModeState.type {
-        case .off?, nil: false
-        default: true
+        if state.hasSentryModeState {
+            isSentryOn = switch state.sentryModeState.type {
+            case .off?, nil: false
+            default: true
+            }
         }
         let doorValues: [(Bool, Bool)] = [
             (state.optionalDoorOpenDriverFront != nil, state.doorOpenDriverFront),
@@ -1025,13 +1202,14 @@ final class VehicleController {
             (state.optionalWindowOpenPassengerRear != nil, state.windowOpenPassengerRear)
         ]
         if windowValues.contains(where: { $0.0 }) { openWindowCount = windowValues.filter { $0.0 && $0.1 }.count }
+        if windowValues.contains(where: { $0.0 }) { areWindowsVented = windowValues.contains { $0.0 && $0.1 } }
         windowStates = [:]
         if state.optionalWindowOpenDriverFront != nil { windowStates["左前窗"] = state.windowOpenDriverFront }
         if state.optionalWindowOpenDriverRear != nil { windowStates["左后窗"] = state.windowOpenDriverRear }
         if state.optionalWindowOpenPassengerFront != nil { windowStates["右前窗"] = state.windowOpenPassengerFront }
         if state.optionalWindowOpenPassengerRear != nil { windowStates["右后窗"] = state.windowOpenPassengerRear }
         if state.optionalDoorOpenTrunkFront != nil { isFrunkOpen = state.doorOpenTrunkFront }
-        if state.optionalDoorOpenTrunkRear != nil { isTrunkOpen = state.doorOpenTrunkRear }
+        if state.optionalDoorOpenTrunkRear != nil, !isTrunkMoving { isTrunkOpen = state.doorOpenTrunkRear }
         if state.optionalLocked != nil { isLocked = state.locked }
     }
 
@@ -1111,6 +1289,8 @@ final class VehicleController {
         passiveReconnectTask = nil
         handshakeTimeoutTask?.cancel()
         handshakeTimeoutTask = nil
+        trunkStateRefreshTask?.cancel()
+        trunkStateRefreshTask = nil
         tesla?.disconnect()
         legacyClient?.close()
         passiveKeyClient?.close()
@@ -1296,7 +1476,7 @@ final class VehicleController {
         // so a second command cannot replace the first command's presentation state.
         guard executingAction == nil, !isRefreshingVehicleState, !isRefreshingMediaState,
               phase == .connected else { return false }
-        let sensitive = action == .unlock || action == .frunk || action == .drive
+        let sensitive = action == .unlock || action == .frunk || action == .trunk || action == .drive
         if !authorizedCommandBatchActive && (faceIDProtection == .all || (faceIDProtection == .sensitive && sensitive)) {
             guard await authenticateVehicleControl(reason: "确认\(name)") else { return false }
         }
@@ -1351,20 +1531,6 @@ final class VehicleController {
         }
     }
 
-    private func moveRearTrunk(_ vehicle: TeslaVehicle, action: VCSEC_ClosureMoveType_E) async throws {
-        var request = VCSEC_ClosureMoveRequest()
-        request.rearTrunk = action
-        var payload = VCSEC_UnsignedMessage()
-        payload.closureMoveRequest = request
-        _ = try await vehicle.sendRawVCSEC(payload: payload.serializedData())
-    }
-
-    private func sendRawRKE(_ action: VCSEC_RKEAction_E, to vehicle: TeslaVehicle) async throws {
-        var payload = VCSEC_UnsignedMessage()
-        payload.rkeaction = action
-        _ = try await vehicle.sendRawVCSEC(payload: payload.serializedData())
-    }
-
     private func send(_ action: CarServer_VehicleAction, to vehicle: TeslaVehicle) async throws {
         try? await vehicle.wakeVehicle()
         try await vehicle.startInfotainmentSession()
@@ -1382,6 +1548,13 @@ final class VehicleController {
 
     private func performModern(_ operation: (TeslaVehicle) async throws -> Void) async throws {
         let modernVehicle = try await ensureModernSession()
+        try await operation(modernVehicle)
+    }
+
+    private func performInfotainment(_ operation: (TeslaVehicle) async throws -> Void) async throws {
+        let modernVehicle = try await ensureModernSession()
+        try? await modernVehicle.wakeVehicle()
+        try await modernVehicle.startInfotainmentSession()
         try await operation(modernVehicle)
     }
 
@@ -1511,8 +1684,8 @@ final class VehicleController {
     private static func isOpen(_ state: VCSEC_ClosureState_E) -> Bool? {
         switch state {
         case .closurestateClosed: false
-        case .closurestateUnknown, .UNRECOGNIZED: nil
-        default: true
+        case .closurestateOpen, .closurestateAjar, .closurestateOpening, .closurestateClosing: true
+        case .closurestateUnknown, .closurestateFailedUnlatch, .UNRECOGNIZED: nil
         }
     }
 

@@ -22,7 +22,7 @@ struct ChargingControlView: View {
                 }
                 controlCard("充电上限") {
                     valueHeader("目标电量", "\(Int(limit))%")
-                    Slider(value: $limit, in: 50...100, step: 5)
+                    Slider(value: $limit, in: Double(vehicle.minimumChargeLimit)...Double(vehicle.maximumChargeLimit), step: 1)
                         .tint(.white)
                     Button("应用充电上限") { Task { await vehicle.setChargeLimit(Int(limit)) } }
                         .buttonStyle(.bordered).frame(maxWidth: .infinity, alignment: .trailing)
@@ -30,7 +30,7 @@ struct ChargingControlView: View {
                 }
                 controlCard("充电电流") {
                     valueHeader("车辆允许范围内", "\(Int(amps)) A")
-                    Slider(value: $amps, in: 5...48, step: 1).tint(.white)
+                    Slider(value: $amps, in: 1...Double(max(vehicle.maxChargingCurrentAmps ?? 48, 1)), step: 1).tint(.white)
                     Button("应用充电电流") { Task { await vehicle.setChargingCurrent(Int(amps)) } }
                         .buttonStyle(.bordered).frame(maxWidth: .infinity, alignment: .trailing)
                         .disabled(!connected || vehicle.executingAction != nil)
@@ -47,8 +47,8 @@ struct ChargingControlView: View {
         }
         .featurePage(title: "充电")
         .onAppear {
-            limit = Double(vehicle.chargeLimit ?? 80)
-            amps = Double(vehicle.chargerCurrentAmps ?? 16)
+            limit = min(max(Double(vehicle.chargeLimit ?? 80), Double(vehicle.minimumChargeLimit)), Double(vehicle.maximumChargeLimit))
+            amps = min(max(Double(vehicle.chargerCurrentAmps ?? 16), 1), Double(max(vehicle.maxChargingCurrentAmps ?? 48, 1)))
         }
     }
 
@@ -77,6 +77,7 @@ struct CabinControlView: View {
                         Label(vehicle.isClimateOn ? "关闭空调" : "开启空调", systemImage: "fan.fill")
                             .frame(maxWidth: .infinity, minHeight: 50)
                     }.buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black)
+                        .disabled(!connected || vehicle.executingAction != nil)
                 }
                 controlCard("座舱模式") {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -90,6 +91,7 @@ struct CabinControlView: View {
                     Picker("保持空调", selection: Binding(get: { vehicle.climateKeeperMode }, set: { mode in Task { await vehicle.setClimateKeeper(mode) } })) {
                         ForEach(["关闭", "保持", "爱犬", "露营"], id: \.self) { Text($0).tag($0) }
                     }.pickerStyle(.segmented)
+                        .disabled(!connected || vehicle.executingAction != nil)
                     Text("爱犬和露营模式会持续消耗电量，请确认车辆环境安全。")
                         .font(.caption).foregroundStyle(AppTheme.muted)
                 }
@@ -103,7 +105,7 @@ struct CabinControlView: View {
     }
     private func cabinButton(_ icon: String, action: @escaping () async -> Void) -> some View {
         Button { Task { await action() } } label: { Image(systemName: icon).frame(width: 52, height: 44) }
-            .buttonStyle(.bordered).disabled(vehicle.executingAction != nil)
+            .buttonStyle(.bordered).disabled(!connected || vehicle.executingAction != nil)
     }
     private func toggleTile(_ title: String, _ icon: String, _ active: Bool, action: @escaping () async -> Void) -> some View {
         Button { Task { await action() } } label: {
@@ -113,8 +115,10 @@ struct CabinControlView: View {
             }.frame(maxWidth: .infinity, alignment: .leading).padding(14)
                 .background(active ? Color.white : AppTheme.raised, in: RoundedRectangle(cornerRadius: 15))
                 .foregroundStyle(active ? .black : .white)
-        }.buttonStyle(UtilityPressStyle()).disabled(vehicle.executingAction != nil)
+        }.buttonStyle(UtilityPressStyle()).disabled(!connected || vehicle.executingAction != nil)
     }
+
+    private var connected: Bool { vehicle.phase == .connected || vehicle.executingAction != nil }
 }
 
 struct SentryControlView: View {
@@ -132,7 +136,7 @@ struct SentryControlView: View {
             Button { Task { await vehicle.toggleSentryMode() } } label: {
                 Text(vehicle.isSentryOn ? "关闭哨兵模式" : "开启哨兵模式").frame(maxWidth: .infinity, minHeight: 54)
             }.buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black)
-                .disabled(!vehicle.isSentryAvailable || vehicle.executingAction != nil)
+                .disabled(vehicle.phase != .connected || !vehicle.isSentryAvailable || vehicle.executingAction != nil)
             Spacer()
         }.padding(24).featurePage(title: "哨兵模式")
     }

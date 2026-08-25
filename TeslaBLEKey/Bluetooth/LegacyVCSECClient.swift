@@ -5,6 +5,14 @@ import Foundation
 /// This is the pre-Universal Message protocol used by phone keys: the vehicle
 /// returns an ephemeral P-256 key and counter for the enrolled local key ID.
 final class LegacyVCSECClient: @unchecked Sendable {
+    struct BasicVehicleStatus: Sendable, Equatable {
+        let rearTrunk: UInt64?
+        let frontTrunk: UInt64?
+        let chargePort: UInt64?
+        let lockState: UInt64?
+        let sleepState: UInt64?
+    }
+
     enum ClientError: LocalizedError {
         case timeout
         case keyNotWhitelisted
@@ -87,6 +95,25 @@ final class LegacyVCSECClient: @unchecked Sendable {
     func rke(_ rawAction: UInt64) async throws {
         try await sendSigned(unsignedMessage: Self.enumField(2, rawAction))
         try await awaitCommandResult()
+    }
+
+    func vehicleStatus() async throws -> BasicVehicleStatus {
+        // InformationRequest(GET_STATUS) uses the default enum value 0, so
+        // protobuf encodes an explicitly present empty nested message.
+        try await connection.send(Self.toVCSECUnsigned(Self.messageField(1, Data())))
+        for _ in 0 ..< 5 {
+            let response = try await nextMessage(seconds: 2)
+            guard let status = Self.firstLengthDelimitedField(1, in: response) else { continue }
+            let closures = Self.firstLengthDelimitedField(1, in: status)
+            return BasicVehicleStatus(
+                rearTrunk: closures.map { Self.firstVarintField(5, in: $0) ?? 0 },
+                frontTrunk: closures.map { Self.firstVarintField(6, in: $0) ?? 0 },
+                chargePort: closures.map { Self.firstVarintField(7, in: $0) ?? 0 },
+                lockState: Self.firstVarintField(2, in: status) ?? 0,
+                sleepState: Self.firstVarintField(3, in: status) ?? 0
+            )
+        }
+        throw ClientError.timeout
     }
 
     /// Responds to the token-bound AuthenticationRequest emitted by VCSEC
@@ -193,11 +220,23 @@ final class LegacyVCSECClient: @unchecked Sendable {
     }
 
     private func awaitCommandResult() async throws {
-        let response = try await nextMessage(seconds: 5)
-        guard let command = Self.firstLengthDelimitedField(4, in: response),
-              let signed = Self.firstLengthDelimitedField(2, in: command) else { return }
-        let code = Int(Self.firstVarintField(2, in: signed) ?? 0)
-        guard code == 0 else { throw ClientError.rejected(code) }
+        for _ in 0 ..< 5 {
+            let response = try await nextMessage(seconds: 2)
+            guard let command = Self.firstLengthDelimitedField(4, in: response) else { return }
+            let operationStatus = Self.firstVarintField(1, in: command) ?? 0
+            switch operationStatus {
+            case 0, 1:
+                // Tesla first acknowledges a closure/RKE command with
+                // CommandStatus, then emits the resulting non-command status.
+                // Match the official client and wait for that final message.
+                continue
+            default:
+                let signed = Self.firstLengthDelimitedField(2, in: command)
+                let information = signed.flatMap { Self.firstVarintField(2, in: $0) }
+                throw ClientError.rejected(Int(information ?? operationStatus))
+            }
+        }
+        throw ClientError.timeout
     }
 
     private func nextMessage(seconds: Double) async throws -> Data {

@@ -1,13 +1,13 @@
 # 架构与协议
 
-本文对应 App `2.2.7` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
+本文对应 App `2.2.8` 与 `main` 分支。小特蓝牙钥匙不通过 Tesla 账号或 Fleet API 控车，车辆链路如下：
 
 1. `NearbyTeslaScanner` 使用 CoreBluetooth 扫描附近广播，并校验 Tesla 本地名称格式。
 2. App 为每辆车在 Keychain 生成独立 P-256 私钥。
 3. `LegacyVCSECClient` 建立无需 VIN 的 Phone Key 引导会话，并通过车内已有 NFC 钥匙卡授权公钥。
-4. 基础 VCSEC 会话负责 Phone Key 认证和基础门锁能力。
+4. 基础 VCSEC 会话负责 Phone Key 认证、基础门锁/开闭件命令和 Vehicle Status 状态回读。
 5. 需要 Infotainment 完整身份的功能使用本机保存的 VIN 建立现代会话；VIN 会与当前车辆 BLE 广播标识校验。
-6. 充电、座舱与哨兵命令复用同一条串行化会话；能力由车辆状态决定。
+6. 充电、座舱与哨兵命令复用同一条串行化会话；能力与可调范围由车辆状态决定。
 7. 诊断历史只在本机保留最近 20 条命令名称、时间与结果，不记录 VIN、位置或密钥。
 
 ## 主要模块
@@ -37,6 +37,8 @@ Apple Watch 不持有 P-256 车辆私钥。手表通过 WatchConnectivity 将命
 整车状态在连接、手动下拉刷新和 App 回到前台时读取。为避免 BLE 单次响应超过 MTU，详情状态按 Charge、Climate、Closures、Tire、Drive、Software Update 和 Media 分批请求。只读 VehicleData 请求明确禁用车辆命令的可重试循环，因此车机未响应时请求会返回而不是无限重发。完整刷新期间媒体轮询会让路，并阻止第二个完整刷新进入，避免 BLE receiver 互相等待。
 
 Tesla 不会把中控屏切歌主动推送给本 App。主页在前台连接期间每 2 秒只轮询 MediaState 与 MediaDetailState；进入后台立即停止，不重复读取电池或车门等整车数据。
+
+控制命令只有收到协议成功结果才进入状态确认阶段。门锁和开闭件随后读取 VCSEC Vehicle Status；充电、座舱、车窗与哨兵分别只回读对应 CarServer 状态。后备箱会短时轮询打开、半开、移动、关闭或解锁失败状态；车辆未确认关闭时不会伪报成功。预约星期严格使用 Tesla 定义的 `SUN=1, MON=2, ... SAT=64` 位掩码。
 
 ## 固定依赖
 

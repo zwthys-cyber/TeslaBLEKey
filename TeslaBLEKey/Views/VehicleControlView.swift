@@ -422,10 +422,11 @@ struct VehicleControlView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 utility("前备箱", "car.side.front.open", .frunk, index: 0) { await secureFrunk() }
                 utility(
-                    vehicle.isTrunkOpen ? "关闭后备箱" : "打开后备箱",
-                    vehicle.isTrunkOpen ? "door.garage.closed" : "car.side.rear.open",
+                    vehicle.trunkOperationStatus ?? (vehicle.isTrunkOpen ? "关闭后备箱" : "打开后备箱"),
+                    vehicle.isTrunkMoving ? "ellipsis" : (vehicle.isTrunkOpen ? "door.garage.closed" : "car.side.rear.open"),
                     .trunk,
-                    index: 1
+                    index: 1,
+                    enabled: !vehicle.isTrunkMoving
                 ) {
                     if vehicle.isTrunkOpen { await vehicle.closeTrunk() }
                     else { await vehicle.openTrunk() }
@@ -449,9 +450,10 @@ struct VehicleControlView: View {
     }
 
     private func utility(_ title: String, _ icon: String, _ id: VehicleController.VehicleAction, index: Int,
+                         enabled: Bool = true,
                          operation: @escaping () async -> Void) -> some View {
         ActionButton(title: title, icon: icon, actionID: id, appearance: .utility,
-                     enabled: connected, executing: vehicle.executingAction,
+                     enabled: connected && enabled, executing: vehicle.executingAction,
                      success: vehicle.lastSuccessAction) {
             submit(id, operation: operation)
         }

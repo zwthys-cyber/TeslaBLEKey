@@ -1,5 +1,23 @@
 import SwiftUI
 
+enum TeslaScheduleDayMask {
+    static let mondayFirstBits: [Int32] = [2, 4, 8, 16, 32, 64, 1]
+
+    static func mask(for mondayFirstIndices: Set<Int>) -> Int32 {
+        mondayFirstIndices.reduce(0) { result, index in
+            guard mondayFirstBits.indices.contains(index) else { return result }
+            return result | mondayFirstBits[index]
+        }
+    }
+
+    static func labels(for mask: Int32) -> [String] {
+        let names = ["一", "二", "三", "四", "五", "六", "日"]
+        return names.indices.compactMap { index in
+            mask & mondayFirstBits[index] != 0 ? "周" + names[index] : nil
+        }
+    }
+}
+
 struct VehicleSchedulesView: View {
     @Environment(VehicleController.self) private var vehicle
     @State private var showingEditor = false
@@ -40,8 +58,7 @@ struct VehicleSchedulesView: View {
     private func timeText(_ minutes: Int) -> String { String(format: "%02d:%02d", minutes / 60, minutes % 60) }
     private func dayText(_ mask: Int32) -> String {
         if mask == 0 || mask == 127 { return mask == 127 ? "每天" : "单次" }
-        let names = ["一", "二", "三", "四", "五", "六", "日"]
-        return names.enumerated().filter { mask & (Int32(1) << Int32($0.offset)) != 0 }.map { "周" + $0.element }.joined(separator: " ")
+        return TeslaScheduleDayMask.labels(for: mask).joined(separator: " ")
     }
 }
 
@@ -78,7 +95,7 @@ private struct ScheduleEditorView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        let mask = selectedDays.reduce(Int32(0)) { $0 | (Int32(1) << Int32($1)) }
+                        let mask = TeslaScheduleDayMask.mask(for: selectedDays)
                         Task { await vehicle.addSchedule(kind: kind, name: name, date: time, days: mask); dismiss() }
                     }.disabled(selectedDays.isEmpty)
                 }

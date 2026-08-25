@@ -43,6 +43,22 @@ final class VehicleDiscoveryTests: XCTestCase {
         XCTAssertEqual(LegacyVCSECClient.messageField(3, Data()), Data([0x1a, 0x00]))
         XCTAssertEqual(LegacyVCSECClient.enumField(2, 1), Data([0x10, 0x01]))
 
+        let getStatus = LegacyVCSECClient.toVCSECUnsigned(LegacyVCSECClient.messageField(1, Data()))
+        XCTAssertEqual(getStatus, Data([0x12, 0x02, 0x0a, 0x00]))
+        let closeRearTrunk = LegacyVCSECClient.messageField(
+            4,
+            LegacyVCSECClient.enumField(5, 4)
+        )
+        XCTAssertEqual(closeRearTrunk, Data([0x22, 0x02, 0x28, 0x04]))
+
         XCTAssertEqual(LegacyVCSECClient.vcsecPayload(from: encoded), encoded)
+    }
+
+    func testTeslaScheduleDayMaskUsesSundayAsBitZero() {
+        XCTAssertEqual(TeslaScheduleDayMask.mask(for: [0]), 2)
+        XCTAssertEqual(TeslaScheduleDayMask.mask(for: [6]), 1)
+        XCTAssertEqual(TeslaScheduleDayMask.mask(for: Set(0...6)), 127)
+        XCTAssertEqual(TeslaScheduleDayMask.labels(for: 3), ["周一", "周日"])
+        XCTAssertEqual(TeslaScheduleDayMask.labels(for: 62), ["周一", "周二", "周三", "周四", "周五"])
     }
 }

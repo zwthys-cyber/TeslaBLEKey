@@ -139,7 +139,7 @@ struct VehicleDetailView: View {
         if let value = vehicle.openDoorCount { rows.append(("车门", value == 0 ? "全部关闭" : "\(value) 个开启")) }
         if let value = vehicle.openWindowCount { rows.append(("车窗", value == 0 ? "全部关闭" : "\(value) 个开启")) }
         if let value = vehicle.isFrunkOpen { rows.append(("前备箱", value ? "已开启" : "已关闭")) }
-        rows.append(("后备箱", vehicle.isTrunkOpen ? "已开启" : "已关闭"))
+        rows.append(("后备箱", vehicle.trunkOperationStatus ?? (vehicle.isTrunkOpen ? "已开启" : "已关闭")))
         rows.append(("充电口", vehicle.isChargePortOpen ? "已开启" : "已关闭"))
         for key in ["左前门", "右前门", "左后门", "右后门"] {
             if let value = vehicle.doorStates[key] { rows.append((key, value ? "已开启" : "已关闭")) }

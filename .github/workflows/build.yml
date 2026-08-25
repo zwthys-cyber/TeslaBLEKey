@@ -56,6 +56,14 @@ jobs:
       - name: Resolve Swift packages
         run: xcodebuild -resolvePackageDependencies -project TeslaBLEKey.xcodeproj -scheme TeslaBLEKey
 
+      - name: Run app protocol regression tests
+        run: |
+          xcodebuild test \
+            -project TeslaBLEKey.xcodeproj \
+            -scheme TeslaBLEKey \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
+            CODE_SIGNING_ALLOWED=NO
+
       - name: Build for physical iPhone without signing
         run: |
           xcodebuild \
