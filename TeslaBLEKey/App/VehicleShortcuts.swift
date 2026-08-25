@@ -15,7 +15,7 @@ struct LockVehicleIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let controller = VehicleController()
+        let controller = VehicleController(managesPassiveKey: false)
         try await controller.connect()
         await controller.lock()
         guard controller.lastSuccessAction == .lock else { throw ShortcutError.commandFailed }
@@ -31,7 +31,7 @@ struct UnlockVehicleIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let controller = VehicleController()
+        let controller = VehicleController(managesPassiveKey: false)
         try await controller.connect()
         await controller.unlock()
         guard controller.lastSuccessAction == .unlock else { throw ShortcutError.commandFailed }
@@ -47,7 +47,7 @@ struct ClimateVehicleIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let controller = VehicleController()
+        let controller = VehicleController(managesPassiveKey: false)
         try await controller.connect()
         if !controller.isClimateOn { await controller.toggleClimate() }
         guard controller.isClimateOn else { throw ShortcutError.commandFailed }
@@ -63,7 +63,7 @@ struct StartChargingVehicleIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let controller = VehicleController()
+        let controller = VehicleController(managesPassiveKey: false)
         try await controller.connect()
         if !controller.isCharging { await controller.toggleCharging() }
         guard controller.isCharging else { throw ShortcutError.commandFailed }
@@ -79,7 +79,7 @@ struct FlashVehicleLightsIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let controller = VehicleController()
+        let controller = VehicleController(managesPassiveKey: false)
         try await controller.connect()
         await controller.flashLights()
         guard controller.lastSuccessAction == .flash else { throw ShortcutError.commandFailed }
@@ -95,7 +95,7 @@ struct HonkVehicleIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let controller = VehicleController()
+        let controller = VehicleController(managesPassiveKey: false)
         try await controller.connect()
         await controller.honk()
         guard controller.lastSuccessAction == .horn else { throw ShortcutError.commandFailed }

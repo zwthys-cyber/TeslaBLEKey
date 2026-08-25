@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct TeslaBLEKeyApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var vehicle = VehicleController()
 
     init() {
@@ -12,6 +13,15 @@ struct TeslaBLEKeyApp: App {
         WindowGroup {
             RootView()
                 .environment(vehicle)
+                .task(id: scenePhase) {
+                    guard scenePhase == .active else { return }
+                    await vehicle.refreshAfterReturningToForeground()
+                }
+                .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .background {
+                        vehicle.noteAppMovedToBackground()
+                    }
+                }
                 .task {
                     WatchBridge.shared.activate { command, completion in
                         Task { @MainActor in

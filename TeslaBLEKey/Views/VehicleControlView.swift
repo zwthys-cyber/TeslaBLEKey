@@ -48,7 +48,6 @@ struct VehicleControlView: View {
         .preferredColorScheme(.dark)
         .toolbar(.hidden, for: .navigationBar)
         .task {
-            if vehicle.phase == .idle { await vehicle.connectFromUI() }
             animateRailEntrance = !railHasAppeared && !reduceMotion
             revealRail = true
             railHasAppeared = true
@@ -60,13 +59,6 @@ struct VehicleControlView: View {
                 do { try await Task.sleep(for: .seconds(2)) }
                 catch { return }
                 await vehicle.refreshMediaState()
-            }
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
-                Task { await vehicle.refreshAfterReturningToForeground() }
-            } else if newPhase == .background {
-                vehicle.noteAppMovedToBackground()
             }
         }
         .onChange(of: vehicle.vehicleID) { _, _ in loadHomeLayout() }

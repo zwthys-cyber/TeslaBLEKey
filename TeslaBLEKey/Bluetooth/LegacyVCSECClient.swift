@@ -97,16 +97,18 @@ final class LegacyVCSECClient: @unchecked Sendable {
         guard passiveAuthenticationTask == nil else { return }
         passiveAuthenticationTask = Task { [weak self] in
             guard let self else { return }
-            while !Task.isCancelled {
+            while !Task.isCancelled, let message = await self.iterator.next() {
                 do {
-                    let response = try await self.nextMessage(seconds: 60)
-                    try await self.respondToAuthenticationRequest(in: response)
+                    let response = Self.vcsecPayload(from: message)
+                    let startedAt = Date()
+                    if try await self.respondToAuthenticationRequest(in: response) {
+                        let milliseconds = Int(Date().timeIntervalSince(startedAt) * 1_000)
+                        AppDiagnostics.shared.record("ble.passive.challenge.responded.\(milliseconds)ms")
+                    }
                 } catch is CancellationError {
                     return
                 } catch {
-                    // Idle timeouts are expected while no handle is pulled.
-                    // A physical disconnect is reported by BLEConnection and
-                    // rebuilt by VehicleController.
+                    AppDiagnostics.shared.record("ble.passive.challenge.failed")
                 }
             }
         }
@@ -155,20 +157,22 @@ final class LegacyVCSECClient: @unchecked Sendable {
         try await connection.send(Self.messageField(1, signed))
     }
 
-    private func respondToAuthenticationRequest(in response: Data) async throws {
+    @discardableResult
+    private func respondToAuthenticationRequest(in response: Data) async throws -> Bool {
         // FromVCSECMessage.authenticationRequest = field 3.
         guard let request = Self.firstLengthDelimitedField(3, in: response),
               let session = Self.firstLengthDelimitedField(2, in: request),
               let token = Self.firstLengthDelimitedField(1, in: session),
-              token.count == 20 else { return }
+              token.count == 20 else { return false }
 
         // Ignore challenges addressed to another enrolled phone key.
         if let identifier = Self.firstLengthDelimitedField(1, in: request),
            let requestedKeyID = Self.firstLengthDelimitedField(1, in: identifier),
-           requestedKeyID != keyID { return }
+           requestedKeyID != keyID { return false }
 
         let requestedLevel = Self.firstVarintField(3, in: request) ?? 0
-        guard requestedLevel == 1 || requestedLevel == 2 else { return }
+        guard requestedLevel == 1 || requestedLevel == 2 else { return false }
+        AppDiagnostics.shared.record("ble.passive.challenge.received.level\(requestedLevel)")
         if let vehicleCounter = Self.firstVarintField(2, in: session) {
             let receivedCounter = UInt32(clamping: vehicleCounter)
             if receivedCounter < UInt32.max {
@@ -185,6 +189,7 @@ final class LegacyVCSECClient: @unchecked Sendable {
             authenticatedData: token,
             signatureType: 3 // SIGNATURE_TYPE_AES_GCM_TOKEN
         )
+        return true
     }
 
     private func awaitCommandResult() async throws {
