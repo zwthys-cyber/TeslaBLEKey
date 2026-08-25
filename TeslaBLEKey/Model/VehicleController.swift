@@ -39,6 +39,8 @@ final class VehicleController {
         let totalStalls: Int
         let maxPowerKilowatts: Int
         let closed: Bool
+        let outOfOrderStalls: Int
+        let withinRange: Bool
     }
     enum FaceIDProtection: String, CaseIterable, Identifiable {
         case off, sensitive, all
@@ -165,6 +167,9 @@ final class VehicleController {
     var alertPreferences: VehicleAlertPreferences
     var vehicleSchedules: [VehicleSchedule] = []
     var nearbyChargingSites: [ChargingSite] = []
+    var isLoadingNearbyChargingSites = false
+    var nearbyChargingSitesMessage: String?
+    var nearbyChargingSitesUpdatedAt: Date?
     var scheduleLocationName: String?
     private var scheduleLatitude: Float?
     private var scheduleLongitude: Float?
@@ -428,8 +433,29 @@ final class VehicleController {
     }
 
     func refreshNearbyChargingSites() async {
-        guard !isRefreshingVehicleState, !isRefreshingMediaState,
-              let tesla = try? await ensureModernSession() else { return }
+        guard !isLoadingNearbyChargingSites else { return }
+        isLoadingNearbyChargingSites = true
+        nearbyChargingSitesMessage = nil
+        defer { isLoadingNearbyChargingSites = false }
+
+        // The foreground media poll is intentionally frequent. Waiting for its
+        // short read slot prevents opening this page at the wrong instant from
+        // silently abandoning the only charging-site request.
+        for _ in 0 ..< 30 where isRefreshingVehicleState || isRefreshingMediaState || executingAction != nil {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        guard !isRefreshingVehicleState, !isRefreshingMediaState, executingAction == nil else {
+            nearbyChargingSitesMessage = "车辆连接正忙，请稍后重试。"
+            return
+        }
+        guard phase == .connected else {
+            nearbyChargingSitesMessage = "请先连接并唤醒车辆。"
+            return
+        }
+        guard let tesla = try? await ensureModernSession() else {
+            nearbyChargingSitesMessage = "需要完整车辆身份才能读取附近充电站。"
+            return
+        }
         isRefreshingVehicleState = true
         defer { isRefreshingVehicleState = false }
         do {
@@ -439,9 +465,17 @@ final class VehicleController {
                 ChargingSite(id: $0.id, name: $0.name, address: [$0.streetAddress, $0.city].filter { !$0.isEmpty }.joined(separator: " · "),
                              distanceKilometers: Double($0.distanceMiles) * 1.609344,
                              availableStalls: Int($0.availableStalls), totalStalls: Int($0.totalStalls),
-                             maxPowerKilowatts: Int($0.maxPowerKw), closed: $0.siteClosed)
+                             maxPowerKilowatts: Int($0.maxPowerKw), closed: $0.siteClosed,
+                             outOfOrderStalls: Int($0.outOfOrderStallsNumber), withinRange: $0.withinRange)
             }.sorted { $0.distanceKilometers < $1.distanceKilometers }
-        } catch { presentError(Self.describe(error)) }
+            nearbyChargingSitesUpdatedAt = response.hasTimestamp
+                ? Date(timeIntervalSince1970: TimeInterval(response.timestamp.seconds)) : .now
+            if nearbyChargingSites.isEmpty {
+                nearbyChargingSitesMessage = "车辆没有返回当前范围内的超级充电站。"
+            }
+        } catch {
+            nearbyChargingSitesMessage = Self.describe(error)
+        }
     }
 
     func vehicleDisplayName(for identifier: String) -> String {

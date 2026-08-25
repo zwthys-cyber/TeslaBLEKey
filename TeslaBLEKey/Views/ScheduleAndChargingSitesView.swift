@@ -108,20 +108,59 @@ struct NearbyChargingSitesView: View {
     @Environment(VehicleController.self) private var vehicle
     var body: some View {
         List {
-            if vehicle.nearbyChargingSites.isEmpty {
-                ContentUnavailableView("暂无充电站数据", systemImage: "bolt.car", description: Text("请唤醒车辆后刷新。"))
+            if vehicle.isLoadingNearbyChargingSites, vehicle.nearbyChargingSites.isEmpty {
+                HStack(spacing: 12) {
+                    ProgressView()
+                    Text("正在通过车辆查询附近充电站…")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 120)
+                .listRowBackground(Color.clear)
+            } else if vehicle.nearbyChargingSites.isEmpty {
+                ContentUnavailableView {
+                    Label("暂无充电站数据", systemImage: "bolt.car")
+                } description: {
+                    Text(vehicle.nearbyChargingSitesMessage ?? "请唤醒车辆后重试。")
+                } actions: {
+                    Button("重新查询") { Task { await vehicle.refreshNearbyChargingSites() } }
+                        .buttonStyle(.bordered)
+                }
                     .listRowBackground(Color.clear)
+            }
+            if let message = vehicle.nearbyChargingSitesMessage, !vehicle.nearbyChargingSites.isEmpty {
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.arrow.trianglehead.counterclockwise")
+                    Text(message).font(.caption)
+                    Spacer()
+                    Button("重试") { Task { await vehicle.refreshNearbyChargingSites() } }
+                        .font(.caption.weight(.semibold))
+                }
+                .foregroundStyle(.secondary)
+                .listRowBackground(AppTheme.raised)
             }
             ForEach(vehicle.nearbyChargingSites) { site in
                 VStack(alignment: .leading, spacing: 8) {
                     HStack { Text(site.name).font(.headline); Spacer(); Text(String(format: "%.1f km", site.distanceKilometers)).monospacedDigit() }
-                    Text(site.address).font(.caption).foregroundStyle(.secondary)
+                    if !site.address.isEmpty { Text(site.address).font(.caption).foregroundStyle(.secondary) }
                     HStack {
-                        Label(site.closed ? "已关闭" : "\(site.availableStalls)/\(site.totalStalls) 空闲", systemImage: site.closed ? "xmark.circle" : "bolt.fill")
+                        Label(site.closed ? "站点已关闭" : "\(site.availableStalls) 空闲 · 共 \(site.totalStalls)", systemImage: site.closed ? "xmark.circle" : "bolt.fill")
                         Spacer()
                         if site.maxPowerKilowatts > 0 { Text("最高 \(site.maxPowerKilowatts) kW") }
                     }.font(.caption.weight(.medium)).foregroundStyle(site.closed ? .secondary : .primary)
+                    if site.outOfOrderStalls > 0 {
+                        Label("\(site.outOfOrderStalls) 个充电桩暂不可用", systemImage: "exclamationmark.triangle")
+                            .font(.caption).foregroundStyle(.orange)
+                    } else if !site.withinRange {
+                        Label("车辆标记为续航范围外", systemImage: "road.lanes")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }.padding(.vertical, 5)
+            }
+            if let updated = vehicle.nearbyChargingSitesUpdatedAt, !vehicle.nearbyChargingSites.isEmpty {
+                Text("车辆数据更新于 \(updated.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
             }
         }
         .scrollContentBackground(.hidden).background(AppTheme.background.ignoresSafeArea())
