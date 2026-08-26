@@ -10,31 +10,21 @@ struct PairVehicleView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Spacer(minLength: 28)
-            if selectedVehicle == nil || isPairing {
-                VehicleStage(state: stage)
-                    .frame(maxWidth: 430)
-                stageCopy.padding(.top, 22)
-            }
-            if !scanner.vehicles.isEmpty, !isPairing {
+            if scanner.vehicles.isEmpty || isPairing {
+                Spacer(minLength: 28)
+                pairingStage
+                Spacer(minLength: 28)
+            } else {
                 vehiclePicker
             }
-            if let bluetoothMessage = scanner.bluetoothMessage {
-                Label(bluetoothMessage, systemImage: "exclamationmark.circle")
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.white)
-                    .padding(.top, 20)
-                    .transition(.opacity)
-            }
-            Spacer(minLength: 34)
-            pairButton
-            privacy.padding(.top, 18)
         }
         .padding(.horizontal, 24)
         .padding(.top, 12)
-        .padding(.bottom, 18)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.background.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            actionArea
+        }
         .preferredColorScheme(.dark)
         .task { scanner.start() }
         .onDisappear { scanner.stop() }
@@ -67,51 +57,88 @@ struct PairVehicleView: View {
     }
 
     private var vehiclePicker: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(scanner.vehicles.enumerated()), id: \.element.id) { index, candidate in
-                Button {
-                    selectionWasManual = true
-                    withAnimation(reduceMotion ? AppMotion.reduced : AppMotion.state) {
-                        selectedVehicle = candidate
-                    }
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: selectedVehicle?.id == candidate.id ? "checkmark.circle.fill" : "circle")
-                            .font(.title3)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(candidate.modelName ?? "Tesla · \(candidate.shortIdentifier)")
-                                .font(.subheadline.weight(.semibold))
-                            Text(scanner.vehicles.count == 1 ? "本地蓝牙钥匙" : index == 0 ? "距离最近" : "附近车辆")
-                                .font(.caption)
-                                .foregroundStyle(AppTheme.muted)
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(Array(scanner.vehicles.enumerated()), id: \.element.id) { index, candidate in
+                    Button {
+                        selectionWasManual = true
+                        withAnimation(reduceMotion ? AppMotion.reduced : AppMotion.state) {
+                            selectedVehicle = candidate
                         }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 3) {
-                            Label(candidate.signalLabel, systemImage: signalSymbol(candidate.signalLevel))
-                                .font(.caption.weight(.semibold))
-                            Text("\(candidate.rssi) dBm")
-                                .font(.caption2.monospacedDigit())
-                                .foregroundStyle(AppTheme.muted)
-                            Text(candidate.distanceLabel)
-                                .font(.caption2.monospacedDigit())
-                                .foregroundStyle(AppTheme.muted)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: selectedVehicle?.id == candidate.id ? "checkmark.circle.fill" : "circle")
+                                .font(.title3)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(candidate.modelName ?? "Tesla · \(candidate.shortIdentifier)")
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
+                                Text(scanner.vehicles.count == 1 ? "本地蓝牙钥匙" : index == 0 ? "距离最近" : "附近车辆")
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.muted)
+                            }
+                            Spacer(minLength: 8)
+                            VStack(alignment: .trailing, spacing: 3) {
+                                Label(candidate.signalLabel, systemImage: signalSymbol(candidate.signalLevel))
+                                    .font(.caption.weight(.semibold))
+                                Text("\(candidate.rssi) dBm")
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(AppTheme.muted)
+                                Text(candidate.distanceLabel)
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(AppTheme.muted)
+                            }
                         }
+                        .contentShape(Rectangle())
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
                     }
-                    .contentShape(Rectangle())
-                    .padding(.vertical, 12)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white)
 
-                if index < scanner.vehicles.count - 1 {
-                    Divider().overlay(.white.opacity(0.1))
+                    if index < scanner.vehicles.count - 1 {
+                        Divider()
+                            .overlay(.white.opacity(0.1))
+                            .padding(.leading, 48)
+                    }
                 }
             }
+            .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.vertical, 24)
         }
-        .padding(.horizontal, 14)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .scrollIndicators(.visible)
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxWidth: 430)
+        .frame(maxHeight: .infinity)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(scanner.vehicles.count == 1 ? "Tesla \(scanner.vehicles[0].shortIdentifier)" : "发现多辆 Tesla，请选择距离最近的一辆")
+    }
+
+    private var pairingStage: some View {
+        VStack(spacing: 0) {
+            VehicleStage(state: stage)
+                .frame(maxWidth: 430)
+            stageCopy.padding(.top, 22)
+            if let bluetoothMessage = scanner.bluetoothMessage {
+                Label(bluetoothMessage, systemImage: "exclamationmark.circle")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 20)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private var actionArea: some View {
+        VStack(spacing: 18) {
+            pairButton
+            privacy
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 14)
+        .padding(.bottom, 18)
+        .background(AppTheme.background)
     }
 
     private func signalSymbol(_ level: Int) -> String {
