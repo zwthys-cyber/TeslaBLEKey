@@ -35,6 +35,9 @@ struct TeslaAccountView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onChange(of: account.isSignedIn) { wasSignedIn, isSignedIn in
+            if !wasSignedIn && isSignedIn { dismiss() }
+        }
     }
 
     private var signedOutContent: some View {
