@@ -4,6 +4,7 @@ import SwiftUI
 struct TeslaBLEKeyApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var vehicle = VehicleController()
+    @State private var fleetAccount = FleetAccountController()
 
     init() {
         AppDiagnostics.shared.start()
@@ -13,6 +14,7 @@ struct TeslaBLEKeyApp: App {
         WindowGroup {
             RootView()
                 .environment(vehicle)
+                .environment(fleetAccount)
                 .task(id: scenePhase) {
                     guard scenePhase == .active else { return }
                     await vehicle.refreshAfterReturningToForeground()

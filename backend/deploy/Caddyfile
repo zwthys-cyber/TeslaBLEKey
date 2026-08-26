@@ -1,0 +1,20 @@
+api.txx.app {
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        -Server
+    }
+
+    handle /.well-known/appspecific/com.tesla.3p.public-key.pem {
+        root * /srv
+        header Content-Type "application/x-pem-file"
+        file_server
+    }
+
+    handle {
+        reverse_proxy backend:8080
+    }
+}

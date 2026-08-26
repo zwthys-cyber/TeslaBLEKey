@@ -9,6 +9,7 @@ private enum HomeCard: String, CaseIterable, Identifiable {
 
 struct VehicleControlView: View {
     @Environment(VehicleController.self) private var vehicle
+    @Environment(FleetAccountController.self) private var fleetAccount
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @State private var confirmForget = false
@@ -18,6 +19,7 @@ struct VehicleControlView: View {
     @State private var showingSecuritySettings = false
     @State private var showingHomeLayout = false
     @State private var showingAlerts = false
+    @State private var showingTeslaAccount = false
     @State private var homeCardOrder = HomeCard.allCases
     @State private var hiddenHomeCards: Set<HomeCard> = []
     @State private var pressFeedback = 0
@@ -95,6 +97,9 @@ struct VehicleControlView: View {
         .sheet(isPresented: $showingAlerts) {
             VehicleAlertsView().environment(vehicle).presentationDetents([.large])
         }
+        .sheet(isPresented: $showingTeslaAccount) {
+            TeslaAccountView().environment(fleetAccount).presentationDetents([.large])
+        }
     }
 
     private var fixedHeader: some View {
@@ -149,6 +154,10 @@ struct VehicleControlView: View {
                 }
                 Button { showingAlerts = true } label: {
                     Label("车辆提醒", systemImage: "bell.badge")
+                }
+                Button { showingTeslaAccount = true } label: {
+                    Label(fleetAccount.isSignedIn ? "Tesla 账号已连接" : "连接 Tesla 账号",
+                          systemImage: fleetAccount.isSignedIn ? "person.crop.circle.badge.checkmark" : "person.crop.circle")
                 }
                 Button {
                     if connected { vehicle.disconnect() }

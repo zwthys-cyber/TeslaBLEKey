@@ -1,0 +1,83 @@
+name: tesla-backend
+
+services:
+  gateway:
+    image: caddy:2-alpine
+    container_name: tesla-gateway
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../secrets/fleet-public-key.pem:/srv/.well-known/appspecific/com.tesla.3p.public-key.pem:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+
+  backend:
+    build:
+      context: ../app/backend
+    image: txx/tesla-backend:local
+    container_name: tesla-backend
+    restart: unless-stopped
+    env_file:
+      - ../secrets/backend.env
+    volumes:
+      - backend_data:/data
+      - ../secrets/proxy-ca.pem:/secrets/proxy-ca.pem:ro
+    expose:
+      - "8080"
+    depends_on:
+      - vehicle-command
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 192m
+
+  vehicle-command:
+    image: tesla/vehicle-command:latest
+    container_name: tesla-vehicle-command
+    restart: unless-stopped
+    command:
+      - -tls-key
+      - /run/secrets/proxy-tls-key.pem
+      - -cert
+      - /run/secrets/proxy-tls-cert.pem
+      - -key-file
+      - /run/secrets/fleet-private-key.pem
+      - -host
+      - 0.0.0.0
+      - -port
+      - "4443"
+      - -session-cache
+      - /cache/session-cache.json
+      - -timeout
+      - 30s
+    volumes:
+      - ../secrets/fleet-private-key.pem:/run/secrets/fleet-private-key.pem:ro
+      - ../secrets/proxy-tls-key.pem:/run/secrets/proxy-tls-key.pem:ro
+      - ../secrets/proxy-tls-cert.pem:/run/secrets/proxy-tls-cert.pem:ro
+      - command_cache:/cache
+    expose:
+      - "4443"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+
+volumes:
+  backend_data:
+  command_cache:
+  caddy_data:
+  caddy_config:

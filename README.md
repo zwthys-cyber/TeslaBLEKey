@@ -3,7 +3,7 @@
 [![Build iOS 17 IPA](https://github.com/zwthys-cyber/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/zwthys-cyber/TeslaBLEKey/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/zwthys-cyber/TeslaBLEKey)](https://github.com/zwthys-cyber/TeslaBLEKey/releases/latest)
 
-面向 TrollStore 与 iOS 17 的 Tesla 本地蓝牙钥匙客户端。车辆发现、配对、认证、状态读取和控制均不使用 Tesla 账号、OAuth、Fleet API 或开发者后端。
+面向 iOS 17 的 Tesla 混合钥匙客户端。本地蓝牙钥匙无需 Tesla 账号或网络即可独立使用；用户也可以选择通过 Tesla 官方 OAuth 连接账号，在蓝牙范围外使用 Fleet API 能力。
 
 基础 Phone Key 配对与门锁控制不要求 VIN；需要 Infotainment 完整身份的高级功能会在首次使用时要求一次性补全 VIN，并仅保存在本机。音乐封面是独立的联网增强功能，详见[隐私说明](docs/PRIVACY.md)。
 
@@ -13,6 +13,9 @@
 
 ## 当前功能
 
+- 可选 Tesla 账号连接：使用 Tesla 中国区官方 OAuth，密码只在 Tesla 授权页面输入；不登录仍可继续使用完整本地蓝牙钥匙
+- OAuth 会话由 `api.txx.app` 后端托管，Tesla 令牌加密保存，App 的可撤销会话令牌只写入本机 Keychain
+- 账号车辆列表显示 Tesla 账户中的车辆昵称、VIN 后四位和在线/休眠状态，并支持安全退出与下拉刷新
 - 自动扫描附近 Tesla，以非对称自适应 RSSI 滤波和主候选迟滞稳定选择最近车辆；多车场景仍可手动改选
 - 扫描结果按最后一次真实广播持续校验，车辆离开蓝牙范围后自动从候选列表移除，不保留过期距离
 - 支持多车辆钥匙管理、快速切换和每辆车独立的密钥、VIN、本机名称、设置及状态；新增失败或取消会自动恢复原车辆
@@ -107,6 +110,7 @@ open TeslaBLEKey.xcodeproj
 
 ## 重要限制
 
+- Fleet API 是可选联网功能；Tesla 服务、服务器或网络不可用时不会影响已经配对的本地蓝牙钥匙。
 - 必须在真车上完成最终验证；模拟器无法模拟 Tesla BLE 外设或 NFC 钥匙卡授权。
 - iOS 后台蓝牙受系统调度限制；正常回到桌面后可由 CoreBluetooth 恢复 Phone Key，但从多任务界面强制划掉 App 后，iOS 不保证再次后台唤醒，无法承诺此状态下的无感解锁。
 - Apple Watch 控制依赖已配对 iPhone 可达并由手机执行 BLE 命令；Face ID 保护的操作必须回到 iPhone 完成。

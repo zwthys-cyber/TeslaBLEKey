@@ -2,10 +2,12 @@ import SwiftUI
 
 struct PairVehicleView: View {
     @Environment(VehicleController.self) private var vehicle
+    @Environment(FleetAccountController.self) private var fleetAccount
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scanner = NearbyTeslaScanner()
     @State private var selectedVehicle: NearbyTesla?
     @State private var selectionWasManual = false
+    @State private var showingTeslaAccount = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,6 +56,9 @@ struct PairVehicleView: View {
             }
         }
         .sensoryFeedback(.selection, trigger: selectedVehicle?.id)
+        .sheet(isPresented: $showingTeslaAccount) {
+            TeslaAccountView().environment(fleetAccount).presentationDetents([.large])
+        }
     }
 
     private var vehiclePicker: some View {
@@ -153,7 +158,14 @@ struct PairVehicleView: View {
         HStack(alignment: .firstTextBaseline) {
             Text("车钥匙").font(.system(size: 28, weight: .semibold)).tracking(-0.5)
             Spacer()
-            Text("本地蓝牙").font(.caption.weight(.medium)).foregroundStyle(AppTheme.muted)
+            Button { showingTeslaAccount = true } label: {
+                Label(fleetAccount.isSignedIn ? "账号已连接" : "连接账号",
+                      systemImage: fleetAccount.isSignedIn ? "person.crop.circle.badge.checkmark" : "person.crop.circle")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(fleetAccount.isSignedIn ? Color.green : AppTheme.muted)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("打开 Tesla 账号设置")
         }
     }
 
@@ -194,7 +206,7 @@ struct PairVehicleView: View {
     }
 
     private var privacy: some View {
-        Label("无账户 · 无网络 · 密钥仅存本机", systemImage: "lock")
+        Label(fleetAccount.isSignedIn ? "蓝牙密钥仍只保存在本机" : "无需账号 · 蓝牙密钥仅存本机", systemImage: "lock")
             .font(.caption).foregroundStyle(AppTheme.muted)
     }
 

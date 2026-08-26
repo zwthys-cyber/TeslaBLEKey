@@ -1,0 +1,5 @@
+.git
+data
+secrets
+*.pem
+*.key
