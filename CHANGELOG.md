@@ -4,7 +4,7 @@
 
 ## 3.0.2
 
-- 将 iOS Bundle Name 设置为“小特”，Tesla OAuth 的系统隐私确认提示不再显示内部工程名 `TeslaBLEKey`；桌面名称仍为“小特蓝牙钥匙”。
+- 将 iOS Bundle Name 与桌面显示名称统一设置为“小特”，Tesla OAuth 的系统隐私确认提示不再显示内部工程名 `TeslaBLEKey`。
 
 ## 3.0.1
 
