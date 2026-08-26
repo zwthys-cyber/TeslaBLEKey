@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-env_file=/opt/tesla-backend/secrets/backend.env
-compose_dir=/opt/tesla-backend/deploy
+env_file=/opt/xiaote-backend/secrets/backend.env
+compose_dir=/opt/xiaote-backend/deploy
 auth_url=https://auth.tesla.cn/oauth2/v3/token
 fleet_url=https://fleet-api.prd.cn.vn.cloud.tesla.cn
 app_domain=api.txx.app

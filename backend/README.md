@@ -13,7 +13,7 @@ This service adds optional Tesla account connectivity to the existing local BLE 
 
 ## Required secrets
 
-Never commit these values. Production reads them from `/opt/tesla-backend/secrets/backend.env` with mode `0600`:
+Never commit these values. Production reads them from `/opt/xiaote-backend/secrets/backend.env` with mode `0600`:
 
 ```dotenv
 TESLA_CLIENT_ID=
@@ -38,5 +38,5 @@ Remote commands are allowlisted and sent through Tesla's official `tesla/vehicle
 ```bash
 go test ./...
 go vet ./...
-docker build -t tesla-backend:test .
+docker build -t xiaote-backend:test .
 ```

@@ -1,5 +1,5 @@
 import XCTest
-@testable import TeslaBLEKey
+@testable import Xiaote
 
 final class V21ModelTests: XCTestCase {
     func testPassiveLifecycleCoalescesDuplicateRecovery() {

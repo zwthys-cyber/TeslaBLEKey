@@ -2,6 +2,13 @@
 
 本文件记录已发布版本的重要用户可见变化。完整提交历史以 Git 为准。
 
+## 3.1.0
+
+- 产品英文名全面统一为 `Xiaote`：Xcode 工程、App/Watch Target、Swift 模块、可执行文件和构建产物均不再使用旧工程名。
+- GitHub 仓库迁移为 `zwthys-cyber/Xiaote`，IPA 与 Actions Artifact 分别更名为 `Xiaote-unsigned.ipa` 和 `Xiaote-iOS17-TrollStore`。
+- 后端二进制、Docker 项目、镜像、容器和公开服务标识统一为 `xiaote-backend`。
+- 保留既有 Bundle ID、OAuth Scheme 和 Keychain service 作为升级兼容标识，避免已安装用户丢失车辆私钥、配对状态或登录会话。
+
 ## 3.0.2
 
 - 将 iOS Bundle Name 与桌面显示名称统一设置为“小特”，Tesla OAuth 的系统隐私确认提示不再显示内部工程名 `TeslaBLEKey`。

@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct TeslaBLEKeyApp: App {
+struct XiaoteApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var vehicle = VehicleController()
     @State private var fleetAccount = FleetAccountController()

@@ -1,5 +1,5 @@
 import XCTest
-@testable import TeslaBLEKey
+@testable import Xiaote
 
 @MainActor
 final class VehicleDiscoveryTests: XCTestCase {

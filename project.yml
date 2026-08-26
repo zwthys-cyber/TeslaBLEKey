@@ -1,4 +1,4 @@
-name: TeslaBLEKey
+name: Xiaote
 options:
   bundleIdPrefix: com.local
   deploymentTarget:
@@ -12,12 +12,12 @@ packages:
     url: https://github.com/Lincb522/NeteaseCloudMusicApi-Swift.git
     revision: 8626b8fe628144e051dd9e07180850d253c808f2
 targets:
-  TeslaBLEKey:
+  Xiaote:
     type: application
     platform: iOS
-    sources: [TeslaBLEKey]
+    sources: [Xiaote]
     info:
-      path: TeslaBLEKey/Info.plist
+      path: Xiaote/Info.plist
       properties:
         CFBundleDisplayName: 小特
         CFBundleName: 小特
@@ -35,29 +35,29 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.local.teslablekey
-        PRODUCT_NAME: TeslaBLEKey
+        PRODUCT_NAME: Xiaote
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
-        CURRENT_PROJECT_VERSION: 302
-        MARKETING_VERSION: 3.0.2
+        CURRENT_PROJECT_VERSION: 310
+        MARKETING_VERSION: 3.1.0
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: TeslaBLEKeyKit
         product: TeslaBLEKeyKit
       - package: NeteaseCloudMusicAPI
         product: NeteaseCloudMusicAPI
-      - target: TeslaBLEKeyWatch
+      - target: XiaoteWatch
         embed: true
-  TeslaBLEKeyWatch:
+  XiaoteWatch:
     type: application.watchapp2
     platform: watchOS
     deploymentTarget: "10.0"
     info:
-      path: TeslaBLEKeyWatch/WatchAppInfo.plist
+      path: XiaoteWatch/WatchAppInfo.plist
       properties:
-        CFBundleDisplayName: 小特钥匙
+        CFBundleDisplayName: 小特
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         WKWatchKitApp: true
@@ -65,24 +65,24 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.local.teslablekey.watchkitapp
-        PRODUCT_NAME: TeslaBLEKeyWatch
+        PRODUCT_NAME: XiaoteWatch
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "4"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
-        CURRENT_PROJECT_VERSION: 302
-        MARKETING_VERSION: 3.0.2
+        CURRENT_PROJECT_VERSION: 310
+        MARKETING_VERSION: 3.1.0
     dependencies:
-      - target: TeslaBLEKeyWatchExtension
-  TeslaBLEKeyWatchExtension:
+      - target: XiaoteWatchExtension
+  XiaoteWatchExtension:
     type: watchkit2-extension
     platform: watchOS
     deploymentTarget: "10.0"
-    sources: [TeslaBLEKeyWatch]
+    sources: [XiaoteWatch]
     info:
-      path: TeslaBLEKeyWatch/ExtensionInfo.plist
+      path: XiaoteWatch/ExtensionInfo.plist
       properties:
-        CFBundleDisplayName: 小特钥匙
+        CFBundleDisplayName: 小特
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
@@ -92,31 +92,31 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.local.teslablekey.watchkitapp.watchkitextension
-        PRODUCT_NAME: TeslaBLEKeyWatchExtension
+        PRODUCT_NAME: XiaoteWatchExtension
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "4"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
-        CURRENT_PROJECT_VERSION: 302
-        MARKETING_VERSION: 3.0.2
-  TeslaBLEKeyTests:
+        CURRENT_PROJECT_VERSION: 310
+        MARKETING_VERSION: 3.1.0
+  XiaoteTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [TeslaBLEKeyTests]
+    sources: [XiaoteTests]
     dependencies:
-      - target: TeslaBLEKey
+      - target: Xiaote
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:
-  TeslaBLEKey:
+  Xiaote:
     build:
       targets:
-        TeslaBLEKey: all
-        TeslaBLEKeyTests: [test]
+        Xiaote: all
+        XiaoteTests: [test]
     test:
       targets:
-        - TeslaBLEKeyTests
+        - XiaoteTests

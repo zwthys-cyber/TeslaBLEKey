@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct TeslaBLEKeyWatchApp: App {
+struct XiaoteWatchApp: App {
     @StateObject private var bridge = WatchPhoneBridge()
     var body: some Scene { WindowGroup { WatchControlView().environmentObject(bridge) } }
 }

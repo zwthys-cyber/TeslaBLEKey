@@ -446,7 +446,7 @@ GitHub Actions 已通过：
 - TrollStore IPA 打包与上传。
 
 发布地址：  
-https://github.com/zwthys-cyber/TeslaBLEKey/releases/tag/v2.3.2
+https://github.com/zwthys-cyber/Xiaote/releases/tag/v2.3.2
 
 ## 21. 建议评审问题
 

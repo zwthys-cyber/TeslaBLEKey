@@ -14,7 +14,7 @@
 ```bash
 brew install xcodegen
 xcodegen generate
-open TeslaBLEKey.xcodeproj
+open Xiaote.xcodeproj
 ```
 
 默认 Bundle ID 为 `com.local.teslablekey`。真车 BLE 与 NFC 钥匙卡授权无法在模拟器验证。
@@ -24,11 +24,11 @@ open TeslaBLEKey.xcodeproj
 `.github/workflows/build.yml` 在 `main` push、Pull Request 和手动触发时运行两个 Job：
 
 1. `Tesla protocol tests` 检出 `zwthys-cyber/TeslaBLEKeyKit` 的固定提交并执行 `swift test`。
-2. `Build unsigned TrollStore IPA` 生成 Xcode 工程、解析固定依赖、以禁用代码签名的 Release 配置编译真实 iPhone 目标，并打包 `Payload/TeslaBLEKey.app`。
+2. `Build unsigned TrollStore IPA` 生成 Xcode 工程、解析固定依赖、以禁用代码签名的 Release 配置编译真实 iPhone 目标，并打包 `Payload/Xiaote.app`。
 
 主 App 嵌入 watchOS 配套应用。无 Apple Watch 时不影响 iPhone 功能；TrollStore 对嵌入式 Watch App 的安装取决于系统和配对状态，CI 只验证编译与嵌入结构。
 
-Artifact 名称为 `TeslaBLEKey-iOS17-TrollStore`，文件名为 `TeslaBLEKey-unsigned.ipa`。工作流使用 `actions/checkout@v6` 和 `actions/upload-artifact@v6`，避免旧 Node 20 Action 运行时警告。
+Artifact 名称为 `Xiaote-iOS17-TrollStore`，文件名为 `Xiaote-unsigned.ipa`。工作流使用 `actions/checkout@v6` 和 `actions/upload-artifact@v6`，避免旧 Node 20 Action 运行时警告。
 
 ## 发布检查
 

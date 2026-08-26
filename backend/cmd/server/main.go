@@ -263,7 +263,7 @@ func (s *server) configured() bool {
 }
 
 func (s *server) health(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "service": "tesla-backend", "oauth_configured": s.configured()})
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "service": "xiaote-backend", "oauth_configured": s.configured()})
 }
 
 func (s *server) publicConfig(w http.ResponseWriter, _ *http.Request) {
@@ -554,7 +554,7 @@ func (s *server) fleet(w http.ResponseWriter, r *http.Request, entry session, me
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "TeslaBLEKey/3.0")
+	req.Header.Set("User-Agent", "Xiaote/3.1")
 	resp, err := client.Do(req)
 	if err != nil {
 		s.logger.Error("Fleet API request failed", "command", command, "error", err)

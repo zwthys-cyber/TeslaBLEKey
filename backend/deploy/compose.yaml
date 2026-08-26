@@ -1,4 +1,4 @@
-name: tesla-backend
+name: xiaote-backend
 
 services:
   gateway:
@@ -24,8 +24,8 @@ services:
   backend:
     build:
       context: ../app/backend
-    image: txx/tesla-backend:local
-    container_name: tesla-backend
+    image: txx/xiaote-backend:local
+    container_name: xiaote-backend
     restart: unless-stopped
     env_file:
       - ../secrets/backend.env

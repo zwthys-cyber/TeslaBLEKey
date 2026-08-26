@@ -1,13 +1,13 @@
 # 小特蓝牙钥匙 for iOS 17
 
-[![Build iOS 17 IPA](https://github.com/zwthys-cyber/TeslaBLEKey/actions/workflows/build.yml/badge.svg)](https://github.com/zwthys-cyber/TeslaBLEKey/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/zwthys-cyber/TeslaBLEKey)](https://github.com/zwthys-cyber/TeslaBLEKey/releases/latest)
+[![Build iOS 17 IPA](https://github.com/zwthys-cyber/Xiaote/actions/workflows/build.yml/badge.svg)](https://github.com/zwthys-cyber/Xiaote/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/zwthys-cyber/Xiaote)](https://github.com/zwthys-cyber/Xiaote/releases/latest)
 
 面向 iOS 17 的 Tesla 混合钥匙客户端。本地蓝牙钥匙无需 Tesla 账号或网络即可独立使用；用户也可以选择通过 Tesla 官方 OAuth 连接账号，在蓝牙范围外使用 Fleet API 能力。
 
 基础 Phone Key 配对与门锁控制不要求 VIN；需要 Infotainment 完整身份的高级功能会在首次使用时要求一次性补全 VIN，并仅保存在本机。音乐封面是独立的联网增强功能，详见[隐私说明](docs/PRIVACY.md)。
 
-> [下载最新 TrollStore IPA](https://github.com/zwthys-cyber/TeslaBLEKey/releases/latest)
+> [下载最新 TrollStore IPA](https://github.com/zwthys-cyber/Xiaote/releases/latest)
 
 文档：[架构与协议](docs/ARCHITECTURE.md) · [构建与发布](docs/BUILD.md) · [隐私说明](docs/PRIVACY.md) · [版本记录](CHANGELOG.md)
 
@@ -88,11 +88,11 @@
 2. 用 XcodeGen 生成工程，并在 iOS 模拟器运行 App 协议回归测试；
 3. 为真实 iPhone 编译 Release；
 4. 编译并嵌入 watchOS 10 配套应用；
-5. 生成 `TeslaBLEKey-unsigned.ipa` artifact。
+5. 生成 `Xiaote-unsigned.ipa` artifact。
 
 工作流使用 Node 24 版本的 `actions/checkout@v6` 与 `actions/upload-artifact@v6`，避免 GitHub 托管 Runner 的 Node 20 弃用警告。
 
-普通安装请直接从 [Releases](https://github.com/zwthys-cyber/TeslaBLEKey/releases/latest) 下载 IPA；Actions artifact 用于检查每次提交的开发构建。
+普通安装请直接从 [Releases](https://github.com/zwthys-cyber/Xiaote/releases/latest) 下载 IPA；Actions artifact 用于检查每次提交的开发构建。
 
 ## 本机编译
 
@@ -101,7 +101,7 @@
 ```bash
 brew install xcodegen
 xcodegen generate
-open TeslaBLEKey.xcodeproj
+open Xiaote.xcodeproj
 ```
 
 默认 bundle identifier 是 `com.local.teslablekey`，可以在 `project.yml` 中修改。
