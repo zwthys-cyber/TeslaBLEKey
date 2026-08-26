@@ -3,7 +3,7 @@ name: xiaote-backend
 services:
   gateway:
     image: caddy:2-alpine
-    container_name: tesla-gateway
+    container_name: xiaote-gateway
     restart: unless-stopped
     depends_on:
       backend:
@@ -48,7 +48,7 @@ services:
 
   vehicle-command:
     image: tesla/vehicle-command:latest
-    container_name: tesla-vehicle-command
+    container_name: xiaote-vehicle-command
     restart: unless-stopped
     command:
       - -tls-key
@@ -78,6 +78,14 @@ services:
 
 volumes:
   backend_data:
+    external: true
+    name: xiaote-backend_backend_data
   command_cache:
+    external: true
+    name: xiaote-backend_command_cache
   caddy_data:
+    external: true
+    name: xiaote-backend_caddy_data
   caddy_config:
+    external: true
+    name: xiaote-backend_caddy_config
