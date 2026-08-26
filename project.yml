@@ -20,7 +20,7 @@ targets:
       path: TeslaBLEKey/Info.plist
       properties:
         CFBundleDisplayName: 小特蓝牙钥匙
-        CFBundleName: 小特蓝牙钥匙
+        CFBundleName: 小特
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
