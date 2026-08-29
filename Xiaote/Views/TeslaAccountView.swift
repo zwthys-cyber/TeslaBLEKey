@@ -135,7 +135,7 @@ struct TeslaAccountView: View {
 
     private var loadingState: some View {
         VStack(spacing: 14) {
-            ProgressView().controlSize(.regular).tint(.white)
+            TrailingDots(size: 32)
             Text("正在同步车辆")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.muted)
@@ -160,7 +160,7 @@ struct TeslaAccountView: View {
                 Task { await account.refreshVehicles() }
             } label: {
                 HStack(spacing: 7) {
-                    if account.isWorking { ProgressView().controlSize(.mini).tint(.white) }
+                    if account.isWorking { TrailingDots(size: 18) }
                     else { Image(systemName: "arrow.clockwise") }
                     Text("重新同步")
                 }
@@ -266,7 +266,7 @@ struct TeslaAccountView: View {
                 Task { await account.signIn() }
             } label: {
                 HStack(spacing: 8) {
-                    if account.isWorking { ProgressView().controlSize(.small).tint(.black) }
+                    if account.isWorking { TrailingDots(size: 20, color: .black) }
                     Text("使用 Tesla 账号继续")
                 }
                 .font(.headline)
