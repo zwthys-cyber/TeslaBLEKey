@@ -8,21 +8,25 @@ struct TeslaAccountAvatar: View {
         ZStack {
             Circle().fill(AppTheme.surface)
 
-            if let url = profile?.profileImageURL {
-                AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
-                    if case .success(let image) = phase {
-                        image.resizable().scaledToFill()
-                    } else {
-                        fallback
+            Group {
+                if let url = profile?.profileImageURL {
+                    AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
+                        if case .success(let image) = phase {
+                            image.resizable().scaledToFill()
+                        } else {
+                            fallback
+                        }
                     }
+                } else {
+                    fallback
                 }
-                .clipShape(Circle())
-            } else {
-                fallback
             }
+            .frame(width: size - 5, height: size - 5)
+            .clipShape(Circle())
+
+            Circle().stroke(AppTheme.hairline, lineWidth: 0.75)
         }
         .frame(width: size, height: size)
-        .overlay(Circle().stroke(AppTheme.hairline, lineWidth: 0.5))
     }
 
     private var fallback: some View {

@@ -5,6 +5,7 @@ struct FleetHomeView: View {
     @Environment(VehicleController.self) private var localVehicle
     @State private var showingAccount = false
     @State private var showingBluetoothPairing = false
+    @State private var showingDemoStateLab = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,6 +34,10 @@ struct FleetHomeView: View {
             NavigationStack { PairVehicleView() }
                 .environment(localVehicle)
                 .environment(account)
+                .preferredColorScheme(.dark)
+        }
+        .sheet(isPresented: $showingDemoStateLab) {
+            NavigationStack { DemoVehicleStateView() }
                 .preferredColorScheme(.dark)
         }
         .task {
@@ -65,8 +70,8 @@ struct FleetHomeView: View {
                 .frame(width: 40, height: 40)
                 .background(AppTheme.raised, in: Circle())
             VStack(alignment: .leading, spacing: 3) {
-                Text("远程连接可用").font(.headline)
-                Text("通过 Tesla Fleet API 获取车辆状态")
+                Text(account.isDemoMode ? "演示模式" : "远程连接可用").font(.headline)
+                Text(account.isDemoMode ? "当前显示本机测试数据，不会控制车辆" : "通过 Tesla Fleet API 获取车辆状态")
                     .font(.caption).foregroundStyle(AppTheme.muted)
             }
             Spacer()
@@ -88,10 +93,23 @@ struct FleetHomeView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(account.vehicles.enumerated()), id: \.element.id) { index, vehicle in
-                        HStack(spacing: 13) {
+                        Button {
+                            if account.isDemoMode { showingDemoStateLab = true }
+                        } label: {
+                            HStack(spacing: 13) {
                             Image(systemName: "car.side.fill").frame(width: 32)
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(vehicle.name).font(.headline)
+                                HStack(spacing: 7) {
+                                    Text(vehicle.name).font(.headline)
+                                    if account.isDemoMode {
+                                        Text("演示")
+                                            .font(.caption2.weight(.semibold))
+                                            .foregroundStyle(.black)
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(.white, in: Capsule())
+                                    }
+                                }
                                 Text("•••• \(vehicle.vin.suffix(4))")
                                     .font(.caption.monospacedDigit()).foregroundStyle(AppTheme.muted)
                             }
@@ -101,7 +119,17 @@ struct FleetHomeView: View {
                                 Text(statusText(vehicle.state)).font(.caption)
                             }
                             .foregroundStyle(AppTheme.muted)
+                            if account.isDemoMode {
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(AppTheme.muted)
+                            }
+                            }
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(UtilityPressStyle())
+                        .disabled(!account.isDemoMode)
+                        .opacity(1)
                         .padding(16)
                         if index < account.vehicles.count - 1 {
                             Divider().overlay(AppTheme.hairline).padding(.leading, 61)

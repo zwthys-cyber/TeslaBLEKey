@@ -9,18 +9,23 @@ final class FleetAccountController: NSObject {
     private(set) var session: FleetSession?
     private(set) var profile: FleetAccountProfile?
     private(set) var vehicles: [FleetVehicle] = []
+    private(set) var isDemoMode = false
     private(set) var isWorking = false
     var errorMessage: String?
 
     private let api = FleetAPIClient.shared
     private var authenticationSession: ASWebAuthenticationSession?
     private let keychain = FleetSessionKeychain()
+    private let demoModeKey = "fleet.demoMode"
 
     override init() {
         session = try? keychain.load()
+        isDemoMode = session != nil && UserDefaults.standard.bool(forKey: demoModeKey)
         super.init()
         if let session, session.expiresAt <= Date() {
             self.session = nil
+            isDemoMode = false
+            UserDefaults.standard.removeObject(forKey: demoModeKey)
             try? keychain.delete()
         }
     }
@@ -46,7 +51,8 @@ final class FleetAccountController: NSObject {
             let newSession = try await api.exchange(code: code)
             try keychain.save(newSession)
             session = newSession
-            vehicles = try await api.vehicles(token: newSession.token)
+            let remoteVehicles = try await api.vehicles(token: newSession.token)
+            apply(remoteVehicles: remoteVehicles)
             profile = try? await api.profile(token: newSession.token)
         } catch {
             if let authenticationError = error as? ASWebAuthenticationSessionError,
@@ -70,7 +76,8 @@ final class FleetAccountController: NSObject {
         defer { isWorking = false }
         errorMessage = nil
         do {
-            vehicles = try await api.vehicles(token: session.token)
+            let remoteVehicles = try await api.vehicles(token: session.token)
+            apply(remoteVehicles: remoteVehicles)
         } catch {
             if !Self.isCancellation(error) {
                 errorMessage = error.localizedDescription
@@ -88,8 +95,44 @@ final class FleetAccountController: NSObject {
         session = nil
         profile = nil
         vehicles = []
+        isDemoMode = false
+        UserDefaults.standard.removeObject(forKey: demoModeKey)
         isWorking = false
     }
+
+    func enableDemoMode() {
+        guard isSignedIn, vehicles.isEmpty else { return }
+        isDemoMode = true
+        UserDefaults.standard.set(true, forKey: demoModeKey)
+        vehicles = [Self.demoVehicle]
+    }
+
+    func disableDemoMode() async {
+        isDemoMode = false
+        UserDefaults.standard.removeObject(forKey: demoModeKey)
+        vehicles = []
+        await refreshAccount()
+    }
+
+    private func apply(remoteVehicles: [FleetVehicle]) {
+        if remoteVehicles.isEmpty, isDemoMode {
+            vehicles = [Self.demoVehicle]
+        } else {
+            vehicles = remoteVehicles
+            if !remoteVehicles.isEmpty {
+                isDemoMode = false
+                UserDefaults.standard.removeObject(forKey: demoModeKey)
+            }
+        }
+    }
+
+    private static let demoVehicle = FleetVehicle(
+        id: -1,
+        vehicleID: nil,
+        vin: "DEMO0000000000003",
+        displayName: "Model 3",
+        state: "online"
+    )
 
     private static func isCancellation(_ error: Error) -> Bool {
         if error is CancellationError { return true }
