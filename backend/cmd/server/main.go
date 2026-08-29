@@ -244,6 +244,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /oauth/complete", s.oauthComplete)
 	mux.HandleFunc("POST /v1/auth/exchange", s.authExchange)
 	mux.HandleFunc("DELETE /v1/auth/session", s.requireSession(s.logout))
+	mux.HandleFunc("GET /v1/account/profile", s.requireSession(s.accountProfile))
 	mux.HandleFunc("GET /v1/vehicles", s.requireSession(s.listVehicles))
 	mux.HandleFunc("GET /v1/vehicles/{vehicle}/data", s.requireSession(s.vehicleData))
 	mux.HandleFunc("POST /v1/vehicles/{vehicle}/wake", s.requireSession(s.wakeVehicle))
@@ -479,6 +480,10 @@ func (s *server) refreshSession(ctx context.Context, entry session) (session, er
 func (s *server) logout(w http.ResponseWriter, _ *http.Request, entry session) {
 	_ = s.store.update(func(d *storeData) error { delete(d.Sessions, entry.ID); return nil })
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *server) accountProfile(w http.ResponseWriter, r *http.Request, entry session) {
+	s.fleet(w, r, entry, http.MethodGet, "/api/1/users/me", nil, false)
 }
 
 func (s *server) listVehicles(w http.ResponseWriter, r *http.Request, entry session) {

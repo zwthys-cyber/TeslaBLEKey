@@ -19,6 +19,31 @@ struct FleetVehicle: Codable, Identifiable, Sendable {
     }
 }
 
+struct FleetAccountProfile: Codable, Sendable {
+    let email: String?
+    let fullName: String?
+    let firstName: String?
+    let lastName: String?
+    let profileImageURL: URL?
+
+    enum CodingKeys: String, CodingKey {
+        case email
+        case fullName = "full_name"
+        case firstName = "first_name"
+        case lastName = "last_name"
+        case profileImageURL = "profile_image_url"
+    }
+
+    var displayName: String? {
+        let explicit = fullName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !explicit.isEmpty { return explicit }
+        let components = [firstName, lastName]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return components.isEmpty ? nil : components.joined(separator: " ")
+    }
+}
+
 private struct FleetEnvelope<Value: Decodable>: Decodable {
     let response: Value
 }
@@ -80,6 +105,11 @@ actor FleetAPIClient {
 
     func vehicles(token: String) async throws -> [FleetVehicle] {
         let response: FleetEnvelope<[FleetVehicle]> = try await request(path: "/v1/vehicles", token: token)
+        return response.response
+    }
+
+    func profile(token: String) async throws -> FleetAccountProfile {
+        let response: FleetEnvelope<FleetAccountProfile> = try await request(path: "/v1/account/profile", token: token)
         return response.response
     }
 

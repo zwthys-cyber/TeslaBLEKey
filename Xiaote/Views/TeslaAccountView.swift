@@ -20,7 +20,7 @@ struct TeslaAccountView: View {
             }
             .scrollIndicators(.hidden)
             .refreshable {
-                if account.isSignedIn { await account.refreshVehicles() }
+                if account.isSignedIn { await account.refreshAccount() }
             }
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("小特账号")
@@ -48,7 +48,7 @@ struct TeslaAccountView: View {
                 Text(account.errorMessage ?? "未知错误")
             }
             .task {
-                if account.isSignedIn && account.vehicles.isEmpty { await account.refreshVehicles() }
+                if account.isSignedIn && account.vehicles.isEmpty { await account.refreshAccount() }
             }
         }
         .preferredColorScheme(.dark)
@@ -80,29 +80,57 @@ struct TeslaAccountView: View {
 
     private var connectionIdentity: some View {
         VStack(spacing: 14) {
-            ZStack(alignment: .bottomTrailing) {
+            ZStack {
                 Circle()
                     .fill(AppTheme.surface)
                     .frame(width: 72, height: 72)
                     .overlay(Circle().stroke(AppTheme.hairline, lineWidth: 0.5))
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 44, weight: .ultraLight))
-                    .foregroundStyle(.white.opacity(0.88))
+
+                accountAvatar
+                    .frame(width: 64, height: 64)
+                    .clipShape(Circle())
+            }
+            .frame(width: 72, height: 72)
+            .overlay(alignment: .bottomTrailing) {
                 Circle()
                     .fill(.green)
                     .frame(width: 14, height: 14)
                     .overlay(Circle().stroke(AppTheme.background, lineWidth: 3))
-                    .offset(x: -1, y: -1)
+                    .offset(x: -2, y: -2)
             }
-            Text("已连接 Tesla")
+            Text(account.profile?.displayName ?? "已连接 Tesla")
                 .font(.title2.weight(.semibold))
                 .tracking(-0.2)
-            Text("远程服务已就绪")
+            Text(account.profile?.displayName == nil ? "远程服务已就绪" : "Tesla 账号已连接")
                 .font(.caption.weight(.medium))
                 .foregroundStyle(AppTheme.muted)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Tesla 账号已连接，远程服务已就绪")
+    }
+
+    @ViewBuilder
+    private var accountAvatar: some View {
+        if let url = account.profile?.profileImageURL {
+            AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
+                if case .success(let image) = phase {
+                    image.resizable().scaledToFill()
+                } else {
+                    fallbackAvatar
+                }
+            }
+        } else {
+            fallbackAvatar
+        }
+    }
+
+    private var fallbackAvatar: some View {
+        ZStack {
+            Circle().fill(AppTheme.raised)
+            Image(systemName: "person.fill")
+                .font(.system(size: 28, weight: .light))
+                .foregroundStyle(.white.opacity(0.88))
+        }
     }
 
     private var loadingState: some View {

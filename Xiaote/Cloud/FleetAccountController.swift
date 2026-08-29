@@ -7,6 +7,7 @@ import UIKit
 @Observable
 final class FleetAccountController: NSObject {
     private(set) var session: FleetSession?
+    private(set) var profile: FleetAccountProfile?
     private(set) var vehicles: [FleetVehicle] = []
     private(set) var isWorking = false
     var errorMessage: String?
@@ -46,11 +47,12 @@ final class FleetAccountController: NSObject {
             try keychain.save(newSession)
             session = newSession
             vehicles = try await api.vehicles(token: newSession.token)
+            profile = try? await api.profile(token: newSession.token)
         } catch {
             if let authenticationError = error as? ASWebAuthenticationSessionError,
                authenticationError.code == .canceledLogin {
                 // Cancellation is an intentional user action, not an app error.
-            } else {
+            } else if !Self.isCancellation(error) {
                 errorMessage = error.localizedDescription
             }
         }
@@ -59,15 +61,23 @@ final class FleetAccountController: NSObject {
     }
 
     func refreshVehicles() async {
+        await refreshAccount()
+    }
+
+    func refreshAccount() async {
         guard let session, !isWorking else { return }
         isWorking = true
+        defer { isWorking = false }
         errorMessage = nil
         do {
             vehicles = try await api.vehicles(token: session.token)
         } catch {
-            errorMessage = error.localizedDescription
+            if !Self.isCancellation(error) {
+                errorMessage = error.localizedDescription
+            }
         }
-        isWorking = false
+        guard !Task.isCancelled else { return }
+        profile = try? await api.profile(token: session.token)
     }
 
     func signOut() async {
@@ -76,8 +86,19 @@ final class FleetAccountController: NSObject {
         try? await api.logout(token: current.token)
         try? keychain.delete()
         session = nil
+        profile = nil
         vehicles = []
         isWorking = false
+    }
+
+    private static func isCancellation(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled { return true }
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+            return isCancellation(underlying)
+        }
+        return false
     }
 
     private func authenticate(at url: URL) async throws -> URL {
