@@ -7,6 +7,7 @@ struct DemoVehicleStateView: View {
     @State private var isLocked = true
     @State private var isFrunkOpen = false
     @State private var isTrunkOpen = false
+    @State private var isChargePortOpen = false
     @State private var isCharging = false
     @State private var doorStates: [String: Bool] = [:]
     @State private var sequenceTask: Task<Void, Never>?
@@ -19,6 +20,7 @@ struct DemoVehicleStateView: View {
                     isLocked: isLocked,
                     isFrunkOpen: isFrunkOpen,
                     isTrunkOpen: isTrunkOpen,
+                    isChargePortOpen: isChargePortOpen,
                     doorStates: doorStates,
                     isCharging: isCharging,
                     reduceMotion: reduceMotion
@@ -72,6 +74,10 @@ struct DemoVehicleStateView: View {
             divider
             demoRow("后备箱", value: isTrunkOpen ? "已开启" : "已关闭", icon: "car.side.rear.open") {
                 isTrunkOpen.toggle()
+            }
+            divider
+            demoRow("充电口", value: isChargePortOpen ? "已开启" : "已关闭", icon: "ev.charger") {
+                isChargePortOpen.toggle()
             }
             divider
             demoRow("车辆充电", value: isCharging ? "充电中" : "未充电", icon: "bolt.fill") {
@@ -132,6 +138,9 @@ struct DemoVehicleStateView: View {
             isTrunkOpen = true
             guard await pause() else { return }
             isTrunkOpen = false
+            isChargePortOpen = true
+            guard await pause() else { return }
+            isChargePortOpen = false
             isCharging = true
             guard await pause(seconds: 2.4) else { return }
             isCharging = false
@@ -145,6 +154,7 @@ struct DemoVehicleStateView: View {
         isLocked = true
         isFrunkOpen = false
         isTrunkOpen = false
+        isChargePortOpen = false
         isCharging = false
         doorStates = [:]
     }

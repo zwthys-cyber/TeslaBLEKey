@@ -17,6 +17,8 @@ targets:
     type: application
     platform: iOS
     sources: [Xiaote]
+    resources:
+      - path: Xiaote/Resources/Model3Highland.usdz
     info:
       path: Xiaote/Info.plist
       properties:

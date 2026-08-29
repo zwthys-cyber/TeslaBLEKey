@@ -10,6 +10,7 @@
 		06A5FC17744ACD8360639F27 /* DemoVehicleStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A97CC66205B8E1171329061 /* DemoVehicleStateView.swift */; };
 		105C9835C762417E49CC57A9 /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8475E12FB1B679ACE3A41D4C /* AppStorage.swift */; };
 		170C1F9C80641133E9B3700E /* VehicleIdentityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50BC7444C57B31D68281F35 /* VehicleIdentityView.swift */; };
+		178BCF3707BC13B740CB13EA /* HighlandVehicle3DView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 312F1483DB4FE983988EDFD4 /* HighlandVehicle3DView.swift */; };
 		247A11ED2590AA52B76D8670 /* WatchPhoneBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FAC8A1F947A1BAF5E5B9C1A /* WatchPhoneBridge.swift */; };
 		260C6EA2095E3DF05E106585 /* VINScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26571BA4B11D14539524058E /* VINScannerView.swift */; };
 		299035ADFC6116888976122F /* FleetHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8970C359A8169C8E9EB5CBE /* FleetHomeView.swift */; };
@@ -43,6 +44,7 @@
 		9D587BEABF6D1220DBAE12A9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357ACFE193D47D4CE964BDD1 /* RootView.swift */; };
 		A8A89EA92BF0BF3CAE439C93 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D41C1D2C82BBAE8DB5B6C65E /* InfoPlist.strings */; };
 		ABAAEC8EE9B02C9115C1FA2D /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 43E0B6591EB7C0DA40EDF9D6 /* InfoPlist.strings */; };
+		AC437B0004CC77616698F6BA /* Model3Highland.usdz in Resources */ = {isa = PBXBuildFile; fileRef = 438B1725BE3742C6936E1DE7 /* Model3Highland.usdz */; };
 		B0741284EEC5FEC722C6DD87 /* TrailingDotsRefreshScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 058CB3E789EFBAC8E0277AEC /* TrailingDotsRefreshScrollView.swift */; };
 		B09AEF94E6B5E747072D1616 /* XiaoteWatchExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A87EC518C68E032677E33527 /* XiaoteWatchExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BFE40575DBACAA80568AFFE4 /* VehicleAlertManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 289075470A06698DFC04D195 /* VehicleAlertManager.swift */; };
@@ -116,11 +118,13 @@
 		26571BA4B11D14539524058E /* VINScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VINScannerView.swift; sourceTree = "<group>"; };
 		272DB2DFAC198B5C7B752F2E /* TeslaAccountAvatar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeslaAccountAvatar.swift; sourceTree = "<group>"; };
 		289075470A06698DFC04D195 /* VehicleAlertManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleAlertManager.swift; sourceTree = "<group>"; };
+		312F1483DB4FE983988EDFD4 /* HighlandVehicle3DView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlandVehicle3DView.swift; sourceTree = "<group>"; };
 		357ACFE193D47D4CE964BDD1 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		361641E6E3062A4F533AA008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		3687BAF61311C2B900B24588 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3A97CC66205B8E1171329061 /* DemoVehicleStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoVehicleStateView.swift; sourceTree = "<group>"; };
 		3C479A0AACE25A40E4198E9F /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		438B1725BE3742C6936E1DE7 /* Model3Highland.usdz */ = {isa = PBXFileReference; lastKnownFileType = file.usdz; path = Model3Highland.usdz; sourceTree = "<group>"; };
 		49D2BA13E9354AA6063C5FFE /* WatchAppInfo.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = WatchAppInfo.plist; sourceTree = "<group>"; };
 		49EB45B9DFCE8D7FF642F818 /* PassiveKeyLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassiveKeyLifecycle.swift; sourceTree = "<group>"; };
 		4AE70A913C0771062539A964 /* VehicleDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleDiscoveryTests.swift; sourceTree = "<group>"; };
@@ -226,6 +230,14 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		33D5BB2BAC62DB13F1345E58 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				438B1725BE3742C6936E1DE7 /* Model3Highland.usdz */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		470C3F64A93980C3B3B899CB = {
 			isa = PBXGroup;
 			children = (
@@ -287,6 +299,7 @@
 				565A3E2BAA4FBE7B12AB3329 /* Design */,
 				D41C1D2C82BBAE8DB5B6C65E /* InfoPlist.strings */,
 				9845CC7619403D2ED2A13F39 /* Model */,
+				33D5BB2BAC62DB13F1345E58 /* Resources */,
 				26C2AF72DA60F4CE6A743139 /* Views */,
 			);
 			path = Xiaote;
@@ -295,6 +308,7 @@
 		BB1B8A6A4F52EA8294DDADA3 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				312F1483DB4FE983988EDFD4 /* HighlandVehicle3DView.swift */,
 				272DB2DFAC198B5C7B752F2E /* TeslaAccountAvatar.swift */,
 				FB8F08A789C54C382B6BDE71 /* TrailingDots.swift */,
 				058CB3E789EFBAC8E0277AEC /* TrailingDotsRefreshScrollView.swift */,
@@ -432,9 +446,9 @@
 			projectRoot = "";
 			targets = (
 				5738F9CBFAB33197D3D8186C /* Xiaote */,
-				B75B3C170D41CF6E2C11109C /* XiaoteTests */,
 				B5259DEBBCA7393824E18752 /* XiaoteWatch */,
 				D9D7BB84B4E600D389DE351D /* XiaoteWatchExtension */,
+				B75B3C170D41CF6E2C11109C /* XiaoteTests */,
 			);
 		};
 /* End PBXProject section */
@@ -457,6 +471,7 @@
 				43EF99DEDD620ADAC20E427D /* Assets.xcassets in Resources */,
 				A8A89EA92BF0BF3CAE439C93 /* InfoPlist.strings in Resources */,
 				757363C95B090A89A0B97DDF /* Localizable.strings in Resources */,
+				AC437B0004CC77616698F6BA /* Model3Highland.usdz in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -475,6 +490,7 @@
 				EDAF18090E2F09599E4DBCB8 /* FleetAPIClient.swift in Sources */,
 				33237071CB6BEC8D721D39AC /* FleetAccountController.swift in Sources */,
 				299035ADFC6116888976122F /* FleetHomeView.swift in Sources */,
+				178BCF3707BC13B740CB13EA /* HighlandVehicle3DView.swift in Sources */,
 				6E283D55E062D008E7241802 /* LegacyVCSECClient.swift in Sources */,
 				42189C2D83C6A2E86B295E08 /* MediaArtworkLookup.swift in Sources */,
 				9C6F35E1710BB6DBE4842BC0 /* NearbyTeslaScanner.swift in Sources */,

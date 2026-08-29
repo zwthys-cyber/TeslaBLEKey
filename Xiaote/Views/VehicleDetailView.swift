@@ -48,6 +48,7 @@ struct VehicleDetailView: View {
                         isLocked: vehicle.isLocked,
                         isFrunkOpen: vehicle.isFrunkOpen == true,
                         isTrunkOpen: vehicle.isTrunkOpen,
+                        isChargePortOpen: vehicle.isChargePortOpen,
                         doorStates: vehicle.doorStates,
                         isCharging: vehicle.isCharging,
                         reduceMotion: reduceMotion
@@ -262,22 +263,36 @@ struct StatefulModel3Artwork: View {
     let isLocked: Bool?
     let isFrunkOpen: Bool
     let isTrunkOpen: Bool
+    let isChargePortOpen: Bool
     let doorStates: [String: Bool]
     let isCharging: Bool
     let reduceMotion: Bool
     @State private var artworkOpacity = 1.0
+    @State private var modelLoadFailed = false
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                Image("Model3HighlandDetail")
-                    .resizable()
-                    .scaledToFit()
-                    .opacity(isLocked == true ? 0 : 1)
-                Image("Model3HighlandLocked")
-                    .resizable()
-                    .scaledToFit()
-                    .opacity(isLocked == true ? 1 : 0)
+                HighlandVehicle3DView(
+                    isLocked: isLocked,
+                    isFrunkOpen: isFrunkOpen,
+                    isTrunkOpen: isTrunkOpen,
+                    isChargePortOpen: isChargePortOpen,
+                    doorStates: doorStates,
+                    reduceMotion: reduceMotion,
+                    loadFailed: $modelLoadFailed
+                )
+                .accessibilityHidden(true)
+
+                if modelLoadFailed {
+                    VStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle")
+                        Text("车辆模型加载失败")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(.orange)
+                    .accessibilityElement(children: .combine)
+                }
 
                 if isFrunkOpen {
                     statePoint(at: CGPoint(x: 0.31, y: 0.60), in: proxy.size, label: "前备箱已开启")

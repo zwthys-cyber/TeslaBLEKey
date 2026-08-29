@@ -73,8 +73,8 @@ final class NearbyTeslaScanner: NSObject, @preconcurrency CBCentralManagerDelega
     private var primaryVehicleID: UUID?
     private var maintenanceTask: Task<Void, Never>?
     private var scanStartedAt: Date?
-    private static let advertisementExpiry: TimeInterval = 6
-    private static let sampleMaximumAge: TimeInterval = 4
+    nonisolated private static let advertisementExpiry: TimeInterval = 6
+    nonisolated private static let sampleMaximumAge: TimeInterval = 4
 
     var vehicles: [NearbyTesla] = []
     var isScanning = false
