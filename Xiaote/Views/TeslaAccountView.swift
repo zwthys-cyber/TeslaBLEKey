@@ -7,7 +7,9 @@ struct TeslaAccountView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            TrailingDotsRefreshScrollView(isEnabled: account.isSignedIn) {
+                await account.refreshAccount()
+            } content: {
                 Group {
                     if account.isSignedIn { signedInContent }
                     else { signedOutContent }
@@ -17,10 +19,6 @@ struct TeslaAccountView: View {
                 .padding(.top, 22)
                 .padding(.bottom, 34)
                 .frame(maxWidth: .infinity)
-            }
-            .scrollIndicators(.hidden)
-            .refreshable {
-                if account.isSignedIn { await account.refreshAccount() }
             }
             .background(AppTheme.background.ignoresSafeArea())
             .navigationTitle("小特账号")
