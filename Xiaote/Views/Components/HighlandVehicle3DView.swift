@@ -79,15 +79,15 @@ struct HighlandVehicle3DView: UIViewRepresentable {
         SCNTransaction.animationDuration = animated ? 0.32 : 0
         SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
 
-        coordinator.rotate("door_left_front_pivot", open: doorStates["左前门"] == true, axis: .z, angle: 0.82)
-        coordinator.rotate("door_left_rear_pivot", open: doorStates["左后门"] == true, axis: .z, angle: 0.76)
-        coordinator.rotate("door_right_front_pivot", open: doorStates["右前门"] == true, axis: .z, angle: -0.82)
-        coordinator.rotate("door_right_rear_pivot", open: doorStates["右后门"] == true, axis: .z, angle: -0.76)
-        coordinator.rotate("frunk_pivot", open: isFrunkOpen, axis: .x, angle: -0.72)
-        coordinator.rotate("trunk_pivot", open: isTrunkOpen, axis: .x, angle: 0.82)
-        coordinator.rotate("charge_port_pivot", open: isChargePortOpen, axis: .z, angle: -0.95)
-        coordinator.rotate("mirror_left_pivot", open: isLocked == true, axis: .z, angle: -0.55)
-        coordinator.rotate("mirror_right_pivot", open: isLocked == true, axis: .z, angle: 0.55)
+        coordinator.rotate("door_left_front_pivot", open: doorStates["左前门"] == true, axis: .y, angle: -0.58)
+        coordinator.rotate("door_left_rear_pivot", open: doorStates["左后门"] == true, axis: .y, angle: -0.52)
+        coordinator.rotate("door_right_front_pivot", open: doorStates["右前门"] == true, axis: .y, angle: 0.58)
+        coordinator.rotate("door_right_rear_pivot", open: doorStates["右后门"] == true, axis: .y, angle: 0.52)
+        coordinator.rotate("frunk_pivot", open: isFrunkOpen, axis: .x, angle: -0.58)
+        coordinator.rotate("trunk_pivot", open: isTrunkOpen, axis: .x, angle: 0.65)
+        coordinator.rotate("charge_port_pivot", open: isChargePortOpen, axis: .y, angle: -0.72)
+        coordinator.rotate("mirror_left_pivot", open: isLocked == true, axis: .y, angle: 0.48)
+        coordinator.rotate("mirror_right_pivot", open: isLocked == true, axis: .y, angle: -0.48)
 
         SCNTransaction.commit()
     }

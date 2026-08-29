@@ -8,6 +8,7 @@ build/
 .DS_Store
 
 # Vehicle 3D production outputs are reproducible and too large for Git.
+imported-highland/
 design-previews/vehicle3d/*.blend
 design-previews/vehicle3d/*.blend1
 design-previews/vehicle3d/*uncompressed*.glb
