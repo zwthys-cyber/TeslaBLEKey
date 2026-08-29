@@ -20,8 +20,12 @@ final class FleetAccountController: NSObject {
 
     override init() {
         session = try? keychain.load()
-        isDemoMode = session != nil && UserDefaults.standard.bool(forKey: demoModeKey)
+        isDemoMode = UserDefaults.standard.bool(forKey: demoModeKey)
         super.init()
+        if session == nil {
+            isDemoMode = false
+            UserDefaults.standard.removeObject(forKey: demoModeKey)
+        }
         if let session, session.expiresAt <= Date() {
             self.session = nil
             isDemoMode = false
