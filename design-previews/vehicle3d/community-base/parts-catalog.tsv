@@ -1,0 +1,178 @@
+object	parent	materials	center_x	center_y	center_z	size_x	size_y	size_z	vertices
+Object_9	hub_rb_hub_rb.0_0_5	hub_rb.0	89.893	-163.453	-37.290	16.418	11.530	17.334	3318
+Object_12	hub_lb_hub_rb.0_0_7	hub_rb.0	-89.826	-163.453	-37.290	16.418	11.530	17.334	3318
+Object_15	hub_rf_hub_rf.0_0_9	hub_rf.0	96.720	160.239	-37.267	13.090	15.192	37.237	2093
+Object_17	hub_rf_hub_rf.1_0_10	hub_rf.1	103.372	159.277	-36.197	0.000	2.913	13.614	4
+Object_20	hub_lf_hub_rf.0_0_12	hub_rf.0	-95.580	160.258	-37.067	13.091	15.232	37.241	2093
+Object_22	hub_lf_hub_rf.1_0_13	hub_rf.1	-102.194	159.100	-36.222	0.000	2.896	13.582	4
+Object_26	dvorright_dvorright.0_0_16	dvorright.0	36.192	145.424	19.899	94.174	33.924	29.873	2629
+Object_30	dvorleft_dvorright.0_0_19	dvorright.0	-23.559	146.315	19.873	98.582	17.423	15.637	2574
+Object_34	movsteer_1.0_movsteer_1.0.1_0_22	movsteer_1.0.1	-46.936	61.929	16.935	6.969	2.489	6.502	647
+Object_36	movsteer_1.0_movsteer_1.0.0_0_23	movsteer_1.0.0	-46.938	67.111	15.790	42.338	24.997	42.541	3771
+Object_38	movsteer_1.0_dvorright.0_0_24	dvorright.0	-46.923	66.233	13.480	26.670	14.443	19.688	420
+Object_42	chassis_chassis.0_0_27	chassis.0	-0.000	-49.851	-49.213	208.617	0.013	0.000	6
+Object_45	JUST_BLACK_JUST_BLACK.0_0_29	dvorright.0	0.021	44.622	4.740	191.708	434.705	119.854	530
+Object_48	JUST_BLACK.001_JUST_BLACK.0_0_31	dvorright.0	0.026	-205.060	1.438	215.315	105.601	101.855	473
+Object_51	body_primary_0_33	Paint	0.022	11.110	9.549	218.315	469.007	138.300	25968
+Object_54	bodysills_primary.001_0_35	Paint.001	0.026	-9.557	12.934	213.930	255.788	124.139	5915
+Object_57	black_lights_black_lights.0_0_37	dvorright.0	0.026	-217.585	20.778	186.071	46.055	18.922	3550
+Object_60	_satin_black_134_black_lights.0_0_39	dvorright.0	0.026	219.655	1.711	187.756	53.795	23.815	3076
+Object_63	_plastic_black_124_black_lights.0_0_41	dvorright.0	0.026	-213.083	49.724	75.256	10.313	1.952	536
+Object_66	back_chrome_light_back_chrome_light.0_0_43	back_chrome_light.0	0.018	-228.675	20.337	183.386	20.126	16.735	3078
+Object_69	pantulans_pantulans.0_0_45	pantulans.0	0.026	-212.921	22.399	183.700	12.917	3.655	282
+Object_72	rear_lights_right rear light_0_47	right_rear_light	0.026	-229.408	20.276	183.313	21.002	16.851	1162
+Object_75	light_breake_breaklight l_0_49	breaklight_l	0.026	-233.911	21.688	164.439	6.624	0.964	302
+Object_78	chrome_foglight_r_foglight r_0_51	breaklight_l	81.107	209.945	7.477	16.911	25.264	10.502	787
+Object_81	chrome_foglight_l_foglight l_0_53	breaklight_l	-81.056	209.945	7.477	16.911	25.264	10.502	787
+Object_84	chrome_Lights_head_l_right front light_0_55	breaklight_l	65.190	224.871	-2.321	19.933	9.417	7.655	170
+Object_86	chrome_Lights_head_l_left front light_0_56	right_rear_light	-65.181	224.871	-2.321	19.916	9.416	7.655	167
+Object_89	chrome_movsteer_1.0.1_0_58	movsteer_1.0.1	0.026	206.241	8.283	186.216	21.517	8.479	148
+Object_92	breake_int_breaklight l_0_60	breaklight_l	0.026	-212.113	49.682	74.785	8.477	1.306	413
+Object_95	aluminium_light_aluminium_light.0_0_62	aluminium_light.0	0.026	218.516	2.786	185.050	47.542	19.857	2644
+Object_98	tembus red_tembus red.0_0_64	tembus_red.0	0.026	-213.609	49.748	75.165	9.557	1.849	427
+Object_101	interiorlights_light night_0_66	right_rear_light	0.026	36.668	68.247	29.439	4.722	2.135	193
+Object_104	turn_indicat_l_indicator lf_0_68	right_rear_light	-84.086	214.485	0.085	17.992	16.616	11.759	181
+Object_107	turn_indicat_r_indicator rf_0_70	right_rear_light	84.086	214.485	0.085	17.992	16.616	11.759	181
+Object_110	base_dvorright.0_0_72	dvorright.0	0.023	-6.424	16.772	195.067	237.994	116.491	14219
+Object_113	hitam_dvorright.0_0_74	dvorright.0	0.026	230.524	-6.615	183.490	22.814	6.530	150
+Object_116	hitam.001_dvorright.0_0_76	dvorright.0	19.683	141.945	20.322	124.984	25.420	5.119	654
+Object_119	hitam.002_hitam.0_0_78	dvorright.0	-42.236	114.297	-13.373	27.160	11.119	21.553	1901
+Object_122	Plastic_Plastic.0_0_80	dvorright.0	0.029	7.040	14.366	186.316	274.128	113.898	6469
+Object_125	belt_belt.0_0_82	belt.0	0.026	-62.889	7.791	166.775	132.469	93.888	1512
+Object_128	black_black_lights.0_0_84	dvorright.0	0.026	40.929	-34.215	153.646	19.629	7.240	1314
+Object_131	satin_red_satin_red.0_0_86	satin_red.0	0.028	-32.565	-19.976	42.324	109.991	4.565	1252
+Object_134	paint_black_dvorright.0_0_88	dvorright.0	0.026	72.378	16.504	38.568	6.990	29.627	579
+Object_137	cahrome_movsteer_1.0.1_0_90	movsteer_1.0.1	0.022	-15.997	36.955	207.888	313.353	76.144	4738
+Object_140	suspensi_suspensi.0_0_92	back_chrome_light.0	0.026	-144.644	-11.271	170.290	12.348	47.232	1741
+Object_142	suspensi_suspensi.1_0_93	back_chrome_light.0	0.026	175.555	-11.367	169.277	12.347	47.230	1742
+Object_145	chrome__movsteer_1.0.1_0_95	movsteer_1.0.1	0.026	-20.592	35.932	148.671	6.443	5.953	1968
+Object_148	chrome1_movsteer_1.0.1_0_97	movsteer_1.0.1	103.356	134.926	1.713	1.236	4.746	4.587	2026
+Object_151	chrome2_movsteer_1.0.1_0_99	movsteer_1.0.1	-103.290	134.922	1.719	1.227	4.747	4.587	2026
+Object_154	hitam.003_dvorright.0_0_101	dvorright.0	-101.697	123.743	-49.038	0.416	14.646	0.579	24
+Object_157	hitam.004_dvorright.0_0_103	dvorright.0	0.026	-237.934	-48.498	167.257	29.443	7.453	1263
+Object_160	aluminium_movsteer_1.0.1_0_105	movsteer_1.0.1	-47.063	74.377	16.200	45.540	7.402	3.347	1662
+Object_163	hitam.005_Plastic.0_0_107	dvorright.0	0.026	81.820	16.126	38.555	25.021	30.198	912
+Object_166	hitam.006_black_lights.0_0_109	dvorright.0	0.031	-23.152	51.289	189.100	30.080	47.589	870
+Object_169	texture_Leather_movsteer_1.0.0_0_111	movsteer_1.0.0	0.026	-11.484	6.809	159.259	152.649	83.854	4783
+Object_172	texture_Leather.001_movsteer_1.0.0_0_113	movsteer_1.0.0	0.026	57.916	-4.045	158.069	146.105	57.668	3235
+Object_175	aluminium2_aluminium2.0_0_115	aluminium_light.0	0.026	54.373	2.791	169.642	118.137	57.013	3341
+Object_178	frunkplastic_dvorright.0_0_117	dvorright.0	0.026	141.288	20.667	170.589	50.782	16.358	104
+Object_181	Putih_Putih.0_0_119	Putih.0	0.026	-23.226	50.197	160.244	19.014	20.511	1482
+Object_184	whiteleather_Putih.0_0_121	Putih.0	0.031	-42.273	49.733	186.258	344.177	64.705	4266
+Object_187	Putih.001_Putih.0_0_123	Putih.0	0.030	-89.005	-16.866	132.964	11.857	22.944	3354
+Object_190	Putih.002_Putih.0_0_125	Putih.0	0.026	6.726	52.885	153.925	66.313	31.409	2324
+Object_193	Carpet_Carpet.0_0_127	movsteer_1.0.0	0.026	15.960	-17.921	181.277	221.697	42.613	3239
+Object_196	black.001_Plastic.0_0_129	dvorright.0	-47.057	83.543	9.836	19.388	27.167	20.061	1354
+Object_199	black.002_Plastic.0_0_131	dvorright.0	0.026	26.568	-32.353	153.597	65.862	27.545	4179
+Object_202	black.003_black_lights.0_0_133	dvorright.0	0.028	-33.589	49.388	168.709	376.253	65.568	3256
+Object_205	black.004_JUST_BLACK.0_0_135	dvorright.0	0.023	7.231	-28.775	216.201	505.571	61.657	1259
+Object_208	black.005_black_lights.0_0_137	dvorright.0	-47.063	76.777	14.044	32.116	5.342	5.663	840
+Object_211	Carpet_Light_Carpet_Light.0_0_139	Carpet_Light.0	0.027	41.305	-30.222	159.146	163.210	17.972	4032
+Object_214	chromeBELT_movsteer_1.0.1_0_141	movsteer_1.0.1	0.026	-88.639	-9.127	127.873	6.572	3.645	1968
+Object_217	suspensi2_suspensi.0_0_143	back_chrome_light.0	0.026	-143.458	-41.142	180.125	33.204	22.341	734
+Object_219	suspensi2_suspensi.1_0_144	back_chrome_light.0	0.026	176.742	-41.240	179.113	33.203	22.336	734
+Object_222	texture_Buttons_texture_Buttons.0_0_146	texture_Buttons.0	-47.063	74.310	16.673	44.942	7.061	2.422	846
+Object_225	LCDs_LCDs.0_0_148	LCDs.0	0.026	72.302	16.529	37.923	6.741	28.993	300
+Object_228	Seat Leather white_Seat Leather white.0_0_150	Putih.0	0.026	-31.747	15.397	158.276	192.234	98.575	23946
+Object_231	Leather_white_Seat Leather white.0_0_152	Putih.0	0.031	-51.168	20.411	169.650	295.395	103.243	11242
+Object_234	mirror_inside_mirror_inside.0_0_154	mirror_inside.0	0.026	48.676	59.300	23.525	0.554	7.703	119
+Object_237	glass_glass.0_0_156	glass.0	0.026	-144.059	51.008	167.603	53.259	30.016	1024
+Object_239	glass_glass.1_0_157	glass.1	0.023	-93.138	65.678	143.628	257.221	33.945	2248
+Object_243	black_boot_black_lights.0_0_160	dvorright.0	0.026	-239.700	21.019	141.984	17.654	18.070	3158
+Object_246	boot_primary_0_162	Paint	0.026	-212.799	26.597	165.954	90.772	67.008	6278
+Object_249	platnomor_JUST_BLACK.0_0_164	dvorright.0	0.000	-252.750	17.548	32.610	2.401	0.707	48
+Object_251	platnomor_platnomor.1_0_165	platnomor.1	0.026	-253.791	9.114	58.076	4.460	16.505	130
+Object_253	platnomor_hitam.0_0_166	dvorright.0	0.026	-253.842	6.075	59.099	4.863	11.385	190
+Object_255	platnomor_platnomor.2_0_167	chassis.0	-1.149	-254.733	4.374	43.893	2.446	5.709	54
+Object_258	chrome.001_movsteer_1.0.1_0_169	movsteer_1.0.1	0.026	-253.593	26.896	10.670	2.100	10.053	2026
+Object_261	light_turn_rr_boot_indicator rr_0_171	breaklight_l	60.618	-241.472	21.627	16.403	6.879	0.973	173
+Object_264	light_turn_lr_boot_indicator lr_0_173	indicator_lr	-60.565	-241.472	21.627	16.403	6.879	0.973	173
+Object_267	chrome_light_back_chrome_light.0_0_175	back_chrome_light.0	0.018	-241.074	23.221	140.070	13.184	10.841	2710
+Object_270	rear_lightsr_right rear light_0_177	right_rear_light	57.703	-241.550	23.214	24.796	12.733	10.850	327
+Object_273	rear_lightsl_left rear light_0_179	breaklight_l	-57.651	-241.550	23.214	24.796	12.733	10.850	327
+Object_276	lightrevese_boot_revlight L_0_181	breaklight_l	0.026	-241.514	21.627	137.586	6.878	0.974	346
+Object_279	tembus_boot_ok_tembus red.0_0_183	tembus_red.0	0.026	-241.666	21.200	142.041	14.600	17.765	1438
+Object_283	door_lf_JUST_BLACK.0_0_186	dvorright.0	-90.021	52.296	-5.291	13.271	111.270	63.816	63
+Object_285	door_lf_texture_Buttons.0_0_187	texture_Buttons.0	-85.400	46.486	-8.101	3.525	7.905	0.399	541
+Object_287	door_lf_movsteer_1.0.1_0_188	movsteer_1.0.1	-105.621	49.942	21.941	33.573	129.174	16.558	1399
+Object_289	door_lf_movsteer_1.0.0_0_189	movsteer_1.0.0	-90.911	52.745	-9.399	7.669	108.124	50.409	1163
+Object_291	door_lf_Putih.0_0_190	Putih.0	-87.409	42.532	-0.627	9.045	87.068	30.266	3481
+Object_293	door_lf_Plastic.0_0_191	dvorright.0	-89.882	51.613	2.129	13.078	110.388	76.604	2609
+Object_295	door_lf_aluminium2.0_0_192	aluminium_light.0	-84.441	72.172	7.125	0.798	10.309	5.617	119
+Object_297	door_lf_dvorright.0_0_193	dvorright.0	-85.405	46.649	-8.320	4.031	8.727	0.693	1234
+Object_299	door_lf_door_lf.0_0_194	door_lf.0	-85.731	86.263	-25.837	3.817	41.117	20.713	261
+Object_301	door_lf_door_lf.5_0_195	door_lf.5	-88.356	94.440	33.429	6.301	30.624	20.016	398
+Object_303	door_lf_glass.0_0_196	glass.0	-84.261	43.306	46.421	20.537	136.883	51.067	458
+Object_305	door_lf_mirror_inside.0_0_197	mirror_inside.0	-111.450	74.878	30.514	20.959	10.395	14.483	224
+Object_307	door_lf_primary_0_198	Paint	-106.821	51.901	-5.319	30.973	131.903	86.872	4477
+Object_309	door_lf_primary.002_0_199	Paint.001	-98.702	51.863	-10.435	16.015	131.978	76.651	2617
+Object_312	door_lf_ok_primary_0_201	Paint	-94.326	-5.278	24.301	0.437	2.197	0.809	3
+Object_316	door_lr_JUST_BLACK.0_0_204	dvorright.0	-82.586	-68.431	20.156	10.734	84.914	8.257	14
+Object_318	door_lr_texture_Buttons.0_0_205	texture_Buttons.0	-81.280	-72.562	-1.482	1.893	1.424	0.267	115
+Object_320	door_lr_primary.004_0_206	Paint.001	-85.043	-121.563	35.712	3.350	17.970	2.091	34
+Object_322	door_lr_movsteer_1.0.1_0_207	movsteer_1.0.1	-91.329	-73.851	28.695	21.045	118.359	21.536	789
+Object_324	door_lr_movsteer_1.0.0_0_208	movsteer_1.0.0	-83.390	-66.514	-2.515	12.545	88.586	52.174	1069
+Object_326	door_lr_Putih.0_0_209	Putih.0	-85.027	-70.174	6.469	14.821	80.218	31.562	3346
+Object_328	door_lr_Plastic.0_0_210	dvorright.0	-86.793	-67.587	1.178	19.958	92.863	67.622	1859
+Object_330	door_lr_aluminium2.0_0_211	aluminium_light.0	-81.069	-44.113	13.116	1.408	10.525	5.609	119
+Object_332	door_lr_dvorright.0_0_212	dvorright.0	-81.289	-71.812	-1.767	2.434	3.367	0.842	275
+Object_334	door_lr_glass.0_0_213	glass.0	-82.183	-74.851	50.519	23.098	97.756	43.851	864
+Object_336	door_lr_primary_0_214	Paint	-95.544	-72.804	-5.072	24.882	128.190	84.341	3366
+Object_338	door_lr_primary.002_0_215	Paint.001	-95.153	-72.803	-5.345	24.213	128.169	84.390	1809
+Object_341	door_lr_ok_primary_0_217	Paint	-95.767	-30.422	23.529	0.308	3.069	0.635	3
+Object_345	door_rf_JUST_BLACK.0_0_220	dvorright.0	90.075	52.296	-5.291	13.271	111.270	63.816	64
+Object_347	door_rf_texture_Buttons.0_0_221	texture_Buttons.0	85.738	44.130	-8.167	1.852	1.409	0.241	115
+Object_349	door_rf_movsteer_1.0.1_0_222	movsteer_1.0.1	105.672	49.942	21.941	33.573	129.174	16.558	1431
+Object_351	door_rf_movsteer_1.0.0_0_223	movsteer_1.0.0	90.960	52.745	-9.399	7.669	108.124	50.409	1163
+Object_353	door_rf_Putih.0_0_224	Putih.0	87.460	42.532	-0.627	9.045	87.068	30.266	3481
+Object_355	door_rf_Plastic.0_0_225	dvorright.0	89.931	51.613	2.129	13.078	110.388	76.604	2609
+Object_357	door_rf_aluminium2.0_0_226	aluminium_light.0	84.492	72.172	7.125	0.798	10.309	5.617	119
+Object_359	door_rf_dvorright.0_0_227	dvorright.0	85.736	44.873	-8.440	2.355	3.353	0.785	275
+Object_361	door_rf_door_lf.0_0_228	door_lf.0	85.782	86.263	-25.837	3.817	41.117	20.713	261
+Object_363	door_rf_glass.0_0_229	glass.0	84.309	43.306	46.420	20.537	136.883	51.067	458
+Object_365	door_rf_mirror_inside.0_0_230	mirror_inside.0	111.501	74.878	30.514	20.959	10.395	14.483	224
+Object_367	door_rf_primary_0_231	Paint	106.871	51.901	-5.319	30.973	131.903	86.872	4529
+Object_369	door_rf_primary.002_0_232	Paint.001	98.757	51.863	-10.435	16.015	131.978	76.651	2558
+Object_372	door_rf_ok_primary_0_234	Paint	95.668	-1.305	24.032	0.437	2.197	0.809	3
+Object_376	door_rr_JUST_BLACK.0_0_237	dvorright.0	82.636	-68.431	20.156	10.734	84.914	8.257	14
+Object_378	door_rr_texture_Buttons.0_0_238	texture_Buttons.0	81.331	-72.562	-1.482	1.892	1.424	0.267	115
+Object_380	door_rr_movsteer_1.0.1_0_239	movsteer_1.0.1	91.380	-73.851	28.695	21.045	118.359	21.536	789
+Object_382	door_rr_movsteer_1.0.0_0_240	movsteer_1.0.0	83.443	-66.514	-2.515	12.545	88.586	52.174	1069
+Object_384	door_rr_Putih.0_0_241	Putih.0	85.080	-70.174	6.469	14.821	80.218	31.562	3346
+Object_386	door_rr_Plastic.0_0_242	dvorright.0	86.844	-67.587	1.178	19.958	92.863	67.622	1859
+Object_388	door_rr_aluminium2.0_0_243	aluminium_light.0	81.120	-44.113	13.116	1.408	10.525	5.609	119
+Object_390	door_rr_dvorright.0_0_244	dvorright.0	81.341	-71.812	-1.767	2.434	3.366	0.842	275
+Object_392	door_rr_glass.0_0_245	glass.0	82.236	-74.851	50.519	23.098	97.756	43.851	864
+Object_394	door_rr_primary_0_246	Paint	95.600	-72.804	-5.072	24.882	128.190	84.341	3349
+Object_396	door_rr_primary.002_0_247	Paint.001	95.207	-72.803	-5.345	24.213	128.169	84.390	1819
+Object_399	door_rr_ok_primary.002_0_249	Paint.001	98.663	-29.137	21.526	0.368	3.241	0.592	3
+Object_403	windscreen_ok_glass.0_0_252	glass.0	0.026	89.208	45.384	168.604	129.682	56.284	950
+Object_407	front_black_front_black.0_0_255	dvorright.0	0.026	242.894	-39.193	197.139	34.295	25.053	3857
+Object_410	chrome.002_back_chrome_light.0_0_257	back_chrome_light.0	0.026	232.646	-29.218	186.021	2.260	1.987	150
+Object_413	foglights_r_foglight r_0_259	breaklight_l	79.025	240.924	-30.093	22.158	14.212	2.153	208
+Object_416	foglights_l_foglight l_0_261	breaklight_l	-78.973	240.924	-30.093	22.158	14.212	2.153	208
+Object_419	indicator_lights_r_indicator rf_0_263	right_rear_light	91.963	233.416	-29.209	3.791	3.049	2.554	308
+Object_422	indicator_lights_l_indicator lf_0_265	right_rear_light	-91.911	233.416	-29.209	3.791	3.049	2.554	308
+Object_425	tembus_depan_ok_tembus red.0_0_267	tembus_red.0	0.026	223.771	-9.295	195.481	53.908	45.974	3078
+Object_428	front_bumper_ok_primary_0_269	Paint	0.026	231.077	-30.507	210.338	65.606	57.210	9107
+Object_432	rear_bumper_movsteer_1.0.1_0_272	movsteer_1.0.1	0.026	-241.649	-33.522	174.344	19.528	4.182	1440
+Object_435	rear_bumper_ok_primary_0_274	Paint	0.026	-219.975	-20.853	218.314	83.978	65.975	8716
+Object_438	light_pantulan_light_pantulan.0_0_276	light_pantulan.0	0.026	-241.373	-33.542	172.781	18.941	3.807	325
+Object_441	tembus_belakang_tembus red.0_0_278	tembus_red.0	0.026	-217.949	20.714	186.771	46.365	18.936	1574
+Object_445	bonnet_ok_primary_0_281	Paint	0.026	194.370	8.735	168.137	122.077	31.086	2511
+Object_448	chrome_bonnet_ok_movsteer_1.0.1_0_283	movsteer_1.0.1	0.026	246.256	-0.722	10.670	8.992	5.154	2026
+Charge_Cap_GLOBAL.001	charge_dummy	ChargeFlap	-87.409	-205.303	35.552	23.258	12.391	9.881	362
+Object_452	wheels_wheels.2_0_286	wheels.2	0.000	175.678	-37.173	215.106	68.065	68.065	2160
+Object_454	wheels_wheels.0_0_287	wheels.0	0.000	190.670	-41.142	215.718	28.336	50.338	469
+Object_456	wheels_wheels.1_0_288	dvorright.0	-0.000	175.650	-37.183	210.430	15.567	15.593	1072
+Object_458	wheels_movsteer_1.0.1_0_289	movsteer_1.0.1	-0.000	175.683	-37.311	210.516	3.726	3.688	2642
+Object_460	wheels_wheels.3_0_290	wheels.3	0.000	175.681	-37.170	213.973	74.629	74.629	1586
+Object_462	wheels_wheels.4_0_291	wheels.4	0.000	175.653	-37.145	197.565	41.073	41.073	1554
+Object_464	wheels_wheels.6_0_292	wheels.6	0.000	175.675	-37.163	216.128	58.323	58.323	21540
+Object_467	wheels.001_wheels.2_0_294	wheels.2	0.000	-144.719	-37.169	215.650	69.304	69.303	2160
+Object_469	wheels.001_wheels.0_0_295	wheels.0	0.000	-129.456	-41.215	216.273	28.858	51.247	468
+Object_471	wheels.001_wheels.1_0_296	dvorright.0	0.000	-144.754	-37.178	210.890	15.846	15.885	1072
+Object_473	wheels.001_movsteer_1.0.1_0_297	movsteer_1.0.1	0.000	-144.723	-37.317	210.977	3.786	3.747	2534
+Object_475	wheels.001_wheels.3_0_298	wheels.3	0.000	-144.721	-37.170	214.497	75.977	75.977	1586
+Object_477	wheels.001_wheels.4_0_299	wheels.4	0.000	-144.752	-37.142	197.792	41.809	41.821	1554
+Object_479	wheels.001_wheels.6_0_300	wheels.6	0.000	-144.721	-37.164	216.691	59.387	59.374	21541
