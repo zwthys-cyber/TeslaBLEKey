@@ -1,0 +1,5 @@
+"CFBundleDisplayName" = "小特";
+"CFBundleName" = "小特";
+"NSBluetoothAlwaysUsageDescription" = "用于在本地连接您的 Tesla 并执行钥匙操作。";
+"NSFaceIDUsageDescription" = "用于按您选择的保护级别确认车辆控制操作。";
+"NSCameraUsageDescription" = "用于识别车机屏幕或车门铭牌上的 VIN。";

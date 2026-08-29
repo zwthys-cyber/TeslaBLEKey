@@ -42,22 +42,9 @@ struct FleetHomeView: View {
 
     private var header: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(primaryVehicle?.name ?? "我的 Tesla")
-                    .font(.system(size: 28, weight: .semibold))
-                    .tracking(-0.5)
-                    .lineLimit(1)
-                HStack(spacing: 6) {
-                    Circle().fill(Color.green).frame(width: 6, height: 6)
-                    Text("账号已连接").font(.caption).foregroundStyle(AppTheme.muted)
-                }
-            }
             Spacer()
             Button { showingAccount = true } label: {
-                Image(systemName: "person.crop.circle")
-                    .font(.system(size: 20, weight: .medium))
-                    .frame(width: 44, height: 44)
-                    .overlay(Circle().stroke(AppTheme.hairline, lineWidth: 0.5))
+                TeslaAccountAvatarLabel(profile: account.profile, isSignedIn: true)
             }
             .buttonStyle(UtilityPressStyle())
             .accessibilityLabel("Tesla 账号")
@@ -148,8 +135,6 @@ struct FleetHomeView: View {
         }
         .buttonStyle(UtilityPressStyle())
     }
-
-    private var primaryVehicle: FleetVehicle? { account.vehicles.first }
 
     private func statusText(_ state: String?) -> String {
         switch state { case "online": "在线"; case "asleep": "休眠"; case "offline": "离线"; default: "未知" }

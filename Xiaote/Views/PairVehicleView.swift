@@ -155,16 +155,16 @@ struct PairVehicleView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("车钥匙").font(.system(size: 28, weight: .semibold)).tracking(-0.5)
+        HStack {
             Spacer()
             Button { showingTeslaAccount = true } label: {
-                Label(fleetAccount.isSignedIn ? "账号已连接" : "连接账号",
-                      systemImage: fleetAccount.isSignedIn ? "person.crop.circle.badge.checkmark" : "person.crop.circle")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(fleetAccount.isSignedIn ? Color.green : AppTheme.muted)
+                TeslaAccountAvatarLabel(
+                    profile: fleetAccount.profile,
+                    isSignedIn: fleetAccount.isSignedIn
+                )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(UtilityPressStyle())
+            .accessibilityLabel(fleetAccount.isSignedIn ? "Tesla 账号" : "连接 Tesla 账号")
             .accessibilityHint("打开 Tesla 账号设置")
         }
     }

@@ -1,0 +1,5 @@
+"CFBundleDisplayName" = "Xiaote";
+"CFBundleName" = "Xiaote";
+"NSBluetoothAlwaysUsageDescription" = "Connect to your Tesla locally and provide phone key features.";
+"NSFaceIDUsageDescription" = "Confirm protected vehicle control actions at your chosen security level.";
+"NSCameraUsageDescription" = "Scan the VIN shown on the vehicle display or door label.";

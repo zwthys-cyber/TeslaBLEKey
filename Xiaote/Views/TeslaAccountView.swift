@@ -57,14 +57,12 @@ struct TeslaAccountView: View {
 
     private var signedInContent: some View {
         VStack(spacing: 0) {
-            connectionIdentity
-
             if account.isWorking && account.vehicles.isEmpty {
-                loadingState.padding(.top, 72)
+                loadingState.padding(.top, 48)
             } else if account.vehicles.isEmpty {
-                emptyVehicleState.padding(.top, 62)
+                emptyVehicleState.padding(.top, 38)
             } else {
-                vehicleList.padding(.top, 38)
+                vehicleList.padding(.top, 14)
             }
 
             Spacer(minLength: 72)
@@ -74,61 +72,6 @@ struct TeslaAccountView: View {
                 .padding(.top, 24)
         }
         .frame(minHeight: 650, alignment: .top)
-    }
-
-    private var connectionIdentity: some View {
-        VStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(AppTheme.surface)
-                    .frame(width: 72, height: 72)
-                    .overlay(Circle().stroke(AppTheme.hairline, lineWidth: 0.5))
-
-                accountAvatar
-                    .frame(width: 64, height: 64)
-                    .clipShape(Circle())
-            }
-            .frame(width: 72, height: 72)
-            .overlay(alignment: .bottomTrailing) {
-                Circle()
-                    .fill(.green)
-                    .frame(width: 14, height: 14)
-                    .overlay(Circle().stroke(AppTheme.background, lineWidth: 3))
-                    .offset(x: -2, y: -2)
-            }
-            Text(account.profile?.displayName ?? "已连接 Tesla")
-                .font(.title2.weight(.semibold))
-                .tracking(-0.2)
-            Text(account.profile?.displayName == nil ? "远程服务已就绪" : "Tesla 账号已连接")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(AppTheme.muted)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Tesla 账号已连接，远程服务已就绪")
-    }
-
-    @ViewBuilder
-    private var accountAvatar: some View {
-        if let url = account.profile?.profileImageURL {
-            AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
-                if case .success(let image) = phase {
-                    image.resizable().scaledToFill()
-                } else {
-                    fallbackAvatar
-                }
-            }
-        } else {
-            fallbackAvatar
-        }
-    }
-
-    private var fallbackAvatar: some View {
-        ZStack {
-            Circle().fill(AppTheme.raised)
-            Image(systemName: "person.fill")
-                .font(.system(size: 28, weight: .light))
-                .foregroundStyle(.white.opacity(0.88))
-        }
     }
 
     private var loadingState: some View {
