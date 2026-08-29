@@ -15,6 +15,9 @@ design-previews/vehicle3d/model3-highland-surface-*.png
 design-previews/vehicle3d/model3-highland-conversion-v[1-4]*.png
 design-previews/vehicle3d/model3-highland-runtime-v*.glb
 design-previews/vehicle3d/model3-highland-source-v*.blend
+design-previews/vehicle3d/model3-highland-audit-v*.json
+design-previews/vehicle3d/model3-highland-runtime-v*.usdz
+design-previews/vehicle3d/model3-highland-state-review-v*.png
 design-previews/vehicle3d/model3-licensed-base-inspection.png
 design-previews/vehicle3d/official-reference-model3-2024-base/example/
 tools/vehicle3d/__pycache__/
