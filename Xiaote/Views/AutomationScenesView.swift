@@ -26,8 +26,7 @@ struct AutomationScenesView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(AppTheme.background.ignoresSafeArea())
-        .navigationTitle("自动化场景").navigationBarTitleDisplayMode(.inline)
+        .appDestinationPage(title: "自动化场景")
         .toolbar { Button { editingScene = newScene } label: { Image(systemName: "plus") } }
         .sheet(item: $editingScene) { scene in SceneEditorView(scene: scene).environment(vehicle) }
     }

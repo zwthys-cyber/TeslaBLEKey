@@ -31,10 +31,7 @@ struct VehicleDetailView: View {
             .padding(.horizontal, 22)
             .padding(.bottom, 44)
         }
-        .background(AppTheme.background.ignoresSafeArea())
-        .preferredColorScheme(.dark)
-        .navigationTitle("车辆详情")
-        .navigationBarTitleDisplayMode(.inline)
+        .appDestinationPage(title: "车辆详情")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { Task { await refresh() } } label: {
@@ -65,7 +62,7 @@ struct VehicleDetailView: View {
             .font(.caption)
             .foregroundStyle(AppTheme.muted)
         }
-        .padding(.top, 24)
+        .padding(.top, 8)
     }
 
     private var primaryMetrics: some View {

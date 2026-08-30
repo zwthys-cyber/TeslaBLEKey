@@ -215,7 +215,6 @@ private func statusRow(_ title: String, _ value: String) -> some View { HStack {
 
 private extension View {
     func featurePage(title: String) -> some View {
-        background(AppTheme.background.ignoresSafeArea()).preferredColorScheme(.dark)
-            .navigationTitle(title).navigationBarTitleDisplayMode(.inline)
+        appDestinationPage(title: title)
     }
 }

@@ -48,8 +48,8 @@ struct VehicleSchedulesView: View {
                 Section { Label("预约位置：\(name)", systemImage: "location") }
             }
         }
-        .scrollContentBackground(.hidden).background(AppTheme.background.ignoresSafeArea())
-        .navigationTitle("预约计划").navigationBarTitleDisplayMode(.inline)
+        .scrollContentBackground(.hidden)
+        .appDestinationPage(title: "预约计划")
         .toolbar { Button { showingEditor = true } label: { Image(systemName: "plus") } }
         .task { await vehicle.refreshSchedules() }
         .sheet(isPresented: $showingEditor) { ScheduleEditorView().environment(vehicle) }
@@ -190,8 +190,8 @@ struct NearbyChargingSitesView: View {
                     .listRowBackground(Color.clear)
             }
         }
-        .scrollContentBackground(.hidden).background(AppTheme.background.ignoresSafeArea())
-        .navigationTitle("附近超级充电站").navigationBarTitleDisplayMode(.inline)
+        .scrollContentBackground(.hidden)
+        .appDestinationPage(title: "附近超级充电站")
         .refreshable { await refreshSites() }
         .task { await refreshSites() }
     }
