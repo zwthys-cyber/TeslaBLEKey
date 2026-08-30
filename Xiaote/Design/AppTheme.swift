@@ -68,8 +68,6 @@ struct HairlinePanel<Content: View>: View {
 
 private struct DestinationPageModifier: ViewModifier {
     let title: String
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appeared = false
 
     func body(content: Content) -> some View {
         content
@@ -78,20 +76,12 @@ private struct DestinationPageModifier: ViewModifier {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
-            .opacity(appeared ? 1 : 0)
-            .offset(y: appeared || reduceMotion ? 0 : 8)
-            .onAppear {
-                withAnimation(reduceMotion ? AppMotion.reduced : AppMotion.spatial) {
-                    appeared = true
-                }
-            }
-            .onDisappear { appeared = false }
     }
 }
 
 extension View {
-    /// Restores the navigation bar hidden by a root page and gives every pushed
-    /// destination the same restrained entrance motion.
+    /// Restores the navigation bar hidden by a root page. NavigationStack owns
+    /// the opaque push/pop animation so the previous page never shows through.
     func appDestinationPage(title: String) -> some View {
         modifier(DestinationPageModifier(title: title))
     }

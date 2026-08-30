@@ -4,6 +4,8 @@ struct PairVehicleView: View {
     @Environment(VehicleController.self) private var vehicle
     @Environment(FleetAccountController.self) private var fleetAccount
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
+    var showsCloseButton = false
     @State private var scanner = NearbyTeslaScanner()
     @State private var selectedVehicle: NearbyTesla?
     @State private var selectionWasManual = false
@@ -56,8 +58,8 @@ struct PairVehicleView: View {
             }
         }
         .sensoryFeedback(.selection, trigger: selectedVehicle?.id)
-        .sheet(isPresented: $showingTeslaAccount) {
-            TeslaAccountView().environment(fleetAccount).presentationDetents([.large])
+        .fullScreenCover(isPresented: $showingTeslaAccount) {
+            TeslaAccountView().environment(fleetAccount)
         }
     }
 
@@ -156,6 +158,10 @@ struct PairVehicleView: View {
 
     private var header: some View {
         HStack {
+            if showsCloseButton {
+                Button("关闭") { dismiss() }
+                    .font(.subheadline.weight(.semibold))
+            }
             Spacer()
             Button { showingTeslaAccount = true } label: {
                 TeslaAccountAvatarLabel(

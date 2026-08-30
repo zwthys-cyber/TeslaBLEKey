@@ -92,7 +92,7 @@ struct VehicleIdentityView: View {
                 }
             }
             .onAppear { isFocused = true }
-            .sheet(isPresented: $showingScanner) {
+            .fullScreenCover(isPresented: $showingScanner) {
                 NavigationStack {
                     VINScannerView { value in
                         vin = value

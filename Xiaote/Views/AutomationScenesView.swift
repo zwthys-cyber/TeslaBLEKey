@@ -28,7 +28,7 @@ struct AutomationScenesView: View {
         .scrollContentBackground(.hidden)
         .appDestinationPage(title: "自动化场景")
         .toolbar { Button { editingScene = newScene } label: { Image(systemName: "plus") } }
-        .sheet(item: $editingScene) { scene in SceneEditorView(scene: scene).environment(vehicle) }
+        .fullScreenCover(item: $editingScene) { scene in SceneEditorView(scene: scene).environment(vehicle) }
     }
 
     private var newScene: VehicleController.AutomationScene {

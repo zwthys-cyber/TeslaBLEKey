@@ -28,7 +28,7 @@ struct RootView: View {
             } message: {
                 Text(vehicle.errorMessage)
             }
-            .sheet(isPresented: $vehicle.showingVehicleIdentity) {
+            .fullScreenCover(isPresented: $vehicle.showingVehicleIdentity) {
                 VehicleIdentityView()
                     .environment(vehicle)
                     .presentationDetents([.large])

@@ -52,7 +52,7 @@ struct VehicleSchedulesView: View {
         .appDestinationPage(title: "预约计划")
         .toolbar { Button { showingEditor = true } label: { Image(systemName: "plus") } }
         .task { await vehicle.refreshSchedules() }
-        .sheet(isPresented: $showingEditor) { ScheduleEditorView().environment(vehicle) }
+        .fullScreenCover(isPresented: $showingEditor) { ScheduleEditorView().environment(vehicle) }
     }
 
     private func timeText(_ minutes: Int) -> String { String(format: "%02d:%02d", minutes / 60, minutes % 60) }

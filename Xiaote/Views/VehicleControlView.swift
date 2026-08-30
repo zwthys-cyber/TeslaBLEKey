@@ -76,7 +76,7 @@ struct VehicleControlView: View {
         .sensoryFeedback(.success, trigger: vehicle.lastSuccessAction)
         .sensoryFeedback(.error, trigger: vehicle.showingError)
         .animation(reduceMotion ? AppMotion.reduced : AppMotion.state, value: vehicle.mediaPlaybackStatus)
-        .sheet(isPresented: $showingAddVehicle, onDismiss: {
+        .fullScreenCover(isPresented: $showingAddVehicle, onDismiss: {
             Task { await vehicle.finishVehicleAdditionSheet() }
         }) {
             NavigationStack { AddVehicleView() }
@@ -94,11 +94,11 @@ struct VehicleControlView: View {
                 saveHomeLayout()
             }.presentationDetents([.large])
         }
-        .sheet(isPresented: $showingAlerts) {
-            VehicleAlertsView().environment(vehicle).presentationDetents([.large])
+        .fullScreenCover(isPresented: $showingAlerts) {
+            VehicleAlertsView().environment(vehicle)
         }
-        .sheet(isPresented: $showingTeslaAccount) {
-            TeslaAccountView().environment(fleetAccount).presentationDetents([.large])
+        .fullScreenCover(isPresented: $showingTeslaAccount) {
+            TeslaAccountView().environment(fleetAccount)
         }
     }
 

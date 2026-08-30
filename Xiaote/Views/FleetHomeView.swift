@@ -24,13 +24,13 @@ struct FleetHomeView: View {
         .background(AppTheme.background.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showingAccount) {
-            TeslaAccountView().environment(account).presentationDetents([.large])
+        .fullScreenCover(isPresented: $showingAccount) {
+            TeslaAccountView().environment(account)
         }
-        .sheet(isPresented: $showingBluetoothPairing, onDismiss: {
+        .fullScreenCover(isPresented: $showingBluetoothPairing, onDismiss: {
             Task { await localVehicle.finishVehicleAdditionSheet() }
         }) {
-            NavigationStack { PairVehicleView() }
+            NavigationStack { PairVehicleView(showsCloseButton: true) }
                 .environment(localVehicle)
                 .environment(account)
                 .preferredColorScheme(.dark)
@@ -87,31 +87,39 @@ struct FleetHomeView: View {
                     .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             } else {
                 VStack(spacing: 0) {
-                    ForEach(Array(account.vehicles.enumerated()), id: \.element.id) { index, vehicle in
-                        HStack(spacing: 13) {
-                            Image(systemName: "car.side.fill").frame(width: 32)
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 7) {
-                                    Text(vehicle.name).font(.headline)
-                                    if account.isDemoMode {
-                                        Text("演示")
-                                            .font(.caption2.weight(.semibold))
-                                            .foregroundStyle(.black)
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(.white, in: Capsule())
+                    ForEach(Array(account.vehicles.enumerated()), id: \.element.id) { index, fleetVehicle in
+                        NavigationLink {
+                            FleetVehicleOverviewView(fleetVehicle: fleetVehicle)
+                        } label: {
+                            HStack(spacing: 13) {
+                                Image(systemName: "car.side.fill").frame(width: 32)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 7) {
+                                        Text(fleetVehicle.name).font(.headline)
+                                        if account.isDemoMode {
+                                            Text("演示")
+                                                .font(.caption2.weight(.semibold))
+                                                .foregroundStyle(.black)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(.white, in: Capsule())
+                                        }
                                     }
+                                    Text("•••• \(fleetVehicle.vin.suffix(4))")
+                                        .font(.caption.monospacedDigit()).foregroundStyle(AppTheme.muted)
                                 }
-                                Text("•••• \(vehicle.vin.suffix(4))")
-                                    .font(.caption.monospacedDigit()).foregroundStyle(AppTheme.muted)
+                                Spacer()
+                                HStack(spacing: 5) {
+                                    Circle().fill(statusColor(fleetVehicle.state)).frame(width: 6, height: 6)
+                                    Text(statusText(fleetVehicle.state)).font(.caption)
+                                }
+                                .foregroundStyle(AppTheme.muted)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted)
                             }
-                            Spacer()
-                            HStack(spacing: 5) {
-                                Circle().fill(statusColor(vehicle.state)).frame(width: 6, height: 6)
-                                Text(statusText(vehicle.state)).font(.caption)
-                            }
-                            .foregroundStyle(AppTheme.muted)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                         .padding(16)
                         if index < account.vehicles.count - 1 {
                             Divider().overlay(AppTheme.hairline).padding(.leading, 61)
@@ -152,5 +160,51 @@ struct FleetHomeView: View {
 
     private func statusColor(_ state: String?) -> Color {
         state == "online" ? .green : AppTheme.muted
+    }
+}
+
+private struct FleetVehicleOverviewView: View {
+    @Environment(FleetAccountController.self) private var account
+    let fleetVehicle: FleetVehicle
+
+    var body: some View {
+        List {
+            Section("车辆") {
+                LabeledContent("名称", value: fleetVehicle.name)
+                LabeledContent("状态", value: statusText)
+                LabeledContent("车辆识别码", value: "•••• \(fleetVehicle.vin.suffix(4))")
+            }
+            if account.isDemoMode {
+                Section {
+                    Label("这是界面演示车辆，不会连接或控制真实车辆。", systemImage: "info.circle")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if let specs = account.vehicleSpecs[fleetVehicle.vin.uppercased()], !specs.rows.isEmpty {
+                Section("车辆配置") {
+                    ForEach(Array(specs.rows.enumerated()), id: \.offset) { _, row in
+                        LabeledContent(row.0, value: row.1)
+                    }
+                }
+            }
+            if let notes = account.releaseNotes[fleetVehicle.vin.uppercased()] {
+                Section("软件") {
+                    if let version = notes.displayVersion { LabeledContent("已部署版本", value: version) }
+                    ForEach(Array(notes.titledNotes.prefix(2).enumerated()), id: \.offset) { _, title in
+                        Text(title)
+                    }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .appDestinationPage(title: fleetVehicle.name)
+        .task {
+            await account.loadSpecs(for: fleetVehicle.vin)
+            await account.loadCloudDetails(for: fleetVehicle.vin)
+        }
+    }
+
+    private var statusText: String {
+        switch fleetVehicle.state { case "online": "在线"; case "asleep": "休眠"; case "offline": "离线"; default: "未知" }
     }
 }
