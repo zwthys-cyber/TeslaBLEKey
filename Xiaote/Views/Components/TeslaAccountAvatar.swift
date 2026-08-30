@@ -34,7 +34,7 @@ struct TeslaAccountAvatar: View {
             .resizable()
             .scaledToFit()
             .foregroundStyle(.white.opacity(0.9))
-            .padding(size * 0.17)
+            .padding(size * 0.24)
     }
 }
 
