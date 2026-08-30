@@ -4,7 +4,6 @@ struct TeslaAccountView: View {
     @Environment(FleetAccountController.self) private var account
     @Environment(\.dismiss) private var dismiss
     @State private var confirmSignOut = false
-    @State private var showingDemoStateLab = false
 
     var body: some View {
         NavigationStack {
@@ -51,10 +50,6 @@ struct TeslaAccountView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showingDemoStateLab) {
-            NavigationStack { DemoVehicleStateView() }
-                .preferredColorScheme(.dark)
-        }
         .onChange(of: account.isSignedIn) { wasSignedIn, isSignedIn in
             if !wasSignedIn && isSignedIn { dismiss() }
         }
@@ -185,11 +180,7 @@ struct TeslaAccountView: View {
                     .padding(.horizontal, 16)
                     .frame(minHeight: 72)
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        if account.isDemoMode { showingDemoStateLab = true }
-                    }
                     .accessibilityElement(children: .combine)
-                    .accessibilityHint(account.isDemoMode ? "打开车辆状态动画测试" : "")
                     if index < account.vehicles.count - 1 {
                         Divider().overlay(AppTheme.hairline).padding(.leading, 64)
                     }

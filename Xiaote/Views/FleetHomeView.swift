@@ -5,7 +5,6 @@ struct FleetHomeView: View {
     @Environment(VehicleController.self) private var localVehicle
     @State private var showingAccount = false
     @State private var showingBluetoothPairing = false
-    @State private var showingDemoStateLab = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,10 +33,6 @@ struct FleetHomeView: View {
             NavigationStack { PairVehicleView() }
                 .environment(localVehicle)
                 .environment(account)
-                .preferredColorScheme(.dark)
-        }
-        .sheet(isPresented: $showingDemoStateLab) {
-            NavigationStack { DemoVehicleStateView() }
                 .preferredColorScheme(.dark)
         }
         .task {
@@ -93,10 +88,7 @@ struct FleetHomeView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(account.vehicles.enumerated()), id: \.element.id) { index, vehicle in
-                        Button {
-                            if account.isDemoMode { showingDemoStateLab = true }
-                        } label: {
-                            HStack(spacing: 13) {
+                        HStack(spacing: 13) {
                             Image(systemName: "car.side.fill").frame(width: 32)
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack(spacing: 7) {
@@ -119,17 +111,7 @@ struct FleetHomeView: View {
                                 Text(statusText(vehicle.state)).font(.caption)
                             }
                             .foregroundStyle(AppTheme.muted)
-                            if account.isDemoMode {
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(AppTheme.muted)
-                            }
-                            }
-                            .contentShape(Rectangle())
                         }
-                        .buttonStyle(UtilityPressStyle())
-                        .disabled(!account.isDemoMode)
-                        .opacity(1)
                         .padding(16)
                         if index < account.vehicles.count - 1 {
                             Divider().overlay(AppTheme.hairline).padding(.leading, 61)

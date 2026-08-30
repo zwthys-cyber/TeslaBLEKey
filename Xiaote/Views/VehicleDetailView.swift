@@ -2,7 +2,6 @@ import SwiftUI
 
 struct VehicleDetailView: View {
     @Environment(VehicleController.self) private var vehicle
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var refreshing = false
 
     var body: some View {
@@ -41,28 +40,6 @@ struct VehicleDetailView: View {
 
     private var vehicleHero: some View {
         VStack(spacing: 4) {
-            Group {
-                if showsModel3Artwork {
-                    StatefulModel3Artwork(
-                        isConnected: connected,
-                        isLocked: vehicle.isLocked,
-                        isFrunkOpen: vehicle.isFrunkOpen == true,
-                        isTrunkOpen: vehicle.isTrunkOpen,
-                        isChargePortOpen: vehicle.isChargePortOpen,
-                        doorStates: vehicle.doorStates,
-                        isCharging: vehicle.isCharging,
-                        reduceMotion: reduceMotion
-                    )
-                } else {
-                    Image(systemName: "car.side.fill")
-                        .font(.system(size: 82, weight: .ultraLight))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .frame(maxWidth: .infinity, minHeight: 160)
-                }
-            }
-            .frame(maxWidth: 430)
-            .accessibilityHidden(true)
-
             Text(vehicle.displayVehicleName)
                 .font(.system(size: 26, weight: .semibold))
                 .tracking(-0.4)
@@ -78,7 +55,7 @@ struct VehicleDetailView: View {
             .font(.caption)
             .foregroundStyle(AppTheme.muted)
         }
-        .padding(.top, 6)
+        .padding(.top, 24)
     }
 
     private var primaryMetrics: some View {
@@ -248,119 +225,8 @@ struct VehicleDetailView: View {
         if let odometer = vehicle.odometerKilometers { return String(format: "%.0f km", odometer) }
         return vehicle.vehicleSleepStatus
     }
-    private var showsModel3Artwork: Bool {
-        let model = vehicle.vehicleModelName ?? vehicle.displayVehicleName
-        return model.lowercased().replacingOccurrences(of: " ", with: "").contains("model3")
-    }
     private var updateLabel: String {
         guard let date = vehicle.lastStateUpdate else { return refreshing ? "正在读取车辆状态" : "尚未刷新" }
         return "更新于 \(date.formatted(date: .omitted, time: .shortened))"
-    }
-}
-
-struct StatefulModel3Artwork: View {
-    let isConnected: Bool
-    let isLocked: Bool?
-    let isFrunkOpen: Bool
-    let isTrunkOpen: Bool
-    let isChargePortOpen: Bool
-    let doorStates: [String: Bool]
-    let isCharging: Bool
-    let reduceMotion: Bool
-    @State private var artworkOpacity = 1.0
-    @State private var modelLoadFailed = false
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                HighlandVehicle3DView(
-                    isLocked: isLocked,
-                    isFrunkOpen: isFrunkOpen,
-                    isTrunkOpen: isTrunkOpen,
-                    isChargePortOpen: isChargePortOpen,
-                    doorStates: doorStates,
-                    reduceMotion: reduceMotion,
-                    loadFailed: $modelLoadFailed
-                )
-                .accessibilityHidden(true)
-
-                if modelLoadFailed {
-                    VStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle")
-                        Text("车辆模型加载失败")
-                            .font(.caption.weight(.semibold))
-                    }
-                    .foregroundStyle(.orange)
-                    .accessibilityElement(children: .combine)
-                }
-
-                if isFrunkOpen {
-                    statePoint(at: CGPoint(x: 0.31, y: 0.60), in: proxy.size, label: "前备箱已开启")
-                }
-                if isTrunkOpen {
-                    statePoint(at: CGPoint(x: 0.88, y: 0.43), in: proxy.size, label: "后备箱已开启")
-                }
-                if doorStates["左前门"] == true {
-                    statePoint(at: CGPoint(x: 0.63, y: 0.52), in: proxy.size, label: "左前门已开启")
-                }
-                if doorStates["左后门"] == true {
-                    statePoint(at: CGPoint(x: 0.75, y: 0.48), in: proxy.size, label: "左后门已开启")
-                }
-                if doorStates["右前门"] == true || doorStates["右后门"] == true {
-                    statePoint(at: CGPoint(x: 0.54, y: 0.43), in: proxy.size, label: "右侧车门已开启")
-                }
-                if isCharging {
-                    ChargingPulse(reduceMotion: reduceMotion)
-                        .position(x: proxy.size.width * 0.89, y: proxy.size.height * 0.44)
-                        .accessibilityLabel("车辆正在充电")
-                }
-            }
-        }
-        .aspectRatio(1.5, contentMode: .fit)
-        .opacity(isConnected ? artworkOpacity : 0.58)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: isLocked)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isFrunkOpen)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isTrunkOpen)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: doorStates)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isConnected)
-        .onChange(of: isConnected) { wasConnected, connected in
-            guard !wasConnected, connected, !reduceMotion else { return }
-            artworkOpacity = 0.72
-            withAnimation(.easeOut(duration: 0.24)) {
-                artworkOpacity = 1
-            }
-        }
-    }
-
-    private func statePoint(at point: CGPoint, in size: CGSize, label: String) -> some View {
-        ZStack {
-            Circle().fill(.black.opacity(0.55)).frame(width: 19, height: 19)
-            Circle().stroke(.white.opacity(0.92), lineWidth: 1.5).frame(width: 12, height: 12)
-            Circle().fill(.white).frame(width: 4, height: 4)
-        }
-        .position(x: size.width * point.x, y: size.height * point.y)
-        .transition(.opacity.combined(with: .scale(scale: 0.75)))
-        .accessibilityLabel(label)
-    }
-}
-
-private struct ChargingPulse: View {
-    let reduceMotion: Bool
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: reduceMotion)) { context in
-            let phase = reduceMotion ? 0.5 : (sin(context.date.timeIntervalSinceReferenceDate * .pi / 1.6) + 1) / 2
-            ZStack {
-                Circle()
-                    .fill(Color.green.opacity(0.12 + phase * 0.14))
-                    .frame(width: 30, height: 30)
-                    .scaleEffect(0.84 + phase * 0.16)
-                Circle().fill(Color.green).frame(width: 8, height: 8)
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 5, weight: .bold))
-                    .foregroundStyle(.black)
-            }
-        }
-        .frame(width: 30, height: 30)
     }
 }
