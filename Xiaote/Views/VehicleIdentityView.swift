@@ -103,8 +103,10 @@ struct VehicleIdentityView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("取消") { showingScanner = false } } }
                 }
+                .edgeSwipeToDismiss()
             }
         }
         .preferredColorScheme(.dark)
+        .edgeSwipeToDismiss()
     }
 }

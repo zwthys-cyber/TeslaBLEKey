@@ -85,4 +85,54 @@ extension View {
     func appDestinationPage(title: String) -> some View {
         modifier(DestinationPageModifier(title: title))
     }
+
+    func edgeSwipeToDismiss(enabled: Bool = true) -> some View {
+        modifier(EdgeSwipeDismissModifier(isEnabled: enabled))
+    }
+}
+
+private struct EdgeSwipeDismissModifier: ViewModifier {
+    let isEnabled: Bool
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var offset: CGFloat = 0
+    @State private var isTracking = false
+
+    func body(content: Content) -> some View {
+        ZStack {
+            AppTheme.background.ignoresSafeArea()
+            content.offset(x: offset)
+        }
+        .simultaneousGesture(isEnabled ? edgeDrag : nil)
+    }
+
+    private var edgeDrag: some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .global)
+            .onChanged { value in
+                if !isTracking {
+                    guard value.startLocation.x <= 24,
+                          value.translation.width > 0,
+                          abs(value.translation.width) > abs(value.translation.height) else { return }
+                    isTracking = true
+                }
+                offset = max(0, value.translation.width)
+            }
+            .onEnded { value in
+                guard isTracking else { return }
+                isTracking = false
+                let shouldDismiss = value.translation.width > 88 || value.predictedEndTranslation.width > 180
+                guard shouldDismiss else {
+                    withAnimation(reduceMotion ? AppMotion.reduced : AppMotion.spatial) { offset = 0 }
+                    return
+                }
+                let width = max(UIScreen.main.bounds.width, 320)
+                withAnimation(reduceMotion ? AppMotion.reduced : .easeOut(duration: 0.18)) { offset = width }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(reduceMotion ? 30 : 180))
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) { dismiss() }
+                }
+            }
+    }
 }

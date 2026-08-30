@@ -58,6 +58,7 @@ struct PairVehicleView: View {
             }
         }
         .sensoryFeedback(.selection, trigger: selectedVehicle?.id)
+        .edgeSwipeToDismiss(enabled: showsCloseButton)
         .fullScreenCover(isPresented: $showingTeslaAccount) {
             TeslaAccountView().environment(fleetAccount)
         }

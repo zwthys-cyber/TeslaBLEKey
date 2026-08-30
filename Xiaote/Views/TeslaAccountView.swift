@@ -50,6 +50,7 @@ struct TeslaAccountView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .edgeSwipeToDismiss()
         .onChange(of: account.isSignedIn) { wasSignedIn, isSignedIn in
             if !wasSignedIn && isSignedIn { dismiss() }
         }

@@ -100,7 +100,9 @@ private struct ScheduleEditorView: View {
                     }.disabled(selectedDays.isEmpty)
                 }
             }
-        }.preferredColorScheme(.dark)
+        }
+        .preferredColorScheme(.dark)
+        .edgeSwipeToDismiss()
     }
 }
 

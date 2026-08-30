@@ -47,7 +47,9 @@ struct VehicleAlertsView: View {
             .alert("通知权限未开启", isPresented: $authorizationDenied) {
                 Button("好", role: .cancel) {}
             } message: { Text("请在系统设置中允许“小特蓝牙钥匙”发送通知。") }
-        }.preferredColorScheme(.dark)
+        }
+        .preferredColorScheme(.dark)
+        .edgeSwipeToDismiss()
     }
 
     private func persist() { vehicle.setAlertPreferences(preferences) }

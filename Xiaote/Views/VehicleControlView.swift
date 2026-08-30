@@ -82,6 +82,7 @@ struct VehicleControlView: View {
             NavigationStack { AddVehicleView() }
                 .environment(vehicle)
                 .preferredColorScheme(.dark)
+                .edgeSwipeToDismiss()
         }
         .sheet(isPresented: $showingRenameVehicle) {
             RenameVehicleView().environment(vehicle).presentationDetents([.height(250)])

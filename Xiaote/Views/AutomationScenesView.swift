@@ -64,6 +64,8 @@ private struct SceneEditorView: View {
                     Button("保存") { vehicle.saveScene(scene); dismiss() }.disabled(scene.name.isEmpty || scene.actions.isEmpty)
                 }
             }
-        }.preferredColorScheme(.dark)
+        }
+        .preferredColorScheme(.dark)
+        .edgeSwipeToDismiss()
     }
 }
