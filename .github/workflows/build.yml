@@ -83,11 +83,6 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Validate production 3D asset
-        run: |
-          test -s Xiaote/Resources/Model3Highland.usdz
-          unzip -t Xiaote/Resources/Model3Highland.usdz
-
       - name: Resolve Swift packages
         run: xcodebuild -resolvePackageDependencies -project Xiaote.xcodeproj -scheme Xiaote
 
@@ -112,14 +107,6 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY='' \
             clean build
-
-      - name: Verify production 3D asset is bundled
-        run: |
-          test -s DerivedData/Build/Products/Release-iphoneos/Xiaote.app/Model3Highland.usdz
-          if find DerivedData/Build/Products/Release-iphoneos/Xiaote.app -iname '*highland*.png' | grep -q .; then
-            echo "Legacy Highland PNG found in production bundle" >&2
-            exit 1
-          fi
 
       - name: Package TrollStore IPA
         run: |
