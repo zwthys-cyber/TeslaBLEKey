@@ -159,6 +159,52 @@ struct FleetReleaseNotes: Decodable, Sendable {
 struct FleetDriver: Decodable, Sendable {}
 struct FleetShareInvitation: Decodable, Sendable {}
 
+struct FleetVehicleAlert: Decodable, Sendable, Identifiable {
+    let name: String?
+    let userText: String?
+    let customerText: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case userText = "user_text"
+        case customerText = "customer_text"
+    }
+
+    var id: String { "\(name ?? "alert")-\(userText ?? customerText ?? "unknown")" }
+    var title: String {
+        let text = customerText ?? userText ?? name
+        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "车辆提醒" : trimmed
+    }
+}
+
+struct FleetNearbyChargingSites: Decodable, Sendable {
+    struct Site: Decodable, Sendable, Identifiable {
+        let name: String?
+        let distanceMiles: Double?
+        let availableStalls: Int?
+        let totalStalls: Int?
+        let siteClosed: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case distanceMiles = "distance_miles"
+            case availableStalls = "available_stalls"
+            case totalStalls = "total_stalls"
+            case siteClosed = "site_closed"
+        }
+
+        var id: String { "\(name ?? "site")-\(distanceMiles ?? -1)" }
+        var displayName: String {
+            let value = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return value.isEmpty ? "Tesla 超级充电站" : value
+        }
+        var distanceKilometers: Double? { distanceMiles.map { $0 * 1.609344 } }
+    }
+
+    let superchargers: [Site]?
+}
+
 extension FleetEnergyProduct {
     var identifiableID: String { stableID }
 }
@@ -271,6 +317,24 @@ actor FleetAPIClient {
     func shareInvitations(token: String, vin: String) async throws -> [FleetShareInvitation] {
         try validate(vin: vin)
         let response: FleetEnvelope<[FleetShareInvitation]> = try await request(path: "/v1/vehicles/\(vin)/share-invites", token: token)
+        return response.response
+    }
+
+    func mobileEnabled(token: String, vin: String) async throws -> Bool {
+        try validate(vin: vin)
+        let response: FleetEnvelope<Bool> = try await request(path: "/v1/vehicles/\(vin)/mobile-enabled", token: token)
+        return response.response
+    }
+
+    func recentAlerts(token: String, vin: String) async throws -> [FleetVehicleAlert] {
+        try validate(vin: vin)
+        let response: FleetEnvelope<[FleetVehicleAlert]> = try await request(path: "/v1/vehicles/\(vin)/recent-alerts", token: token)
+        return response.response
+    }
+
+    func nearbyChargingSites(token: String, vin: String) async throws -> FleetNearbyChargingSites {
+        try validate(vin: vin)
+        let response: FleetEnvelope<FleetNearbyChargingSites> = try await request(path: "/v1/vehicles/\(vin)/nearby-charging-sites", token: token)
         return response.response
     }
 

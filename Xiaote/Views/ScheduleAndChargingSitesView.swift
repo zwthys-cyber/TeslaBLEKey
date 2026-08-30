@@ -106,9 +106,10 @@ private struct ScheduleEditorView: View {
 
 struct NearbyChargingSitesView: View {
     @Environment(VehicleController.self) private var vehicle
+    @Environment(FleetAccountController.self) private var fleetAccount
     var body: some View {
         List {
-            if vehicle.isLoadingNearbyChargingSites, vehicle.nearbyChargingSites.isEmpty {
+            if vehicle.isLoadingNearbyChargingSites, vehicle.nearbyChargingSites.isEmpty, cloudSites.isEmpty {
                 HStack(spacing: 12) {
                     ProgressView()
                     Text("正在通过车辆查询附近充电站…")
@@ -116,7 +117,7 @@ struct NearbyChargingSitesView: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: 120)
                 .listRowBackground(Color.clear)
-            } else if vehicle.nearbyChargingSites.isEmpty {
+            } else if vehicle.nearbyChargingSites.isEmpty && cloudSites.isEmpty {
                 ContentUnavailableView {
                     Label("暂无充电站数据", systemImage: "bolt.car")
                 } description: {
@@ -156,6 +157,32 @@ struct NearbyChargingSitesView: View {
                     }
                 }.padding(.vertical, 5)
             }
+            if vehicle.nearbyChargingSites.isEmpty {
+                ForEach(cloudSites) { site in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(site.displayName).font(.headline)
+                            Spacer()
+                            if let distance = site.distanceKilometers {
+                                Text(String(format: "%.1f km", distance)).monospacedDigit()
+                            }
+                        }
+                        HStack {
+                            if site.siteClosed == true {
+                                Label("站点已关闭", systemImage: "xmark.circle")
+                            } else if let available = site.availableStalls, let total = site.totalStalls {
+                                Label("\(available) 空闲 · 共 \(total)", systemImage: "bolt.fill")
+                            } else {
+                                Label("Tesla 充电网络", systemImage: "bolt.fill")
+                            }
+                            Spacer()
+                        }
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(site.siteClosed == true ? .secondary : .primary)
+                    }
+                    .padding(.vertical, 5)
+                }
+            }
             if let updated = vehicle.nearbyChargingSitesUpdatedAt, !vehicle.nearbyChargingSites.isEmpty {
                 Text("车辆数据更新于 \(updated.formatted(date: .omitted, time: .shortened))")
                     .font(.caption).foregroundStyle(.secondary)
@@ -165,7 +192,19 @@ struct NearbyChargingSitesView: View {
         }
         .scrollContentBackground(.hidden).background(AppTheme.background.ignoresSafeArea())
         .navigationTitle("附近超级充电站").navigationBarTitleDisplayMode(.inline)
-        .refreshable { await vehicle.refreshNearbyChargingSites() }
-        .task { await vehicle.refreshNearbyChargingSites() }
+        .refreshable { await refreshSites() }
+        .task { await refreshSites() }
+    }
+
+    private var cloudSites: [FleetNearbyChargingSites.Site] {
+        guard let vin = vehicle.currentVIN?.uppercased() else { return [] }
+        return fleetAccount.nearbyChargingSites[vin] ?? []
+    }
+
+    private func refreshSites() async {
+        await vehicle.refreshNearbyChargingSites()
+        if let vin = vehicle.currentVIN, vehicle.nearbyChargingSites.isEmpty {
+            await fleetAccount.loadNearbyChargingSites(for: vin)
+        }
     }
 }

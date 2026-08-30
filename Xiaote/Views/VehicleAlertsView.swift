@@ -2,6 +2,7 @@ import SwiftUI
 
 struct VehicleAlertsView: View {
     @Environment(VehicleController.self) private var vehicle
+    @Environment(FleetAccountController.self) private var fleetAccount
     @Environment(\.dismiss) private var dismiss
     @State private var preferences = VehicleAlertPreferences()
     @State private var authorizationDenied = false
@@ -27,11 +28,22 @@ struct VehicleAlertsView: View {
                     Toggle("充电停止或无电力", isOn: $preferences.chargingIssues)
                 }.disabled(!preferences.enabled)
                 Section { Text("提醒在 App 刷新到车辆真实状态或 iOS 恢复蓝牙会话时触发，不是云端全天候监控。") }
+                if !cloudAlerts.isEmpty {
+                    Section("车辆最近报告") {
+                        ForEach(cloudAlerts) { alert in
+                            Label(alert.title, systemImage: "exclamationmark.triangle")
+                                .font(.subheadline)
+                        }
+                    }
+                }
             }
             .navigationTitle("车辆提醒").navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { persist(); dismiss() } } }
             .onAppear { preferences = vehicle.alertPreferences }
             .onChange(of: preferences) { _, _ in persist() }
+            .task {
+                if let vin = vehicle.currentVIN { await fleetAccount.loadRecentAlerts(for: vin) }
+            }
             .alert("通知权限未开启", isPresented: $authorizationDenied) {
                 Button("好", role: .cancel) {}
             } message: { Text("请在系统设置中允许“小特蓝牙钥匙”发送通知。") }
@@ -39,4 +51,9 @@ struct VehicleAlertsView: View {
     }
 
     private func persist() { vehicle.setAlertPreferences(preferences) }
+
+    private var cloudAlerts: [FleetVehicleAlert] {
+        guard let vin = vehicle.currentVIN?.uppercased() else { return [] }
+        return fleetAccount.recentAlerts[vin] ?? []
+    }
 }

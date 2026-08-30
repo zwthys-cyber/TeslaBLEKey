@@ -210,6 +210,7 @@ struct VehicleDetailView: View {
         if let value = vehicle.softwareUpdateStatus { rows.append(("更新状态", value)) }
         if let value = vehicle.vehicleSleepStatus { rows.append(("车辆电源", value)) }
         if let value = vehicle.currentGear { rows.append(("当前挡位", value)) }
+        if let value = mobileAccess { rows.append(("手机远程访问", value ? "已启用" : "未启用")) }
         return rows
     }
 
@@ -274,5 +275,10 @@ struct VehicleDetailView: View {
             rows.append(("待处理邀请", "\(count) 个"))
         }
         return rows
+    }
+
+    private var mobileAccess: Bool? {
+        guard let vin = vehicle.currentVIN?.uppercased() else { return nil }
+        return fleetAccount.mobileAccess[vin]
     }
 }

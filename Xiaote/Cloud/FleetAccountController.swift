@@ -14,6 +14,9 @@ final class FleetAccountController: NSObject {
     private(set) var releaseNotes: [String: FleetReleaseNotes] = [:]
     private(set) var driverCounts: [String: Int] = [:]
     private(set) var invitationCounts: [String: Int] = [:]
+    private(set) var mobileAccess: [String: Bool] = [:]
+    private(set) var recentAlerts: [String: [FleetVehicleAlert]] = [:]
+    private(set) var nearbyChargingSites: [String: [FleetNearbyChargingSites.Site]] = [:]
     private(set) var vehicles: [FleetVehicle] = []
     private(set) var isDemoMode = false
     private(set) var isWorking = false
@@ -114,6 +117,9 @@ final class FleetAccountController: NSObject {
         releaseNotes = [:]
         driverCounts = [:]
         invitationCounts = [:]
+        mobileAccess = [:]
+        recentAlerts = [:]
+        nearbyChargingSites = [:]
         vehicles = []
         isDemoMode = false
         UserDefaults.standard.removeObject(forKey: demoModeKey)
@@ -167,6 +173,28 @@ final class FleetAccountController: NSObject {
         if invitationCounts[vin] == nil,
            let invitations = try? await api.shareInvitations(token: session.token, vin: vin) {
             invitationCounts[vin] = invitations.count
+        }
+        if mobileAccess[vin] == nil,
+           let enabled = try? await api.mobileEnabled(token: session.token, vin: vin) {
+            mobileAccess[vin] = enabled
+        }
+    }
+
+    func loadRecentAlerts(for vin: String) async {
+        let vin = vin.uppercased()
+        guard let session, !isDemoMode else { return }
+        if let alerts = try? await api.recentAlerts(token: session.token, vin: vin) {
+            recentAlerts[vin] = Array(alerts.prefix(10))
+        }
+    }
+
+    func loadNearbyChargingSites(for vin: String) async {
+        let vin = vin.uppercased()
+        guard let session, !isDemoMode else { return }
+        if let response = try? await api.nearbyChargingSites(token: session.token, vin: vin) {
+            nearbyChargingSites[vin] = (response.superchargers ?? []).sorted {
+                ($0.distanceMiles ?? .greatestFiniteMagnitude) < ($1.distanceMiles ?? .greatestFiniteMagnitude)
+            }
         }
     }
 
