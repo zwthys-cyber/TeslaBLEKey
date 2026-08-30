@@ -21,7 +21,7 @@ struct TeslaAccountAvatar: View {
                     fallback
                 }
             }
-            .frame(width: size - 5, height: size - 5)
+            .frame(width: size * 0.72, height: size * 0.72)
             .clipShape(Circle())
 
             Circle().stroke(AppTheme.hairline, lineWidth: 0.75)
@@ -34,7 +34,7 @@ struct TeslaAccountAvatar: View {
             .resizable()
             .scaledToFit()
             .foregroundStyle(.white.opacity(0.9))
-            .padding(size * 0.24)
+            .padding(size * 0.09)
     }
 }
 
