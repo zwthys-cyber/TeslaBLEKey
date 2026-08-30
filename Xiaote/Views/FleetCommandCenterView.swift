@@ -4,6 +4,7 @@ struct FleetCommandCenterView: View {
     @Environment(FleetAccountController.self) private var account
     let vehicle: FleetVehicle
     @State private var search = ""
+    @State private var showingReferences = false
 
     var body: some View {
         List {
@@ -16,6 +17,9 @@ struct FleetCommandCenterView: View {
                         Text("VIN •••• \(vehicle.vin.suffix(4)) · Tesla Fleet API")
                             .font(.caption).foregroundStyle(AppTheme.muted)
                     }
+                }
+                Button { showingReferences = true } label: {
+                    Label("官方文档与密钥", systemImage: "doc.badge.gearshape")
                 }
             }
             ForEach(FleetCommandDefinition.Category.allCases) { category in
@@ -49,6 +53,10 @@ struct FleetCommandCenterView: View {
         .scrollContentBackground(.hidden)
         .background(AppTheme.background)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showingReferences) {
+            NavigationStack { FleetDocumentationReferencesView() }
+                .preferredColorScheme(.dark)
+        }
     }
 
     private var filtered: [FleetCommandDefinition] {
@@ -58,6 +66,48 @@ struct FleetCommandCenterView: View {
             $0.title.localizedCaseInsensitiveContains(query) ||
             $0.summary.localizedCaseInsensitiveContains(query) ||
             $0.id.localizedCaseInsensitiveContains(query)
+        }
+    }
+}
+
+private struct FleetDocumentationReferencesView: View {
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        List {
+            Section("可用官方入口") {
+                ForEach(FleetDocumentationReference.all.filter { $0.kind != .internalAnchor }) { item in
+                    referenceRow(item)
+                }
+            }
+            Section {
+                ForEach(FleetDocumentationReference.all.filter { $0.kind == .internalAnchor }) { item in
+                    referenceRow(item)
+                }
+            } header: {
+                Text("页面技术锚点（完整收录）")
+            } footer: {
+                Text("技术锚点属于 Tesla 官方文档网站结构，不会向车辆发送请求，也不会申请额外权限。")
+            }
+        }
+        .navigationTitle("官方文档与密钥")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() } } }
+        .scrollContentBackground(.hidden).background(AppTheme.background)
+    }
+
+    @ViewBuilder private func referenceRow(_ item: FleetDocumentationReference) -> some View {
+        if let url = item.url {
+            Link(destination: url) {
+                HStack(spacing: 12) {
+                    Image(systemName: item.kind == .security ? "key.horizontal.fill" : item.kind == .guide ? "doc.text.fill" : "curlybraces")
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(item.title)
+                        Text(item.summary).font(.caption).foregroundStyle(AppTheme.muted)
+                    }
+                    Spacer(); Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(AppTheme.muted)
+                }.padding(.vertical, 3)
+            }.buttonStyle(.plain)
         }
     }
 }

@@ -111,3 +111,29 @@ struct FleetCommandDefinition: Identifiable, Hashable, Sendable {
         .init("erase_user_data", "清除车辆用户数据", "清除车辆内的个人资料和用户数据", .maintenance, "trash.fill", risk: .critical)
     ]
 }
+
+struct FleetDocumentationReference: Identifiable, Hashable, Sendable {
+    enum Kind: String, Sendable { case guide = "官方说明", security = "密钥与安全", internalAnchor = "页面技术锚点" }
+    let id: String
+    let title: String
+    let summary: String
+    let kind: Kind
+    let fragment: String
+
+    var url: URL? {
+        URL(string: "https://developer.tesla.cn/docs/fleet-api/endpoints/vehicle-commands#\(fragment)")
+    }
+
+    static let all: [Self] = [
+        .init(id: "endpoints", title: "车辆命令端点", summary: "Tesla Fleet API 车辆命令总览。", kind: .guide, fragment: "endpoints"),
+        .init(id: "generating_a_fleet_key", title: "生成 Fleet Key", summary: "官方 Fleet Key 生成、保管与部署说明。私钥不得进入客户端。", kind: .security, fragment: "generating-a-fleet-key"),
+        .init(id: "key_pairing", title: "车辆密钥配对", summary: "将虚拟密钥与车辆安全配对的官方流程。", kind: .security, fragment: "key-pairing"),
+        .init(id: "gatsby_announcer", title: "Gatsby Announcer", summary: "官方文档站用于无障碍页面导航播报的内部锚点，不是 API。", kind: .internalAnchor, fragment: "gatsby-announcer"),
+        .init(id: "gatsby_chunk_mapping", title: "Gatsby Chunk Mapping", summary: "官方文档站前端资源映射锚点，不是 API。", kind: .internalAnchor, fragment: "gatsby-chunk-mapping"),
+        .init(id: "gatsby_focus_wrapper", title: "Gatsby Focus Wrapper", summary: "官方文档站焦点管理锚点，不是 API。", kind: .internalAnchor, fragment: "gatsby-focus-wrapper"),
+        .init(id: "gatsby_script_loader", title: "Gatsby Script Loader", summary: "官方文档站脚本加载锚点，不是 API。", kind: .internalAnchor, fragment: "gatsby-script-loader"),
+        .init(id: "tds_css", title: "Tesla Design System CSS", summary: "官方文档站设计系统样式锚点，不是 API。", kind: .internalAnchor, fragment: "tds-css"),
+        .init(id: "tds_site_header", title: "Tesla Design System Header", summary: "官方文档站页眉组件锚点，不是 API。", kind: .internalAnchor, fragment: "tds-site-header"),
+        .init(id: "top_of_page", title: "页面顶部", summary: "官方文档页面顶部导航锚点，不是 API。", kind: .internalAnchor, fragment: "top-of-page")
+    ]
+}

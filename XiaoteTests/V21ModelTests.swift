@@ -13,6 +13,14 @@ final class V21ModelTests: XCTestCase {
         })
     }
 
+    func testFleetDocumentationAnchorsAreCompleteAndUnique() {
+        let references = FleetDocumentationReference.all
+        XCTAssertEqual(references.count, 10)
+        XCTAssertEqual(Set(references.map(\.id)).count, 10)
+        XCTAssertEqual(references.filter { $0.kind == .internalAnchor }.count, 7)
+        XCTAssertTrue(references.allSatisfy { $0.url != nil })
+    }
+
     func testPassiveLifecycleCoalescesDuplicateRecovery() {
         var lifecycle = PassiveKeyLifecycle(enabled: true)
         let generation = lifecycle.beginConnection()
