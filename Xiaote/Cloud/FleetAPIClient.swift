@@ -123,6 +123,42 @@ struct FleetVehicleSpecs: Codable, Sendable {
     }
 }
 
+struct FleetReleaseNotes: Decodable, Sendable {
+    struct Note: Decodable, Sendable {
+        let title: String?
+        let subtitle: String?
+        let description: String?
+    }
+
+    let releaseNotes: [Note]?
+    let deployedVersion: String?
+    let version: String?
+
+    enum CodingKeys: String, CodingKey {
+        case releaseNotes = "release_notes"
+        case deployedVersion = "deployed_version"
+        case version
+    }
+
+    var displayVersion: String? {
+        let value = deployedVersion ?? version
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    var titledNotes: [String] {
+        (releaseNotes ?? []).compactMap { note in
+            let title = note.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return title.isEmpty ? nil : title
+        }
+    }
+}
+
+// These collection entries intentionally decode without retaining personal or
+// invitation-link fields; the product surface only needs privacy-safe counts.
+struct FleetDriver: Decodable, Sendable {}
+struct FleetShareInvitation: Decodable, Sendable {}
+
 extension FleetEnergyProduct {
     var identifiableID: String { stableID }
 }
@@ -215,10 +251,26 @@ actor FleetAPIClient {
     }
 
     func vehicleSpecs(token: String, vin: String) async throws -> FleetVehicleSpecs {
-        guard vin.range(of: "^[A-HJ-NPR-Z0-9]{17}$", options: .regularExpression) != nil else {
-            throw FleetAPIError.server("车辆 VIN 无效。")
-        }
+        try validate(vin: vin)
         let response: FleetEnvelope<FleetVehicleSpecs> = try await request(path: "/v1/vehicles/\(vin)/specs", token: token)
+        return response.response
+    }
+
+    func releaseNotes(token: String, vin: String) async throws -> FleetReleaseNotes {
+        try validate(vin: vin)
+        let response: FleetEnvelope<FleetReleaseNotes> = try await request(path: "/v1/vehicles/\(vin)/release-notes", token: token)
+        return response.response
+    }
+
+    func drivers(token: String, vin: String) async throws -> [FleetDriver] {
+        try validate(vin: vin)
+        let response: FleetEnvelope<[FleetDriver]> = try await request(path: "/v1/vehicles/\(vin)/drivers", token: token)
+        return response.response
+    }
+
+    func shareInvitations(token: String, vin: String) async throws -> [FleetShareInvitation] {
+        try validate(vin: vin)
+        let response: FleetEnvelope<[FleetShareInvitation]> = try await request(path: "/v1/vehicles/\(vin)/share-invites", token: token)
         return response.response
     }
 
@@ -243,6 +295,12 @@ actor FleetAPIClient {
     private struct ErrorEnvelope: Decodable {
         struct Detail: Decodable { let message: String }
         let error: Detail
+    }
+
+    private func validate(vin: String) throws {
+        guard vin.range(of: "^[A-HJ-NPR-Z0-9]{17}$", options: .regularExpression) != nil else {
+            throw FleetAPIError.server("车辆 VIN 无效。")
+        }
     }
 
     private func request<Value: Decodable>(path: String, method: String = "GET", token: String? = nil, body: Data? = nil) async throws -> Value {

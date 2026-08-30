@@ -18,6 +18,12 @@ struct VehicleDetailView: View {
                 if hasChargingData { detailSection("电池与充电", summary: chargingSummary, rows: secondaryChargingRows) }
                 if hasTireData { tireSection }
                 if hasVehicleData { detailSection("系统", summary: vehicleSummary, rows: vehicleRows) }
+                if !releaseNoteRows.isEmpty {
+                    detailSection("软件版本说明", summary: releaseNotes?.displayVersion, rows: releaseNoteRows)
+                }
+                if !accessRows.isEmpty {
+                    detailSection("共享访问", summary: nil, rows: accessRows)
+                }
                 if let specs, !specs.rows.isEmpty {
                     detailSection("车辆配置", summary: nil, rows: specs.rows)
                 }
@@ -39,10 +45,7 @@ struct VehicleDetailView: View {
                 .accessibilityLabel("刷新车辆信息")
             }
         }
-        .task {
-            await refresh()
-            if let vin = vehicle.currentVIN { await fleetAccount.loadSpecs(for: vin) }
-        }
+        .task { await refresh() }
     }
 
     private var vehicleHero: some View {
@@ -145,6 +148,10 @@ struct VehicleDetailView: View {
         guard !refreshing else { return }
         refreshing = true
         await vehicle.refreshVehicleState()
+        if let vin = vehicle.currentVIN {
+            await fleetAccount.loadSpecs(for: vin)
+            await fleetAccount.loadCloudDetails(for: vin)
+        }
         refreshing = false
     }
 
@@ -240,5 +247,32 @@ struct VehicleDetailView: View {
     private var specs: FleetVehicleSpecs? {
         guard let vin = vehicle.currentVIN else { return nil }
         return fleetAccount.vehicleSpecs[vin.uppercased()]
+    }
+
+    private var releaseNotes: FleetReleaseNotes? {
+        guard let vin = vehicle.currentVIN else { return nil }
+        return fleetAccount.releaseNotes[vin.uppercased()]
+    }
+
+    private var releaseNoteRows: [(String, String)] {
+        guard let releaseNotes else { return [] }
+        var rows: [(String, String)] = []
+        if let version = releaseNotes.displayVersion { rows.append(("已部署版本", version)) }
+        for (index, title) in releaseNotes.titledNotes.prefix(2).enumerated() {
+            rows.append((index == 0 ? "本次更新" : "更多内容", title))
+        }
+        return rows
+    }
+
+    private var accessRows: [(String, String)] {
+        guard let vin = vehicle.currentVIN?.uppercased() else { return [] }
+        var rows: [(String, String)] = []
+        if let count = fleetAccount.driverCounts[vin], count > 0 {
+            rows.append(("授权驾驶员", "\(count) 位"))
+        }
+        if let count = fleetAccount.invitationCounts[vin], count > 0 {
+            rows.append(("待处理邀请", "\(count) 个"))
+        }
+        return rows
     }
 }

@@ -11,6 +11,9 @@ final class FleetAccountController: NSObject {
     private(set) var region: FleetAccountRegion?
     private(set) var energyProducts: [FleetEnergyProduct] = []
     private(set) var vehicleSpecs: [String: FleetVehicleSpecs] = [:]
+    private(set) var releaseNotes: [String: FleetReleaseNotes] = [:]
+    private(set) var driverCounts: [String: Int] = [:]
+    private(set) var invitationCounts: [String: Int] = [:]
     private(set) var vehicles: [FleetVehicle] = []
     private(set) var isDemoMode = false
     private(set) var isWorking = false
@@ -108,6 +111,9 @@ final class FleetAccountController: NSObject {
         region = nil
         energyProducts = []
         vehicleSpecs = [:]
+        releaseNotes = [:]
+        driverCounts = [:]
+        invitationCounts = [:]
         vehicles = []
         isDemoMode = false
         UserDefaults.standard.removeObject(forKey: demoModeKey)
@@ -142,6 +148,25 @@ final class FleetAccountController: NSObject {
         guard vehicleSpecs[vin] == nil, let session, !isDemoMode else { return }
         if let specs = try? await api.vehicleSpecs(token: session.token, vin: vin), !specs.rows.isEmpty {
             vehicleSpecs[vin] = specs
+        }
+    }
+
+    func loadCloudDetails(for vin: String) async {
+        let vin = vin.uppercased()
+        guard let session, !isDemoMode else { return }
+
+        if releaseNotes[vin] == nil,
+           let notes = try? await api.releaseNotes(token: session.token, vin: vin),
+           notes.displayVersion != nil || !notes.titledNotes.isEmpty {
+            releaseNotes[vin] = notes
+        }
+        if driverCounts[vin] == nil,
+           let drivers = try? await api.drivers(token: session.token, vin: vin) {
+            driverCounts[vin] = drivers.count
+        }
+        if invitationCounts[vin] == nil,
+           let invitations = try? await api.shareInvitations(token: session.token, vin: vin) {
+            invitationCounts[vin] = invitations.count
         }
     }
 
