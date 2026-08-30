@@ -64,6 +64,42 @@ struct FleetAccountRegion: Codable, Sendable {
     }
 }
 
+struct FleetEnergyProduct: Codable, Identifiable, Sendable {
+    let energySiteID: Int64?
+    let resourceType: String?
+    let siteName: String?
+    let id: String?
+
+    enum CodingKeys: String, CodingKey {
+        case energySiteID = "energy_site_id"
+        case resourceType = "resource_type"
+        case siteName = "site_name"
+        case id
+    }
+
+    var stableID: String {
+        id ?? energySiteID.map(String.init) ?? "\(resourceType ?? "energy")-\(siteName ?? "site")"
+    }
+
+    var name: String {
+        let trimmed = siteName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "Tesla 能源设备" : trimmed
+    }
+
+    var typeName: String {
+        switch resourceType?.lowercased() {
+        case "battery": "Powerwall"
+        case "solar": "太阳能"
+        case "wall_connector": "Wall Connector"
+        default: "能源站点"
+        }
+    }
+}
+
+extension FleetEnergyProduct {
+    var identifiableID: String { stableID }
+}
+
 private struct FleetEnvelope<Value: Decodable>: Decodable {
     let response: Value
 }
@@ -143,6 +179,11 @@ actor FleetAPIClient {
 
     func region(token: String) async throws -> FleetAccountRegion {
         let response: FleetEnvelope<FleetAccountRegion> = try await request(path: "/v1/account/region", token: token)
+        return response.response
+    }
+
+    func energyProducts(token: String) async throws -> [FleetEnergyProduct] {
+        let response: FleetEnvelope<[FleetEnergyProduct]> = try await request(path: "/v1/energy/products", token: token)
         return response.response
     }
 

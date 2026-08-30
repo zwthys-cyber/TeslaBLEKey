@@ -9,6 +9,7 @@ final class FleetAccountController: NSObject {
     private(set) var session: FleetSession?
     private(set) var profile: FleetAccountProfile?
     private(set) var region: FleetAccountRegion?
+    private(set) var energyProducts: [FleetEnergyProduct] = []
     private(set) var vehicles: [FleetVehicle] = []
     private(set) var isDemoMode = false
     private(set) var isWorking = false
@@ -60,6 +61,7 @@ final class FleetAccountController: NSObject {
             apply(remoteVehicles: remoteVehicles)
             profile = try? await api.profile(token: newSession.token)
             region = try? await api.region(token: newSession.token)
+            energyProducts = (try? await api.energyProducts(token: newSession.token)) ?? []
         } catch {
             if let authenticationError = error as? ASWebAuthenticationSessionError,
                authenticationError.code == .canceledLogin {
@@ -92,6 +94,7 @@ final class FleetAccountController: NSObject {
         guard !Task.isCancelled else { return }
         profile = try? await api.profile(token: session.token)
         region = try? await api.region(token: session.token)
+        energyProducts = (try? await api.energyProducts(token: session.token)) ?? []
     }
 
     func signOut() async {
@@ -102,6 +105,7 @@ final class FleetAccountController: NSObject {
         session = nil
         profile = nil
         region = nil
+        energyProducts = []
         vehicles = []
         isDemoMode = false
         UserDefaults.standard.removeObject(forKey: demoModeKey)

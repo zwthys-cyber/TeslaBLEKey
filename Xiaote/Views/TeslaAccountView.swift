@@ -68,6 +68,10 @@ struct TeslaAccountView: View {
             Spacer(minLength: 72)
             connectionDetails
                 .padding(.top, 44)
+            if !account.energyProducts.isEmpty {
+                energyProducts
+                    .padding(.top, 14)
+            }
             signOutButton
                 .padding(.top, 24)
         }
@@ -231,6 +235,29 @@ struct TeslaAccountView: View {
             .foregroundStyle(AppTheme.muted)
             .buttonStyle(UtilityPressStyle())
             .accessibilityHint("不会移除本地蓝牙钥匙")
+    }
+
+    private var energyProducts: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("能源设备")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(AppTheme.muted)
+            ForEach(account.energyProducts, id: \.stableID) { product in
+                HStack(spacing: 12) {
+                    Image(systemName: product.resourceType?.lowercased() == "solar" ? "sun.max.fill" : "bolt.house.fill")
+                        .frame(width: 36, height: 36)
+                        .background(AppTheme.raised, in: Circle())
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(product.name).font(.subheadline.weight(.semibold))
+                        Text(product.typeName).font(.caption).foregroundStyle(AppTheme.muted)
+                    }
+                    Spacer()
+                }
+            }
+        }
+        .padding(16)
+        .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(AppTheme.hairline, lineWidth: 0.5))
     }
 
     private var signedOutContent: some View {

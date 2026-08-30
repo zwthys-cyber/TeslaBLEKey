@@ -91,6 +91,7 @@ func TestProductRoutesMapToFixedFleetEndpoints(t *testing.T) {
 		"/v1/account/region",
 		"/v1/charging/history?vin=5YJ3E1EA7PF000001&page=2",
 		"/v1/energy/products",
+		"/v1/energy/sites/12345/live-status",
 		"/v1/vehicles/5YJ3E1EA7PF000001/release-notes",
 		"/v1/vehicles/5YJ3E1EA7PF000001/specs",
 	} {
@@ -107,6 +108,7 @@ func TestProductRoutesMapToFixedFleetEndpoints(t *testing.T) {
 		"GET /api/1/users/region",
 		"GET /api/1/dx/charging/history?page=2&vin=5YJ3E1EA7PF000001",
 		"GET /api/1/products",
+		"GET /api/1/energy_sites/12345/live_status",
 		"GET /api/1/vehicles/5YJ3E1EA7PF000001/release_notes",
 		"GET /api/1/vehicles/5YJ3E1EA7PF000001/specs",
 	}

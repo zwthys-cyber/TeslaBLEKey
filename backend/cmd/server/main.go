@@ -252,6 +252,9 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /v1/charging/sessions", s.requireSession(s.chargingSessions))
 	mux.HandleFunc("GET /v1/charging/invoices/{invoice}", s.requireSession(s.chargingInvoice))
 	mux.HandleFunc("GET /v1/energy/products", s.requireSession(s.energyProducts))
+	mux.HandleFunc("GET /v1/energy/sites/{site}/info", s.requireSession(s.energySiteInfo))
+	mux.HandleFunc("GET /v1/energy/sites/{site}/live-status", s.requireSession(s.energySiteLiveStatus))
+	mux.HandleFunc("GET /v1/energy/sites/{site}/history/{kind}", s.requireSession(s.energySiteHistory))
 	mux.HandleFunc("GET /v1/vehicles", s.requireSession(s.listVehicles))
 	mux.HandleFunc("GET /v1/vehicles/{vehicle}/data", s.requireSession(s.vehicleData))
 	mux.HandleFunc("GET /v1/vehicles/{vehicle}/drivers", s.requireSession(s.vehicleDrivers))
@@ -532,6 +535,40 @@ func (s *server) chargingInvoice(w http.ResponseWriter, r *http.Request, entry s
 
 func (s *server) energyProducts(w http.ResponseWriter, r *http.Request, entry session) {
 	s.fleet(w, r, entry, http.MethodGet, "/api/1/products", nil, false)
+}
+
+func (s *server) energySiteInfo(w http.ResponseWriter, r *http.Request, entry session) {
+	s.energySiteRead(w, r, entry, "site_info")
+}
+
+func (s *server) energySiteLiveStatus(w http.ResponseWriter, r *http.Request, entry session) {
+	s.energySiteRead(w, r, entry, "live_status")
+}
+
+func (s *server) energySiteHistory(w http.ResponseWriter, r *http.Request, entry session) {
+	site, kind := r.PathValue("site"), r.PathValue("kind")
+	if !validResourceID(site) || (kind != "backup" && kind != "energy" && kind != "charge") {
+		problem(w, 400, "invalid_energy_history", "Energy site or history kind is invalid")
+		return
+	}
+	endpoint := "calendar_history"
+	if kind == "charge" {
+		endpoint = "telemetry_history"
+	}
+	query := r.URL.Query()
+	query.Set("kind", kind)
+	r.URL.RawQuery = query.Encode()
+	path := "/api/1/energy_sites/" + url.PathEscape(site) + "/" + endpoint
+	s.fleetQuery(w, r, entry, path, "kind", "start_date", "end_date", "period")
+}
+
+func (s *server) energySiteRead(w http.ResponseWriter, r *http.Request, entry session, resource string) {
+	site := r.PathValue("site")
+	if !validResourceID(site) {
+		problem(w, 400, "invalid_energy_site", "Energy site identifier is invalid")
+		return
+	}
+	s.fleet(w, r, entry, http.MethodGet, "/api/1/energy_sites/"+url.PathEscape(site)+"/"+resource, nil, false)
 }
 
 func (s *server) listVehicles(w http.ResponseWriter, r *http.Request, entry session) {
