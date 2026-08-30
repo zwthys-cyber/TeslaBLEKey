@@ -507,13 +507,31 @@ func (s *server) wakeVehicle(w http.ResponseWriter, r *http.Request, entry sessi
 }
 
 var allowedCommands = map[string]bool{
-	"door_lock": true, "door_unlock": true, "flash_lights": true, "honk_horn": true,
-	"actuate_trunk": true, "auto_conditioning_start": true, "auto_conditioning_stop": true,
-	"charge_start": true, "charge_stop": true, "charge_port_door_open": true, "charge_port_door_close": true,
-	"set_charge_limit": true, "set_temps": true, "set_sentry_mode": true, "remote_start_drive": true,
-	"media_toggle_playback": true, "media_next_track": true, "media_prev_track": true,
-	"window_control": true, "add_charge_schedule": true, "remove_charge_schedule": true,
-	"add_precondition_schedule": true, "remove_precondition_schedule": true,
+	"actuate_trunk": true, "add_charge_schedule": true, "add_precondition_schedule": true,
+	"adjust_volume": true, "auto_conditioning_start": true, "auto_conditioning_stop": true,
+	"cancel_software_update": true, "charge_max_range": true, "charge_port_door_close": true,
+	"charge_port_door_open": true, "charge_standard": true, "charge_start": true, "charge_stop": true,
+	"clear_pin_to_drive_admin": true, "door_lock": true, "door_unlock": true, "erase_user_data": true,
+	"flash_lights": true, "guest_mode": true, "honk_horn": true, "media_next_fav": true,
+	"media_next_track": true, "media_prev_fav": true, "media_prev_track": true,
+	"media_toggle_playback": true, "media_volume_down": true, "media_volume_up": true,
+	"navigation_gps_request": true, "navigation_request": true, "navigation_sc_request": true,
+	"navigation_waypoints_request": true, "parental_controls_activate": true,
+	"parental_controls_clear_pin_admin": true, "parental_controls_deactivate": true,
+	"parental_controls_enable_setting": true, "parental_controls_set_speed_limit": true,
+	"remote_auto_seat_climate_request": true, "remote_auto_steering_wheel_heat_climate_request": true,
+	"remote_boombox": true, "remote_seat_cooler_request": true, "remote_seat_heater_request": true,
+	"remote_start_drive": true, "remote_steering_wheel_heat_level_request": true,
+	"remote_steering_wheel_heater_request": true, "remove_charge_schedule": true,
+	"remove_precondition_schedule": true, "reset_pin_to_drive_pin": true, "reset_valet_pin": true,
+	"schedule_software_update": true, "set_bioweapon_mode": true, "set_cabin_overheat_protection": true,
+	"set_charge_limit": true, "set_charging_amps": true, "set_climate_keeper_mode": true,
+	"set_cop_temp": true, "set_pin_to_drive": true, "set_preconditioning_max": true,
+	"set_scheduled_charging": true, "set_scheduled_departure": true, "set_sentry_mode": true,
+	"set_temps": true, "set_valet_mode": true, "set_vehicle_name": true,
+	"speed_limit_activate": true, "speed_limit_clear_pin": true, "speed_limit_clear_pin_admin": true,
+	"speed_limit_deactivate": true, "speed_limit_set_limit": true, "sun_roof_control": true,
+	"trigger_homelink": true, "upcoming_calendar_entries": true, "window_control": true,
 }
 
 func (s *server) vehicleCommand(w http.ResponseWriter, r *http.Request, entry session) {

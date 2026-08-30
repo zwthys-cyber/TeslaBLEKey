@@ -118,6 +118,15 @@ final class FleetAccountController: NSObject {
         await refreshAccount()
     }
 
+    func send(command: FleetCommandDefinition, to vehicle: FleetVehicle, payload: Data) async throws {
+        guard !isDemoMode else { throw FleetAPIError.server("演示模式不会向车辆发送命令。") }
+        guard let session else { throw FleetAPIError.server("请先登录 Tesla 账号。") }
+        let result = try await api.command(token: session.token, vin: vehicle.vin.uppercased(), name: command.id, payload: payload)
+        guard result.response.result else {
+            throw FleetAPIError.server(result.response.reason ?? "车辆拒绝了此命令。")
+        }
+    }
+
     private func apply(remoteVehicles: [FleetVehicle]) {
         if remoteVehicles.isEmpty, isDemoMode {
             vehicles = [Self.demoVehicle]

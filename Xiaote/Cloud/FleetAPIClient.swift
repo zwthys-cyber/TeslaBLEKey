@@ -67,6 +67,14 @@ struct FleetSession: Codable, Sendable {
     let expiresAt: Date
 }
 
+struct FleetCommandResult: Decodable, Sendable {
+    struct Response: Decodable, Sendable {
+        let result: Bool
+        let reason: String?
+    }
+    let response: Response
+}
+
 enum FleetAPIError: LocalizedError {
     case invalidResponse
     case server(String)
@@ -115,6 +123,19 @@ actor FleetAPIClient {
 
     func logout(token: String) async throws {
         let _: EmptyResponse = try await request(path: "/v1/auth/session", method: "DELETE", token: token)
+    }
+
+    func command(token: String, vin: String, name: String, payload: Data) async throws -> FleetCommandResult {
+        let allowed = CharacterSet.lowercaseLetters.union(.decimalDigits).union(CharacterSet(charactersIn: "_"))
+        guard name.unicodeScalars.allSatisfy(allowed.contains), !name.isEmpty,
+              vin.range(of: "^[A-HJ-NPR-Z0-9]{17}$", options: .regularExpression) != nil,
+              (try? JSONSerialization.jsonObject(with: payload)) != nil else {
+            throw FleetAPIError.server("车辆命令或参数无效。")
+        }
+        return try await request(
+            path: "/v1/vehicles/\(vin)/commands/\(name)",
+            method: "POST", token: token, body: payload
+        )
     }
 
     private struct EmptyResponse: Decodable {}

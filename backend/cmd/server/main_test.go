@@ -52,8 +52,13 @@ func TestEncryptionRoundTrip(t *testing.T) {
 }
 
 func TestCommandAllowlist(t *testing.T) {
-	if !allowedCommands["door_lock"] || allowedCommands["erase_user_data"] {
-		t.Fatal("unsafe command allowlist")
+	for _, command := range []string{"door_lock", "erase_user_data", "navigation_waypoints_request", "parental_controls_activate", "schedule_software_update"} {
+		if !allowedCommands[command] {
+			t.Fatalf("official Fleet API command %q is missing", command)
+		}
+	}
+	if allowedCommands["unknown_command"] {
+		t.Fatal("unknown commands must remain blocked")
 	}
 	if validVehicleID("../etc/passwd") {
 		t.Fatal("path traversal accepted")

@@ -9,7 +9,7 @@
 /* Begin PBXBuildFile section */
 		105C9835C762417E49CC57A9 /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8475E12FB1B679ACE3A41D4C /* AppStorage.swift */; };
 		170C1F9C80641133E9B3700E /* VehicleIdentityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F50BC7444C57B31D68281F35 /* VehicleIdentityView.swift */; };
-		247A11ED2590AA52B76D8670 /* WatchPhoneBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FAC8A1F947A1BAF5E5B9C1A /* WatchPhoneBridge.swift */; };
+		208F09FFCC85209F7C47CD6C /* ExtensionInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 63DA462D18F0ED3574255BD8 /* ExtensionInfo.plist */; };
 		260C6EA2095E3DF05E106585 /* VINScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26571BA4B11D14539524058E /* VINScannerView.swift */; };
 		299035ADFC6116888976122F /* FleetHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8970C359A8169C8E9EB5CBE /* FleetHomeView.swift */; };
 		2B45F66F2FD2BD3FECFAFB94 /* AppDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EBA8FD8E23B12745E124A99 /* AppDiagnostics.swift */; };
@@ -19,14 +19,16 @@
 		42189C2D83C6A2E86B295E08 /* MediaArtworkLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 697C219928EC791677A87C2B /* MediaArtworkLookup.swift */; };
 		43EF99DEDD620ADAC20E427D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E07577CECDB55EC1929110B4 /* Assets.xcassets */; };
 		47D76B468D2A235DB3C8877D /* V21ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 250229DD492504B682E9CC83 /* V21ModelTests.swift */; };
+		48BAA55D330228A27222F878 /* WatchControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16BA05B7EB96127935B98C62 /* WatchControlView.swift */; };
+		49FB03FADBBE3E8174A153FF /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 43E0B6591EB7C0DA40EDF9D6 /* InfoPlist.strings */; };
 		4BE7032788869FC0EB7CA7B8 /* TeslaBLEKeyKit in Frameworks */ = {isa = PBXBuildFile; productRef = 60E78889C9593E735BA07C8A /* TeslaBLEKeyKit */; };
 		4E0318193AC03C4C4083BAEF /* ScheduleAndChargingSitesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C7395D34026177947B7113 /* ScheduleAndChargingSitesView.swift */; };
 		4FB7BAA9D21A3E17685D0C26 /* VehicleAlertsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0E50B4823B06CEEC62D88E7 /* VehicleAlertsView.swift */; };
-		5439799FEC32FC8C2459F321 /* XiaoteWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DD4745111A673BBB0BF831F /* XiaoteWatchApp.swift */; };
 		549A566413F2A5EAD0662227 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B9FD874CFE5FED5342B0FE0 /* AppTheme.swift */; };
+		566525469C67609F18F62219 /* XiaoteWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DD4745111A673BBB0BF831F /* XiaoteWatchApp.swift */; };
 		5686FEC2A46E1FC88B6D4372 /* TeslaAccountAvatar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 272DB2DFAC198B5C7B752F2E /* TeslaAccountAvatar.swift */; };
+		5B68E292F5703E80DF844D2C /* FleetCommandCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2986C091E19A30147D718E4 /* FleetCommandCatalog.swift */; };
 		6312B83743C8C2CCF661B9AC /* VehicleDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770FB5F01D592895A2710E94 /* VehicleDetailView.swift */; };
-		6564F821B77C7681650F934A /* WatchControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16BA05B7EB96127935B98C62 /* WatchControlView.swift */; };
 		69EEF094EAB5703BD63AB7D9 /* AutomationScenesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541E67BF013EEFFA99675305 /* AutomationScenesView.swift */; };
 		6E283D55E062D008E7241802 /* LegacyVCSECClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93990D0B3653264597A4EBF /* LegacyVCSECClient.swift */; };
 		74E1828069F2BF1B8FB9BEC8 /* TrailingDots.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB8F08A789C54C382B6BDE71 /* TrailingDots.swift */; };
@@ -34,15 +36,16 @@
 		76DA4FF1478FBDE196FC2834 /* VehicleShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE1C55CE55659AC76A08F191 /* VehicleShortcuts.swift */; };
 		8AB0DD64796119787DDB0D93 /* PairVehicleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FBE4F1B533D2A77E319E9DB /* PairVehicleView.swift */; };
 		8B7F3E71181849405BE2FCCB /* WatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 172052706857D98F95A8FBE9 /* WatchBridge.swift */; };
+		8C8BF36B1DD38335FD8E9CF1 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3687BAF61311C2B900B24588 /* Localizable.strings */; };
 		8F75871EC7B50265353F9831 /* NeteaseCloudMusicAPI in Frameworks */ = {isa = PBXBuildFile; productRef = 4EE8442BF35C7E6700976815 /* NeteaseCloudMusicAPI */; };
 		9487DF5E2806D54E9BDD1BA7 /* XiaoteWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 05CADC337271D4503202A14D /* XiaoteWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		97F3BFBE3A541E0979870E77 /* XiaoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A742545B61ED1E1FDD1750A4 /* XiaoteApp.swift */; };
+		9889F7533D43E65780330ED9 /* WatchPhoneBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FAC8A1F947A1BAF5E5B9C1A /* WatchPhoneBridge.swift */; };
 		9C6F35E1710BB6DBE4842BC0 /* NearbyTeslaScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129FD6116E9188347C9A35A4 /* NearbyTeslaScanner.swift */; };
 		9D587BEABF6D1220DBAE12A9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357ACFE193D47D4CE964BDD1 /* RootView.swift */; };
 		A8A89EA92BF0BF3CAE439C93 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D41C1D2C82BBAE8DB5B6C65E /* InfoPlist.strings */; };
-		ABAAEC8EE9B02C9115C1FA2D /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 43E0B6591EB7C0DA40EDF9D6 /* InfoPlist.strings */; };
 		B0741284EEC5FEC722C6DD87 /* TrailingDotsRefreshScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 058CB3E789EFBAC8E0277AEC /* TrailingDotsRefreshScrollView.swift */; };
-		B09AEF94E6B5E747072D1616 /* XiaoteWatchExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A87EC518C68E032677E33527 /* XiaoteWatchExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B284ADA7338A59D3A663C53A /* FleetCommandCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A33C5FD2950450641CA218 /* FleetCommandCenterView.swift */; };
 		BFE40575DBACAA80568AFFE4 /* VehicleAlertManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 289075470A06698DFC04D195 /* VehicleAlertManager.swift */; };
 		CB529B28EAC00536D8D74525 /* VehicleControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E054D2C916F41538FBD03C1 /* VehicleControlView.swift */; };
 		CFFD1A0834A085C1BB7743BF /* PassiveKeyLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49EB45B9DFCE8D7FF642F818 /* PassiveKeyLifecycle.swift */; };
@@ -50,7 +53,6 @@
 		EC34FB978ED453E578013EBE /* VehicleDiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AE70A913C0771062539A964 /* VehicleDiscoveryTests.swift */; };
 		EDAF18090E2F09599E4DBCB8 /* FleetAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F87BA92BD6B2D7BC3AB623 /* FleetAPIClient.swift */; };
 		EEC11B018AA8C7BC4B0E071D /* VehicleController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9532D81D2CE13F2DBFB7C661 /* VehicleController.swift */; };
-		EF3399EF8CBAD0ACCB8EB1C6 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3687BAF61311C2B900B24588 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -68,13 +70,6 @@
 			remoteGlobalIDString = B5259DEBBCA7393824E18752;
 			remoteInfo = XiaoteWatch;
 		};
-		8ED35150D9843BAED3852F20 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 846F7AD5D6462388CC23FC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D9D7BB84B4E600D389DE351D;
-			remoteInfo = XiaoteWatchExtension;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -87,17 +82,6 @@
 				9487DF5E2806D54E9BDD1BA7 /* XiaoteWatch.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		70B154CD36AB9D8B8A16B313 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				B09AEF94E6B5E747072D1616 /* XiaoteWatchExtension.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -138,16 +122,17 @@
 		8FBE4F1B533D2A77E319E9DB /* PairVehicleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairVehicleView.swift; sourceTree = "<group>"; };
 		9532D81D2CE13F2DBFB7C661 /* VehicleController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleController.swift; sourceTree = "<group>"; };
 		A742545B61ED1E1FDD1750A4 /* XiaoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XiaoteApp.swift; sourceTree = "<group>"; };
-		A87EC518C68E032677E33527 /* XiaoteWatchExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = XiaoteWatchExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B0E50B4823B06CEEC62D88E7 /* VehicleAlertsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleAlertsView.swift; sourceTree = "<group>"; };
 		B1F87BA92BD6B2D7BC3AB623 /* FleetAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetAPIClient.swift; sourceTree = "<group>"; };
 		BC665CF13CA0D45F8AB65D45 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		C2986C091E19A30147D718E4 /* FleetCommandCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetCommandCatalog.swift; sourceTree = "<group>"; };
 		C8970C359A8169C8E9EB5CBE /* FleetHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetHomeView.swift; sourceTree = "<group>"; };
 		C9CF3CDD75B8EB51D8777FEF /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		D1EBD3A97821360C37CF2F02 /* TeslaAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeslaAccountView.swift; sourceTree = "<group>"; };
 		D2EE8CE935BBB8E407EB6CCC /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		D93990D0B3653264597A4EBF /* LegacyVCSECClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyVCSECClient.swift; sourceTree = "<group>"; };
 		E07577CECDB55EC1929110B4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E6A33C5FD2950450641CA218 /* FleetCommandCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FleetCommandCenterView.swift; sourceTree = "<group>"; };
 		EE1C55CE55659AC76A08F191 /* VehicleShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleShortcuts.swift; sourceTree = "<group>"; };
 		F50BC7444C57B31D68281F35 /* VehicleIdentityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleIdentityView.swift; sourceTree = "<group>"; };
 		FB8F08A789C54C382B6BDE71 /* TrailingDots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrailingDots.swift; sourceTree = "<group>"; };
@@ -173,7 +158,6 @@
 				7C5AD2509591D1232C5069DF /* Xiaote.app */,
 				FEEE95B1A1157233068979C9 /* XiaoteTests.xctest */,
 				05CADC337271D4503202A14D /* XiaoteWatch.app */,
-				A87EC518C68E032677E33527 /* XiaoteWatchExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -182,6 +166,7 @@
 			isa = PBXGroup;
 			children = (
 				541E67BF013EEFFA99675305 /* AutomationScenesView.swift */,
+				E6A33C5FD2950450641CA218 /* FleetCommandCenterView.swift */,
 				C8970C359A8169C8E9EB5CBE /* FleetHomeView.swift */,
 				8FBE4F1B533D2A77E319E9DB /* PairVehicleView.swift */,
 				357ACFE193D47D4CE964BDD1 /* RootView.swift */,
@@ -222,13 +207,6 @@
 			path = App;
 			sourceTree = "<group>";
 		};
-		33D5BB2BAC62DB13F1345E58 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
 		470C3F64A93980C3B3B899CB = {
 			isa = PBXGroup;
 			children = (
@@ -252,6 +230,7 @@
 			children = (
 				63D4ECDDC30D00F3E3EA24CD /* FleetAccountController.swift */,
 				B1F87BA92BD6B2D7BC3AB623 /* FleetAPIClient.swift */,
+				C2986C091E19A30147D718E4 /* FleetCommandCatalog.swift */,
 			);
 			path = Cloud;
 			sourceTree = "<group>";
@@ -290,7 +269,6 @@
 				565A3E2BAA4FBE7B12AB3329 /* Design */,
 				D41C1D2C82BBAE8DB5B6C65E /* InfoPlist.strings */,
 				9845CC7619403D2ED2A13F39 /* Model */,
-				33D5BB2BAC62DB13F1345E58 /* Resources */,
 				26C2AF72DA60F4CE6A743139 /* Views */,
 			);
 			path = Xiaote;
@@ -346,8 +324,8 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = E99B59D18E2287C53CD44AFE /* Build configuration list for PBXNativeTarget "XiaoteWatch" */;
 			buildPhases = (
-				ACC4F1CBE145E9842D4B0AE3 /* Sources */,
-				3BE85F4836C4666D011F50E8 /* Resources */,
+				7A6E68F81F0E168B2055F55B /* Sources */,
+				380C8914A19D8715B887552B /* Resources */,
 			);
 			buildRules = (
 			);
@@ -378,24 +356,6 @@
 			productReference = FEEE95B1A1157233068979C9 /* XiaoteTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		D9D7BB84B4E600D389DE351D /* XiaoteWatchExtension */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 55062253B746FF9AE4CE356B /* Build configuration list for PBXNativeTarget "XiaoteWatchExtension" */;
-			buildPhases = (
-				ACC4F1CBE145E9842D4B0AE3 /* Sources */,
-				3BE85F4836C4666D011F50E8 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = XiaoteWatchExtension;
-			packageProductDependencies = (
-			);
-			productName = XiaoteWatchExtension;
-			productReference = A87EC518C68E032677E33527 /* XiaoteWatchExtension.appex */;
-			productType = "com.apple.product-type.watchkit2-extension";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -409,9 +369,6 @@
 						ProvisioningStyle = Automatic;
 					};
 					B5259DEBBCA7393824E18752 = {
-						ProvisioningStyle = Automatic;
-					};
-					D9D7BB84B4E600D389DE351D = {
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -437,19 +394,19 @@
 			targets = (
 				5738F9CBFAB33197D3D8186C /* Xiaote */,
 				B5259DEBBCA7393824E18752 /* XiaoteWatch */,
-				D9D7BB84B4E600D389DE351D /* XiaoteWatchExtension */,
 				B75B3C170D41CF6E2C11109C /* XiaoteTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		3BE85F4836C4666D011F50E8 /* Resources */ = {
+		380C8914A19D8715B887552B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ABAAEC8EE9B02C9115C1FA2D /* InfoPlist.strings in Resources */,
-				EF3399EF8CBAD0ACCB8EB1C6 /* Localizable.strings in Resources */,
+				208F09FFCC85209F7C47CD6C /* ExtensionInfo.plist in Resources */,
+				49FB03FADBBE3E8174A153FF /* InfoPlist.strings in Resources */,
+				8C8BF36B1DD38335FD8E9CF1 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -466,6 +423,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		7A6E68F81F0E168B2055F55B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				48BAA55D330228A27222F878 /* WatchControlView.swift in Sources */,
+				9889F7533D43E65780330ED9 /* WatchPhoneBridge.swift in Sources */,
+				566525469C67609F18F62219 /* XiaoteWatchApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A3DE962C15FBB375A929576E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -476,6 +443,8 @@
 				69EEF094EAB5703BD63AB7D9 /* AutomationScenesView.swift in Sources */,
 				EDAF18090E2F09599E4DBCB8 /* FleetAPIClient.swift in Sources */,
 				33237071CB6BEC8D721D39AC /* FleetAccountController.swift in Sources */,
+				5B68E292F5703E80DF844D2C /* FleetCommandCatalog.swift in Sources */,
+				B284ADA7338A59D3A663C53A /* FleetCommandCenterView.swift in Sources */,
 				299035ADFC6116888976122F /* FleetHomeView.swift in Sources */,
 				6E283D55E062D008E7241802 /* LegacyVCSECClient.swift in Sources */,
 				42189C2D83C6A2E86B295E08 /* MediaArtworkLookup.swift in Sources */,
@@ -503,16 +472,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		ACC4F1CBE145E9842D4B0AE3 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				6564F821B77C7681650F934A /* WatchControlView.swift in Sources */,
-				247A11ED2590AA52B76D8670 /* WatchPhoneBridge.swift in Sources */,
-				5439799FEC32FC8C2459F321 /* XiaoteWatchApp.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		B043AC240B4DA956E5914096 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -525,11 +484,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		3569D7C12C3204E3A9EC48B9 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D9D7BB84B4E600D389DE351D /* XiaoteWatchExtension */;
-			targetProxy = 8ED35150D9843BAED3852F20 /* PBXContainerItemProxy */;
-		};
 		678428539D1E3B8A9885D931 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B5259DEBBCA7393824E18752 /* XiaoteWatch */;
@@ -645,6 +599,7 @@
 		2EAB81E54B225A5C79CCC4DC /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 314;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -663,6 +618,7 @@
 		35094CC04EEA7FAACD637FB7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 314;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -677,31 +633,6 @@
 				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Release;
-		};
-		45136DF3FA82A93F195F692B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				ASSETCATALOG_COMPILER_COMPLICATION_NAME = Complication;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 314;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = XiaoteWatch/ExtensionInfo.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 3.1.4;
-				PRODUCT_BUNDLE_IDENTIFIER = com.local.teslablekey.watchkitapp.watchkitextension;
-				PRODUCT_NAME = XiaoteWatchExtension;
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
-			};
-			name = Debug;
 		};
 		670D6A52E0619315A4B1300F /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -783,31 +714,6 @@
 			};
 			name = Debug;
 		};
-		D9727386B403AEDDAA053F6F /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				ASSETCATALOG_COMPILER_COMPLICATION_NAME = Complication;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 314;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = XiaoteWatch/ExtensionInfo.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 3.1.4;
-				PRODUCT_BUNDLE_IDENTIFIER = com.local.teslablekey.watchkitapp.watchkitextension;
-				PRODUCT_NAME = XiaoteWatchExtension;
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
-			};
-			name = Release;
-		};
 		E3788A82C84A2824DE4A1514 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -873,15 +779,6 @@
 			buildConfigurations = (
 				2D6CEF6EC8EDB614352B4635 /* Debug */,
 				F33F08C686E3B88A7058087E /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
-		55062253B746FF9AE4CE356B /* Build configuration list for PBXNativeTarget "XiaoteWatchExtension" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				45136DF3FA82A93F195F692B /* Debug */,
-				D9727386B403AEDDAA053F6F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

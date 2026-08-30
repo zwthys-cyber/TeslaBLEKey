@@ -2,6 +2,17 @@ import XCTest
 @testable import Xiaote
 
 final class V21ModelTests: XCTestCase {
+    func testFleetCommandCatalogIsCompleteAndUnique() {
+        let commands = FleetCommandDefinition.all
+        XCTAssertEqual(commands.count, 72)
+        XCTAssertEqual(Set(commands.map(\.id)).count, commands.count)
+        XCTAssertTrue(commands.allSatisfy { !$0.title.isEmpty && !$0.summary.isEmpty })
+        XCTAssertTrue(commands.allSatisfy {
+            guard let data = $0.payloadTemplate.data(using: .utf8) else { return false }
+            return (try? JSONSerialization.jsonObject(with: data)) is [String: Any]
+        })
+    }
+
     func testPassiveLifecycleCoalescesDuplicateRecovery() {
         var lifecycle = PassiveKeyLifecycle(enabled: true)
         let generation = lifecycle.beginConnection()
