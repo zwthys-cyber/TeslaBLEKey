@@ -22,7 +22,7 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.local.teslablekey</string>
-	<key>WKWatchKitApp</key>
+	<key>WKApplication</key>
 	<true/>
 </dict>
 </plist>

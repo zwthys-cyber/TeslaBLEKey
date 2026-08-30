@@ -20,7 +20,6 @@
 		43EF99DEDD620ADAC20E427D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E07577CECDB55EC1929110B4 /* Assets.xcassets */; };
 		47D76B468D2A235DB3C8877D /* V21ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 250229DD492504B682E9CC83 /* V21ModelTests.swift */; };
 		4BE7032788869FC0EB7CA7B8 /* TeslaBLEKeyKit in Frameworks */ = {isa = PBXBuildFile; productRef = 60E78889C9593E735BA07C8A /* TeslaBLEKeyKit */; };
-		4D3072C02C513E31C54A44D6 /* WatchAppInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 49D2BA13E9354AA6063C5FFE /* WatchAppInfo.plist */; };
 		4E0318193AC03C4C4083BAEF /* ScheduleAndChargingSitesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89C7395D34026177947B7113 /* ScheduleAndChargingSitesView.swift */; };
 		4FB7BAA9D21A3E17685D0C26 /* VehicleAlertsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0E50B4823B06CEEC62D88E7 /* VehicleAlertsView.swift */; };
 		5439799FEC32FC8C2459F321 /* XiaoteWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DD4745111A673BBB0BF831F /* XiaoteWatchApp.swift */; };
@@ -347,19 +346,19 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = E99B59D18E2287C53CD44AFE /* Build configuration list for PBXNativeTarget "XiaoteWatch" */;
 			buildPhases = (
-				70B154CD36AB9D8B8A16B313 /* Embed Foundation Extensions */,
+				ACC4F1CBE145E9842D4B0AE3 /* Sources */,
+				3BE85F4836C4666D011F50E8 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				3569D7C12C3204E3A9EC48B9 /* PBXTargetDependency */,
 			);
 			name = XiaoteWatch;
 			packageProductDependencies = (
 			);
 			productName = XiaoteWatch;
 			productReference = 05CADC337271D4503202A14D /* XiaoteWatch.app */;
-			productType = "com.apple.product-type.application.watchapp2";
+			productType = "com.apple.product-type.application";
 		};
 		B75B3C170D41CF6E2C11109C /* XiaoteTests */ = {
 			isa = PBXNativeTarget;
@@ -451,7 +450,6 @@
 			files = (
 				ABAAEC8EE9B02C9115C1FA2D /* InfoPlist.strings in Resources */,
 				EF3399EF8CBAD0ACCB8EB1C6 /* Localizable.strings in Resources */,
-				4D3072C02C513E31C54A44D6 /* WatchAppInfo.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
