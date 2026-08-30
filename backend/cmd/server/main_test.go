@@ -94,6 +94,8 @@ func TestProductRoutesMapToFixedFleetEndpoints(t *testing.T) {
 		"/v1/energy/sites/12345/live-status",
 		"/v1/vehicles/5YJ3E1EA7PF000001/release-notes",
 		"/v1/vehicles/5YJ3E1EA7PF000001/specs",
+		"/v1/vehicles/5YJ3E1EA7PF000001/options",
+		"/v1/vehicles/5YJ3E1EA7PF000001/eligible-upgrades",
 	} {
 		r := httptest.NewRequest(http.MethodGet, path, nil)
 		r.Header.Set("Authorization", "Bearer "+localToken)
@@ -111,6 +113,8 @@ func TestProductRoutesMapToFixedFleetEndpoints(t *testing.T) {
 		"GET /api/1/energy_sites/12345/live_status",
 		"GET /api/1/vehicles/5YJ3E1EA7PF000001/release_notes",
 		"GET /api/1/vehicles/5YJ3E1EA7PF000001/specs",
+		"GET /api/1/dx/vehicles/options?vin=5YJ3E1EA7PF000001",
+		"GET /api/1/dx/vehicles/upgrades/eligibility?vin=5YJ3E1EA7PF000001",
 	}
 	if strings.Join(received, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("unexpected upstream routes:\n%s", strings.Join(received, "\n"))

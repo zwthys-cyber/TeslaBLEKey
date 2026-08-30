@@ -96,6 +96,33 @@ struct FleetEnergyProduct: Codable, Identifiable, Sendable {
     }
 }
 
+struct FleetVehicleSpecs: Codable, Sendable {
+    let carType: String?
+    let trim: String?
+    let exteriorColor: String?
+    let wheelType: String?
+    let roofColor: String?
+    let spoilerType: String?
+
+    enum CodingKeys: String, CodingKey {
+        case carType = "car_type"
+        case trim
+        case exteriorColor = "exterior_color"
+        case wheelType = "wheel_type"
+        case roofColor = "roof_color"
+        case spoilerType = "spoiler_type"
+    }
+
+    var rows: [(String, String)] {
+        [("车型", carType), ("版本", trim), ("车漆", exteriorColor),
+         ("轮毂", wheelType), ("车顶", roofColor), ("扰流板", spoilerType)]
+            .compactMap { label, value in
+                guard let value, !value.isEmpty else { return nil }
+                return (label, value)
+            }
+    }
+}
+
 extension FleetEnergyProduct {
     var identifiableID: String { stableID }
 }
@@ -184,6 +211,14 @@ actor FleetAPIClient {
 
     func energyProducts(token: String) async throws -> [FleetEnergyProduct] {
         let response: FleetEnvelope<[FleetEnergyProduct]> = try await request(path: "/v1/energy/products", token: token)
+        return response.response
+    }
+
+    func vehicleSpecs(token: String, vin: String) async throws -> FleetVehicleSpecs {
+        guard vin.range(of: "^[A-HJ-NPR-Z0-9]{17}$", options: .regularExpression) != nil else {
+            throw FleetAPIError.server("车辆 VIN 无效。")
+        }
+        let response: FleetEnvelope<FleetVehicleSpecs> = try await request(path: "/v1/vehicles/\(vin)/specs", token: token)
         return response.response
     }
 

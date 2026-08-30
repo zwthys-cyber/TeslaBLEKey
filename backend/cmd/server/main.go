@@ -265,6 +265,11 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /v1/vehicles/{vehicle}/service-data", s.requireSession(s.vehicleServiceData))
 	mux.HandleFunc("GET /v1/vehicles/{vehicle}/share-invites", s.requireSession(s.vehicleShareInvites))
 	mux.HandleFunc("GET /v1/vehicles/{vehicle}/specs", s.requireSession(s.vehicleSpecs))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/options", s.requireSession(s.vehicleOptions))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/eligible-subscriptions", s.requireSession(s.vehicleEligibleSubscriptions))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/eligible-upgrades", s.requireSession(s.vehicleEligibleUpgrades))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/enterprise-roles", s.requireSession(s.vehicleEnterpriseRoles))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/warranty", s.requireSession(s.vehicleWarranty))
 	mux.HandleFunc("POST /v1/vehicles/{vehicle}/wake", s.requireSession(s.wakeVehicle))
 	mux.HandleFunc("POST /v1/vehicles/{vehicle}/commands/{command}", s.requireSession(s.vehicleCommand))
 	return securityHeaders(requestLog(s.logger, mux))
@@ -615,6 +620,40 @@ func (s *server) vehicleSpecs(w http.ResponseWriter, r *http.Request, entry sess
 	s.vehicleRead(w, r, entry, "specs")
 }
 
+func (s *server) vehicleOptions(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleManagementRead(w, r, entry, "/api/1/dx/vehicles/options")
+}
+
+func (s *server) vehicleEligibleSubscriptions(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleManagementRead(w, r, entry, "/api/1/dx/vehicles/subscriptions/eligibility")
+}
+
+func (s *server) vehicleEligibleUpgrades(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleManagementRead(w, r, entry, "/api/1/dx/vehicles/upgrades/eligibility")
+}
+
+func (s *server) vehicleEnterpriseRoles(w http.ResponseWriter, r *http.Request, entry session) {
+	vin := strings.ToUpper(r.PathValue("vehicle"))
+	if !validVIN(vin) {
+		problem(w, 400, "invalid_vin", "Vehicle VIN is invalid")
+		return
+	}
+	s.fleet(w, r, entry, http.MethodGet, "/api/1/dx/enterprise/v1/"+vin+"/roles", nil, false)
+}
+
+func (s *server) vehicleWarranty(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleManagementRead(w, r, entry, "/api/1/dx/warranty/details")
+}
+
+func (s *server) vehicleManagementRead(w http.ResponseWriter, r *http.Request, entry session, path string) {
+	vin := strings.ToUpper(r.PathValue("vehicle"))
+	if !validVIN(vin) {
+		problem(w, 400, "invalid_vin", "Vehicle VIN is invalid")
+		return
+	}
+	s.fleet(w, r, entry, http.MethodGet, path+"?vin="+url.QueryEscape(vin), nil, false)
+}
+
 func (s *server) vehicleRead(w http.ResponseWriter, r *http.Request, entry session, resource string) {
 	id := r.PathValue("vehicle")
 	if !validVehicleID(id) {
@@ -662,7 +701,7 @@ var allowedCommands = map[string]bool{
 
 func (s *server) vehicleCommand(w http.ResponseWriter, r *http.Request, entry session) {
 	vin, command := strings.ToUpper(r.PathValue("vehicle")), r.PathValue("command")
-	if !regexp.MustCompile(`^[A-HJ-NPR-Z0-9]{17}$`).MatchString(vin) {
+	if !validVIN(vin) {
 		problem(w, 400, "invalid_vin", "Commands require a valid 17-character VIN")
 		return
 	}
@@ -746,9 +785,11 @@ func (s *server) fleetQuery(w http.ResponseWriter, r *http.Request, entry sessio
 var vehicleIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`)
 
 var resourceIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+var vinPattern = regexp.MustCompile(`^[A-HJ-NPR-Z0-9]{17}$`)
 
 func validVehicleID(id string) bool  { return vehicleIDPattern.MatchString(id) }
 func validResourceID(id string) bool { return resourceIDPattern.MatchString(id) }
+func validVIN(vin string) bool       { return vinPattern.MatchString(vin) }
 
 func (s *server) encrypt(plain string) (string, error) {
 	if s.aead == nil {

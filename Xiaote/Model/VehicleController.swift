@@ -1696,6 +1696,8 @@ final class VehicleController {
         UserDefaults.standard.string(forKey: AppStorageKeys.vehicleVINPrefix + vehicleID)
     }
 
+    var currentVIN: String? { cachedVIN() }
+
     private func cacheVehicleIdentity(vin: String) {
         UserDefaults.standard.set(vin, forKey: AppStorageKeys.vehicleVINPrefix + vehicleID)
         if let model = Self.modelName(fromVIN: vin) {

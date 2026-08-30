@@ -10,6 +10,7 @@ final class FleetAccountController: NSObject {
     private(set) var profile: FleetAccountProfile?
     private(set) var region: FleetAccountRegion?
     private(set) var energyProducts: [FleetEnergyProduct] = []
+    private(set) var vehicleSpecs: [String: FleetVehicleSpecs] = [:]
     private(set) var vehicles: [FleetVehicle] = []
     private(set) var isDemoMode = false
     private(set) var isWorking = false
@@ -106,6 +107,7 @@ final class FleetAccountController: NSObject {
         profile = nil
         region = nil
         energyProducts = []
+        vehicleSpecs = [:]
         vehicles = []
         isDemoMode = false
         UserDefaults.standard.removeObject(forKey: demoModeKey)
@@ -132,6 +134,14 @@ final class FleetAccountController: NSObject {
         let result = try await api.command(token: session.token, vin: vehicle.vin.uppercased(), name: command.id, payload: payload)
         guard result.response.result else {
             throw FleetAPIError.server(result.response.reason ?? "车辆拒绝了此命令。")
+        }
+    }
+
+    func loadSpecs(for vin: String) async {
+        let vin = vin.uppercased()
+        guard vehicleSpecs[vin] == nil, let session, !isDemoMode else { return }
+        if let specs = try? await api.vehicleSpecs(token: session.token, vin: vin), !specs.rows.isEmpty {
+            vehicleSpecs[vin] = specs
         }
     }
 

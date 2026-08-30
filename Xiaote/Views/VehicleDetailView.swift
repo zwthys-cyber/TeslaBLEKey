@@ -2,6 +2,7 @@ import SwiftUI
 
 struct VehicleDetailView: View {
     @Environment(VehicleController.self) private var vehicle
+    @Environment(FleetAccountController.self) private var fleetAccount
     @State private var refreshing = false
 
     var body: some View {
@@ -17,6 +18,9 @@ struct VehicleDetailView: View {
                 if hasChargingData { detailSection("电池与充电", summary: chargingSummary, rows: secondaryChargingRows) }
                 if hasTireData { tireSection }
                 if hasVehicleData { detailSection("系统", summary: vehicleSummary, rows: vehicleRows) }
+                if let specs, !specs.rows.isEmpty {
+                    detailSection("车辆配置", summary: nil, rows: specs.rows)
+                }
             }
             .padding(.horizontal, 22)
             .padding(.bottom, 44)
@@ -35,7 +39,10 @@ struct VehicleDetailView: View {
                 .accessibilityLabel("刷新车辆信息")
             }
         }
-        .task { await refresh() }
+        .task {
+            await refresh()
+            if let vin = vehicle.currentVIN { await fleetAccount.loadSpecs(for: vin) }
+        }
     }
 
     private var vehicleHero: some View {
@@ -228,5 +235,10 @@ struct VehicleDetailView: View {
     private var updateLabel: String {
         guard let date = vehicle.lastStateUpdate else { return refreshing ? "正在读取车辆状态" : "尚未刷新" }
         return "更新于 \(date.formatted(date: .omitted, time: .shortened))"
+    }
+
+    private var specs: FleetVehicleSpecs? {
+        guard let vin = vehicle.currentVIN else { return nil }
+        return fleetAccount.vehicleSpecs[vin.uppercased()]
     }
 }
