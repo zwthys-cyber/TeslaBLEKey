@@ -44,6 +44,26 @@ struct FleetAccountProfile: Codable, Sendable {
     }
 }
 
+struct FleetAccountRegion: Codable, Sendable {
+    let region: String?
+    let fleetAPIBaseURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case region
+        case fleetAPIBaseURL = "fleet_api_base_url"
+    }
+
+    var displayName: String? {
+        switch region?.lowercased() {
+        case "cn": "中国大陆"
+        case "eu": "欧洲"
+        case "na": "北美"
+        case let value?: value.uppercased()
+        case nil: nil
+        }
+    }
+}
+
 private struct FleetEnvelope<Value: Decodable>: Decodable {
     let response: Value
 }
@@ -118,6 +138,11 @@ actor FleetAPIClient {
 
     func profile(token: String) async throws -> FleetAccountProfile {
         let response: FleetEnvelope<FleetAccountProfile> = try await request(path: "/v1/account/profile", token: token)
+        return response.response
+    }
+
+    func region(token: String) async throws -> FleetAccountRegion {
+        let response: FleetEnvelope<FleetAccountRegion> = try await request(path: "/v1/account/region", token: token)
         return response.response
     }
 

@@ -195,19 +195,31 @@ struct TeslaAccountView: View {
     }
 
     private var connectionDetails: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "lock.shield")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.muted)
-                .frame(width: 22)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("连接与隐私").font(.subheadline.weight(.semibold))
-                Text("Fleet API 负责联网数据，本地蓝牙密钥仍只保存在这台 iPhone。")
-                    .font(.caption)
+        VStack(spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "lock.shield")
+                    .font(.subheadline)
                     .foregroundStyle(AppTheme.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("连接与隐私").font(.subheadline.weight(.semibold))
+                    Text("Fleet API 负责联网数据，本地蓝牙密钥仍只保存在这台 iPhone。")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+            if let region = account.region?.displayName {
+                Divider().overlay(AppTheme.hairline)
+                HStack {
+                    Label("Tesla 服务区域", systemImage: "globe.asia.australia")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.muted)
+                    Spacer()
+                    Text(region).font(.caption.weight(.medium))
+                }
+            }
         }
         .padding(16)
         .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))

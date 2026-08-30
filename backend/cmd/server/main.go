@@ -245,8 +245,23 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /v1/auth/exchange", s.authExchange)
 	mux.HandleFunc("DELETE /v1/auth/session", s.requireSession(s.logout))
 	mux.HandleFunc("GET /v1/account/profile", s.requireSession(s.accountProfile))
+	mux.HandleFunc("GET /v1/account/feature-config", s.requireSession(s.accountFeatureConfig))
+	mux.HandleFunc("GET /v1/account/orders", s.requireSession(s.accountOrders))
+	mux.HandleFunc("GET /v1/account/region", s.requireSession(s.accountRegion))
+	mux.HandleFunc("GET /v1/charging/history", s.requireSession(s.chargingHistory))
+	mux.HandleFunc("GET /v1/charging/sessions", s.requireSession(s.chargingSessions))
+	mux.HandleFunc("GET /v1/charging/invoices/{invoice}", s.requireSession(s.chargingInvoice))
+	mux.HandleFunc("GET /v1/energy/products", s.requireSession(s.energyProducts))
 	mux.HandleFunc("GET /v1/vehicles", s.requireSession(s.listVehicles))
 	mux.HandleFunc("GET /v1/vehicles/{vehicle}/data", s.requireSession(s.vehicleData))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/drivers", s.requireSession(s.vehicleDrivers))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/mobile-enabled", s.requireSession(s.vehicleMobileEnabled))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/nearby-charging-sites", s.requireSession(s.vehicleNearbyChargingSites))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/recent-alerts", s.requireSession(s.vehicleRecentAlerts))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/release-notes", s.requireSession(s.vehicleReleaseNotes))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/service-data", s.requireSession(s.vehicleServiceData))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/share-invites", s.requireSession(s.vehicleShareInvites))
+	mux.HandleFunc("GET /v1/vehicles/{vehicle}/specs", s.requireSession(s.vehicleSpecs))
 	mux.HandleFunc("POST /v1/vehicles/{vehicle}/wake", s.requireSession(s.wakeVehicle))
 	mux.HandleFunc("POST /v1/vehicles/{vehicle}/commands/{command}", s.requireSession(s.vehicleCommand))
 	return securityHeaders(requestLog(s.logger, mux))
@@ -486,6 +501,39 @@ func (s *server) accountProfile(w http.ResponseWriter, r *http.Request, entry se
 	s.fleet(w, r, entry, http.MethodGet, "/api/1/users/me", nil, false)
 }
 
+func (s *server) accountFeatureConfig(w http.ResponseWriter, r *http.Request, entry session) {
+	s.fleet(w, r, entry, http.MethodGet, "/api/1/users/feature_config", nil, false)
+}
+
+func (s *server) accountOrders(w http.ResponseWriter, r *http.Request, entry session) {
+	s.fleet(w, r, entry, http.MethodGet, "/api/1/users/orders", nil, false)
+}
+
+func (s *server) accountRegion(w http.ResponseWriter, r *http.Request, entry session) {
+	s.fleet(w, r, entry, http.MethodGet, "/api/1/users/region", nil, false)
+}
+
+func (s *server) chargingHistory(w http.ResponseWriter, r *http.Request, entry session) {
+	s.fleetQuery(w, r, entry, "/api/1/dx/charging/history", "start_date", "end_date", "vin", "page", "page_size")
+}
+
+func (s *server) chargingSessions(w http.ResponseWriter, r *http.Request, entry session) {
+	s.fleetQuery(w, r, entry, "/api/1/dx/charging/sessions", "start_date", "end_date", "vin", "page", "page_size")
+}
+
+func (s *server) chargingInvoice(w http.ResponseWriter, r *http.Request, entry session) {
+	id := r.PathValue("invoice")
+	if !validResourceID(id) {
+		problem(w, 400, "invalid_invoice", "Invoice identifier is invalid")
+		return
+	}
+	s.fleet(w, r, entry, http.MethodGet, "/api/1/dx/charging/invoice/"+url.PathEscape(id), nil, false)
+}
+
+func (s *server) energyProducts(w http.ResponseWriter, r *http.Request, entry session) {
+	s.fleet(w, r, entry, http.MethodGet, "/api/1/products", nil, false)
+}
+
 func (s *server) listVehicles(w http.ResponseWriter, r *http.Request, entry session) {
 	s.fleet(w, r, entry, http.MethodGet, "/api/1/vehicles", nil, false)
 }
@@ -496,6 +544,47 @@ func (s *server) vehicleData(w http.ResponseWriter, r *http.Request, entry sessi
 		return
 	}
 	s.fleet(w, r, entry, http.MethodGet, "/api/1/vehicles/"+url.PathEscape(id)+"/vehicle_data", nil, false)
+}
+
+func (s *server) vehicleDrivers(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleRead(w, r, entry, "drivers")
+}
+
+func (s *server) vehicleMobileEnabled(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleRead(w, r, entry, "mobile_enabled")
+}
+
+func (s *server) vehicleNearbyChargingSites(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleRead(w, r, entry, "nearby_charging_sites")
+}
+
+func (s *server) vehicleRecentAlerts(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleRead(w, r, entry, "recent_alerts")
+}
+
+func (s *server) vehicleReleaseNotes(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleRead(w, r, entry, "release_notes")
+}
+
+func (s *server) vehicleServiceData(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleRead(w, r, entry, "service_data")
+}
+
+func (s *server) vehicleShareInvites(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleRead(w, r, entry, "invitations")
+}
+
+func (s *server) vehicleSpecs(w http.ResponseWriter, r *http.Request, entry session) {
+	s.vehicleRead(w, r, entry, "specs")
+}
+
+func (s *server) vehicleRead(w http.ResponseWriter, r *http.Request, entry session, resource string) {
+	id := r.PathValue("vehicle")
+	if !validVehicleID(id) {
+		problem(w, 400, "invalid_vehicle", "Vehicle identifier is invalid")
+		return
+	}
+	s.fleet(w, r, entry, http.MethodGet, "/api/1/vehicles/"+url.PathEscape(id)+"/"+resource, nil, false)
 }
 func (s *server) wakeVehicle(w http.ResponseWriter, r *http.Request, entry session) {
 	id := r.PathValue("vehicle")
@@ -592,9 +681,37 @@ func (s *server) fleet(w http.ResponseWriter, r *http.Request, entry session, me
 	_, _ = w.Write(b)
 }
 
+func (s *server) fleetQuery(w http.ResponseWriter, r *http.Request, entry session, path string, allowed ...string) {
+	allowedKeys := make(map[string]bool, len(allowed))
+	for _, key := range allowed {
+		allowedKeys[key] = true
+	}
+	query := url.Values{}
+	for key, values := range r.URL.Query() {
+		if !allowedKeys[key] {
+			problem(w, 400, "invalid_query", "Query parameter is not supported")
+			return
+		}
+		for _, value := range values {
+			if len(value) > 128 {
+				problem(w, 400, "invalid_query", "Query parameter is too long")
+				return
+			}
+			query.Add(key, value)
+		}
+	}
+	if encoded := query.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+	s.fleet(w, r, entry, http.MethodGet, path, nil, false)
+}
+
 var vehicleIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`)
 
-func validVehicleID(id string) bool { return vehicleIDPattern.MatchString(id) }
+var resourceIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+
+func validVehicleID(id string) bool  { return vehicleIDPattern.MatchString(id) }
+func validResourceID(id string) bool { return resourceIDPattern.MatchString(id) }
 
 func (s *server) encrypt(plain string) (string, error) {
 	if s.aead == nil {

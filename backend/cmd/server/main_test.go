@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func testServer(t *testing.T) *server {
@@ -62,5 +63,60 @@ func TestCommandAllowlist(t *testing.T) {
 	}
 	if validVehicleID("../etc/passwd") {
 		t.Fatal("path traversal accepted")
+	}
+}
+
+func TestProductRoutesMapToFixedFleetEndpoints(t *testing.T) {
+	var received []string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received = append(received, r.Method+" "+r.URL.RequestURI())
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"response":{}}`))
+	}))
+	defer upstream.Close()
+
+	s := testServer(t)
+	s.cfg.FleetBaseURL = upstream.URL
+	encrypted, err := s.encrypt("tesla-token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	localToken := "local-session"
+	entry := session{ID: "session-1", TokenHash: tokenHash(localToken), TeslaAccessToken: encrypted, TeslaExpiresAt: time.Now().Add(time.Hour), ExpiresAt: time.Now().Add(time.Hour)}
+	if err := s.store.update(func(data *storeData) error { data.Sessions[entry.ID] = entry; return nil }); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, path := range []string{
+		"/v1/account/region",
+		"/v1/charging/history?vin=5YJ3E1EA7PF000001&page=2",
+		"/v1/energy/products",
+		"/v1/vehicles/5YJ3E1EA7PF000001/release-notes",
+		"/v1/vehicles/5YJ3E1EA7PF000001/specs",
+	} {
+		r := httptest.NewRequest(http.MethodGet, path, nil)
+		r.Header.Set("Authorization", "Bearer "+localToken)
+		w := httptest.NewRecorder()
+		s.routes().ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s returned %d: %s", path, w.Code, w.Body.String())
+		}
+	}
+
+	want := []string{
+		"GET /api/1/users/region",
+		"GET /api/1/dx/charging/history?page=2&vin=5YJ3E1EA7PF000001",
+		"GET /api/1/products",
+		"GET /api/1/vehicles/5YJ3E1EA7PF000001/release_notes",
+		"GET /api/1/vehicles/5YJ3E1EA7PF000001/specs",
+	}
+	if strings.Join(received, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("unexpected upstream routes:\n%s", strings.Join(received, "\n"))
+	}
+}
+
+func TestProductRoutesRejectUnknownQueryAndUnsafeIDs(t *testing.T) {
+	if validResourceID("../invoice") || validResourceID(strings.Repeat("a", 129)) {
+		t.Fatal("unsafe resource identifier accepted")
 	}
 }
