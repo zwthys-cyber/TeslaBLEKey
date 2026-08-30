@@ -47,10 +47,3 @@ struct TrailingDots: View {
         max(3, size * 0.2)
     }
 }
-
-#Preview {
-    ZStack {
-        Color.black.ignoresSafeArea()
-        TrailingDots()
-    }
-}

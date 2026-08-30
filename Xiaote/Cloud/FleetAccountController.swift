@@ -18,27 +18,18 @@ final class FleetAccountController: NSObject {
     private(set) var recentAlerts: [String: [FleetVehicleAlert]] = [:]
     private(set) var nearbyChargingSites: [String: [FleetNearbyChargingSites.Site]] = [:]
     private(set) var vehicles: [FleetVehicle] = []
-    private(set) var isDemoMode = false
     private(set) var isWorking = false
     var errorMessage: String?
 
     private let api = FleetAPIClient.shared
     private var authenticationSession: ASWebAuthenticationSession?
     private let keychain = FleetSessionKeychain()
-    private let demoModeKey = "fleet.demoMode"
 
     override init() {
         session = try? keychain.load()
-        isDemoMode = UserDefaults.standard.bool(forKey: demoModeKey)
         super.init()
-        if session == nil {
-            isDemoMode = false
-            UserDefaults.standard.removeObject(forKey: demoModeKey)
-        }
         if let session, session.expiresAt <= Date() {
             self.session = nil
-            isDemoMode = false
-            UserDefaults.standard.removeObject(forKey: demoModeKey)
             try? keychain.delete()
         }
     }
@@ -121,27 +112,10 @@ final class FleetAccountController: NSObject {
         recentAlerts = [:]
         nearbyChargingSites = [:]
         vehicles = []
-        isDemoMode = false
-        UserDefaults.standard.removeObject(forKey: demoModeKey)
         isWorking = false
     }
 
-    func enableDemoMode() {
-        guard isSignedIn, vehicles.isEmpty else { return }
-        isDemoMode = true
-        UserDefaults.standard.set(true, forKey: demoModeKey)
-        vehicles = [Self.demoVehicle]
-    }
-
-    func disableDemoMode() async {
-        isDemoMode = false
-        UserDefaults.standard.removeObject(forKey: demoModeKey)
-        vehicles = []
-        await refreshAccount()
-    }
-
     func send(command: FleetCommandDefinition, to vehicle: FleetVehicle, payload: Data) async throws {
-        guard !isDemoMode else { throw FleetAPIError.server("演示模式不会向车辆发送命令。") }
         guard let session else { throw FleetAPIError.server("请先登录 Tesla 账号。") }
         let result = try await api.command(token: session.token, vin: vehicle.vin.uppercased(), name: command.id, payload: payload)
         guard result.response.result else {
@@ -151,7 +125,7 @@ final class FleetAccountController: NSObject {
 
     func loadSpecs(for vin: String) async {
         let vin = vin.uppercased()
-        guard vehicleSpecs[vin] == nil, let session, !isDemoMode else { return }
+        guard vehicleSpecs[vin] == nil, let session else { return }
         if let specs = try? await api.vehicleSpecs(token: session.token, vin: vin), !specs.rows.isEmpty {
             vehicleSpecs[vin] = specs
         }
@@ -159,7 +133,7 @@ final class FleetAccountController: NSObject {
 
     func loadCloudDetails(for vin: String) async {
         let vin = vin.uppercased()
-        guard let session, !isDemoMode else { return }
+        guard let session else { return }
 
         if releaseNotes[vin] == nil,
            let notes = try? await api.releaseNotes(token: session.token, vin: vin),
@@ -182,7 +156,7 @@ final class FleetAccountController: NSObject {
 
     func loadRecentAlerts(for vin: String) async {
         let vin = vin.uppercased()
-        guard let session, !isDemoMode else { return }
+        guard let session else { return }
         if let alerts = try? await api.recentAlerts(token: session.token, vin: vin) {
             recentAlerts[vin] = Array(alerts.prefix(10))
         }
@@ -190,7 +164,7 @@ final class FleetAccountController: NSObject {
 
     func loadNearbyChargingSites(for vin: String) async {
         let vin = vin.uppercased()
-        guard let session, !isDemoMode else { return }
+        guard let session else { return }
         if let response = try? await api.nearbyChargingSites(token: session.token, vin: vin) {
             nearbyChargingSites[vin] = (response.superchargers ?? []).sorted {
                 ($0.distanceMiles ?? .greatestFiniteMagnitude) < ($1.distanceMiles ?? .greatestFiniteMagnitude)
@@ -199,24 +173,8 @@ final class FleetAccountController: NSObject {
     }
 
     private func apply(remoteVehicles: [FleetVehicle]) {
-        if remoteVehicles.isEmpty, isDemoMode {
-            vehicles = [Self.demoVehicle]
-        } else {
-            vehicles = remoteVehicles
-            if !remoteVehicles.isEmpty {
-                isDemoMode = false
-                UserDefaults.standard.removeObject(forKey: demoModeKey)
-            }
-        }
+        vehicles = remoteVehicles
     }
-
-    private static let demoVehicle = FleetVehicle(
-        id: -1,
-        vehicleID: nil,
-        vin: "DEMO0000000000003",
-        displayName: "Model 3",
-        state: "online"
-    )
 
     private static func isCancellation(_ error: Error) -> Bool {
         if error is CancellationError { return true }

@@ -65,8 +65,8 @@ struct FleetHomeView: View {
                 .frame(width: 40, height: 40)
                 .background(AppTheme.raised, in: Circle())
             VStack(alignment: .leading, spacing: 3) {
-                Text(account.isDemoMode ? "演示模式" : "远程连接可用").font(.headline)
-                Text(account.isDemoMode ? "当前显示本机测试数据，不会控制车辆" : "通过 Tesla Fleet API 获取车辆状态")
+                Text("远程连接可用").font(.headline)
+                Text("通过 Tesla Fleet API 获取车辆状态")
                     .font(.caption).foregroundStyle(AppTheme.muted)
             }
             Spacer()
@@ -94,17 +94,7 @@ struct FleetHomeView: View {
                             HStack(spacing: 13) {
                                 Image(systemName: "car.side.fill").frame(width: 32)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    HStack(spacing: 7) {
-                                        Text(fleetVehicle.name).font(.headline)
-                                        if account.isDemoMode {
-                                            Text("演示")
-                                                .font(.caption2.weight(.semibold))
-                                                .foregroundStyle(.black)
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 2)
-                                                .background(.white, in: Capsule())
-                                        }
-                                    }
+                                    Text(fleetVehicle.name).font(.headline)
                                     Text("•••• \(fleetVehicle.vin.suffix(4))")
                                         .font(.caption.monospacedDigit()).foregroundStyle(AppTheme.muted)
                                 }
@@ -173,12 +163,6 @@ private struct FleetVehicleOverviewView: View {
                 LabeledContent("名称", value: fleetVehicle.name)
                 LabeledContent("状态", value: statusText)
                 LabeledContent("车辆识别码", value: "•••• \(fleetVehicle.vin.suffix(4))")
-            }
-            if account.isDemoMode {
-                Section {
-                    Label("这是界面演示车辆，不会连接或控制真实车辆。", systemImage: "info.circle")
-                        .foregroundStyle(.secondary)
-                }
             }
             if let specs = account.vehicleSpecs[fleetVehicle.vin.uppercased()], !specs.rows.isEmpty {
                 Section("车辆配置") {

@@ -118,13 +118,6 @@ struct TeslaAccountView: View {
             .buttonStyle(UtilityPressStyle())
             .disabled(account.isWorking)
 
-            Button("加载演示车辆") {
-                account.enableDemoMode()
-            }
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(.white)
-            .buttonStyle(UtilityPressStyle())
-            .accessibilityHint("仅显示本机测试数据，不会连接或控制真实车辆")
         }
         .frame(maxWidth: .infinity)
     }
@@ -135,21 +128,6 @@ struct TeslaAccountView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(AppTheme.muted)
                 .padding(.leading, 4)
-            if account.isDemoMode {
-                HStack(spacing: 7) {
-                    Image(systemName: "testtube.2")
-                    Text("演示数据 · 不会向车辆发送命令")
-                    Spacer()
-                    Button("退出演示") {
-                        Task { await account.disableDemoMode() }
-                    }
-                    .foregroundStyle(.white)
-                }
-                .font(.caption)
-                .foregroundStyle(AppTheme.muted)
-                .padding(.horizontal, 4)
-                .padding(.bottom, 2)
-            }
             VStack(spacing: 0) {
                 ForEach(Array(account.vehicles.enumerated()), id: \.element.id) { index, vehicle in
                     HStack(spacing: 14) {
@@ -158,17 +136,7 @@ struct TeslaAccountView: View {
                             .frame(width: 34, height: 34)
                             .background(AppTheme.raised, in: Circle())
                         VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 7) {
-                                Text(vehicle.name).font(.headline)
-                                if account.isDemoMode {
-                                    Text("演示")
-                                        .font(.caption2.weight(.semibold))
-                                        .foregroundStyle(.black)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(.white, in: Capsule())
-                                }
-                            }
+                            Text(vehicle.name).font(.headline)
                             Text("•••• \(vehicle.vin.suffix(4))")
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(AppTheme.muted)
