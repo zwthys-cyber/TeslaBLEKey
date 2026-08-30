@@ -88,9 +88,7 @@ struct FleetHomeView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(account.vehicles.enumerated()), id: \.element.id) { index, vehicle in
-                        NavigationLink {
-                            FleetCommandCenterView(vehicle: vehicle)
-                        } label: { HStack(spacing: 13) {
+                        HStack(spacing: 13) {
                             Image(systemName: "car.side.fill").frame(width: 32)
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack(spacing: 7) {
@@ -113,9 +111,7 @@ struct FleetHomeView: View {
                                 Text(statusText(vehicle.state)).font(.caption)
                             }
                             .foregroundStyle(AppTheme.muted)
-                            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(AppTheme.muted)
-                        } }
-                        .buttonStyle(.plain)
+                        }
                         .padding(16)
                         if index < account.vehicles.count - 1 {
                             Divider().overlay(AppTheme.hairline).padding(.leading, 61)
